@@ -1,0 +1,60 @@
+#!/bin/bash
+VGNAME=$(echo $(vgdisplay |grep "\-backup" |sed "s/^[ ]*VG Name[ ]*\(.*\)$/\1/g"))
+DISK=$(echo $(pvs --aligned --separator "|" |grep ${VGNAME} |cut -d "|" -f 1 |sed "s/\(\/dev\/sd[a-z]\)[0-9]/\1/g"))
+BOOT=${DISK}$(echo $(parted ${DISK} print |grep " boot") |cut -d " " -f 1)
+BOOTUUID=$(echo $(blkid |grep "${BOOT}" |cut -d "=" -f 2 |cut -d "\"" -f 2))
+CURROOT=$(echo $(mount |grep "on / " |sed "s/^\/dev\/mapper\/\(.*\)-root on \/ type .*$/\1/g"))
+
+if [ "$CURROOT" == "$VGNAME" ]
+then
+	echo "operation on backup system not permitted"
+	exit 5
+fi
+
+if [ -z $VGNAME ]
+then
+	echo "unable to find backup volume group, can't continue"
+	exit 1
+else
+	echo "found volume group '${VGNAME}' on disk '${DISK}', identified boot partition '${BOOT}'"
+fi
+
+echo "Beginning to sync root filesystem"
+mount /dev/${VGNAME}/root /mnt/backup/root
+if [ "$?" != "0" ]; then
+	echo "unable to mount root"
+	exit 2
+fi
+
+if [ ! -d /mnt/backup/root/boot ]
+then
+	mkdir /mnt/backup/root/boot
+fi
+mount ${BOOT} /mnt/backup/root/boot
+if [ "$?" != "0" ]; then
+	echo "unable to mount boot"
+	umount /mnt/backup/root
+	exit 3
+fi
+
+sync
+/usr/bin/rsync -AXogtplEHvr --devices --specials --update --delete-during --exclude '/proc/*' --exclude '/sys/*' --exclude '/etc/fstab' --exclude '/mnt/backup/root/*' / /mnt/backup/root/
+
+echo "# /etc/fstab: static file system information.
+#
+# Use 'blkid' to print the universally unique identifier for a
+# device; this may be used with UUID= as a more robust way to name devices
+# that works even if disks are added and removed. See fstab(5).
+#
+# <file system> <mount point>   <type>  <options>       <dump>  <pass>
+proc            /proc           proc    nodev,noexec,nosuid 0       0
+/dev/mapper/${VGNAME}-root /               ext4    errors=remount-ro 0       1
+# /boot was on /dev/sda1 during installation
+UUID=${BOOTUUID} /boot           ext2    defaults        0       2
+/dev/mapper/${VGNAME}-swap_1 none            swap    sw              0       0
+" >/mnt/backup/root/etc/fstab
+
+chroot /mnt/backup/root update-initramfs -k all -u
+
+umount /mnt/backup/root/boot
+umount /mnt/backup/root

@@ -1,0 +1,19 @@
+#!/bin/bash
+REMOTE_IP=$1
+PUBLIC_IP=$(/sbin/ifconfig eth0 |grep "inet addr" |cut -d ":" -f 2 |cut -d " " -f 1)
+LAN_IP=$(/sbin/ifconfig eth1 |grep "inet addr" |cut -d ":" -f 2 |cut -d " " -f 1)
+
+sbDate=`date +"%Y-%m-%d %H:%M:%S"`
+IPTABLES_BIN="/usr/sbin/iptables"
+
+# $IPTABLES_BIN -t nat -A POSTROUTING -s $REMOTE_IP -d 10.1.0.0/16 -j SNAT --to $LAN_IP
+# $IPTABLES_BIN -t nat -A POSTROUTING -s $REMOTE_IP -j SNAT --to $PUBLIC_IP
+# $IPTABLES_BIN -I FORWARD -s $REMOTE_IP -j ACCEPT
+# $IPTABLES_BIN -I FORWARD -d $REMOTE_IP -j ACCEPT
+
+# Route für ecotechnic.cz setzen
+echo "================================================================" >> /tmp/ecotechnic.cz.log
+echo "/sbin/route add -net 10.103.1.0 netmask 255.255.255.0 gw 10.0.4.202 2>> /tmp/ecotechnic.cz.log" | at now + 2 minutes
+echo "/sbin/route add -net 10.103.1.0 netmask 255.255.255.0 gw 10.0.4.202 2>> /tmp/ecotechnic.cz.log" | at now + 5 minutes
+/sbin/route add -net 10.103.1.0 netmask 255.255.255.0 gw 10.0.4.202 2>> /tmp/ecotechnic.cz.log
+echo $sbDate ecotechnic.cz-up: Route wird hinzugefuegt ... >> /tmp/ecotechnic.cz.log

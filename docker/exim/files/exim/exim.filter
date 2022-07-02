@@ -1,0 +1,7 @@
+if "${if def:header_X-Redirect-To: {there}}" is there
+then
+  headers add "X-New-Subject: *SPAM* $h_subject:"
+  headers remove "Subject"
+  headers add "Subject: $h_X-New-Subject"
+  headers remove "X-New-Subject"
+endif

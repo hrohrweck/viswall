@@ -1,0 +1,150 @@
+<?php
+		////////////////////////////////////////////////
+		//    ---> itsoft - vis|wall Firewall <---    //
+		////////////////////////////////////////////////
+		// Date	: 29.04.2003                          //
+		////////////////////////////////////////////////
+		
+		////////////////////////////
+		// Database Configuration //
+		////////////////////////////
+		class sql_db
+		{
+            var $sql_db_host = "127.0.0.1";                                     // database host to use
+            var $sql_db_username = "fillme";									// username for $sql_db_username
+            var $sql_db_password = "fillme";                                  // password for $sql_db_password
+            var $sql_db_name = "viswall";                                       // database to use
+        }
+        
+		///////////////////////////
+		// General Configuration //
+		///////////////////////////
+		class info
+		{
+            var $version = "v30.03.07";											// Version Number
+
+            var $g_title  = "SBT-IT - vis|wall";                  // Title
+			var $g_copyright = "(c) 2014 - SBT-IT";			// copyright
+			var $g_slogan = "VISWALL - SECURITY FOR YOUR NETWORLD";				// slogan
+			var $g_address = array("Schluesselbauer Technology GmbH & Co.KG", "Hoerbach 4","4673 Gaspoltshofen / AUSTRIA");		// Address
+			
+			// developer credits
+			var $g_developer = array("<b>2002:</b> <br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rohrweck Horst (concept, project leader)<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Stumpner Roland (concept, project leader, core system)<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Leitner Christian (web interface, core system)<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Oliver Oswald (web interface)",
+								     "<b>2003-2004:</b><br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rohrweck Horst (concept, project leader, core system)<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Leitner Christian (core system, web interface)<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Oliver Oswald (web interface)",
+									 "<b>2005-2007:</b> <br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rohrweck Horst (concept, project leader, core system)<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Thomas Enzenebner (web interface)");
+			// graphics & design credits
+			var $g_designer = array("<b>2002:</b> Oliver Weberberger, Cornelia Gretz",
+			                        "<b>2003-2007:</b> Evamaria Hafergut");
+			// text & marketing credits
+			var $g_texter = array("<b>2002:</b> Armin Fluch",
+								  "<b>2003-2007:</b> Evamaria Hafergut");
+			
+			// Projekte
+			var $g_projects = array ("<b>viswallOS</b>: based on <a href=\"http://www.slackware.org\" target=\"_new\">Slackware</a> by Patrick Volkerding",
+									 "<a href=\"http://www.kernel.org\" target=\"_new\"><b>Linux kernel</b> by Linus Torvalds</a>",
+									 "<a href=\"http://tliquest.net/ryan/linux-patches/\" target=\"_new\"><b>TLI kernel patches</b></a>",
+									 "<a href=\"http://www.netfilter.org/\" target=\"_new\"><b>netfilter</b> packet filtering framework</a>",
+									 "<a href=\"http://sourceforge.net/project/showfiles.php?group_id=80085\" target=\"_new\"><b>Linux layer 7 packet classifier</b> netfilter extension</a>",
+									 "<a href=\"http://ebtables.sourceforge.net/\" target=\"_new\"><b>ebtables</b> packet filter extension for bridges</a>",
+									 "<a href=\"http://mppe-mppc.alphacron.de/\" target=\"_new\"><b>MPPE/MPPC patches</b> for Linux by Jan Dubiec</a>",
+									 "<a href=\"http://ppp.samba.org//\" target=\"_new\"><b>Samba PPP</b> System for Linux/Solaris</a>",
+									 "<a href=\"http://www.openswan.org\" target=\"_new\"><b>OpenSWAN</b> IPSec implementation for Linux</a>",
+									 "<a href=\"http://linux-net.osdl.org/index.php/Bridge\" target=\"_new\"><b>Bridge</b> extensions for Linux</a>",
+									 "<a href=\"http://linux-net.osdl.org/index.php/Iproute2\" target=\"_new\"><b>iproute2</b> QoS/routing/shaping extensions for Linux</a>",
+									 "<a href=\"http://www.poptop.org/\" target=\"_new\"><b>PoPToP</b> PPTP Server for Linux</a>",
+									 "<a href=\"http://openvpn.net/\" target=\"_new\"><b>OpenVPN</b> VPN software</a>",
+									 "<a href=\"http://httpd.apache.org\" target=\"_new\"><b>Apache httpd</b> Webserver</a>",
+									 "<a href=\"http://www.gnu.org\" target=\"_new\"><b>serveral sub projects of the GNU project</b></a>",
+									 "<a href=\"http://www.php.net\" target=\"_new\"><b>Zend PHP</b> scripting language</a>",
+									 "<a href=\"http://www.perl.org/\" target=\"_new\"><b>PERL</b> scripting language</a>",
+									 "<a href=\"http://www.mysql.com\" target=\"_new\"><b>MySQL</b> database</a>",
+									 "<a href=\"http://www.exim.org\" target=\"_new\"><b>Exim</b> mail transfer agent</a>",
+									 "<a href=\"http://www.courier-mta.org/\" target=\"_new\"><b>Courier IMAP</b> POP3/IMAP Server</a>",
+									 "<a href=\"http://spamassassin.apache.org\" target=\"_new\"><b>Apache Spamassassin</b> spam protection software</a>",
+									 "<a href=\"http://razor.sourceforge.net/\" target=\"_new\"><b>Vipul's Razor</b> (2) distributed, collaborative, spam detection and filtering network by Vipul Ved Prakash</a>",
+									 "<a href=\"http://pyzor.sourceforge.net/\" target=\"_new\"><b>Pyzor</b> distributed, collaborative, spam detection and filtering network</a>",
+									 "<a href=\"http://www.rhyolite.com/anti-spam/dcc/\" target=\"_new\"><b>DCC</b> (Distributed Checksum Clearinghouse) distributed, collaborative, spam detection and filtering network</a>",
+									 "<a href=\"http://www.libspf2.org/\" target=\"_new\"><b>libspf2</b> sender policy framework library</a>",
+									 "<a href=\"http://asg.web.cmu.edu/sasl/\" target=\"_new\"><b>Cyrus SASL</b> implementation of the Simple Authentication and Security Layer protocol</a>",
+									 "<a href=\"http://www.squid-cache.org\" target=\"_new\"><b>Squid Cache</b> Proxy system</a>",
+									 "<a href=\"http://www.dansguardian.org\" target=\"_new\"><b>Dansguardian</b> Content Filter by Daniel Barron</a>",
+									 "<a href=\"http://frox.sourceforge.net/\" target=\"_new\"><b>Frox</b> transparent FTP proxy with anti-virus detection</a>",
+									 "<a href=\"http://www.imspector.org/\" target=\"_new\"><b>IMspector</b> instant messenger content scanner</a>",									 
+									 "<a href=\"http://www.pcxperience.org/dgvirus/\" target=\"_new\"><b>Dansguardian Anti-Virus Patch</b></a>",
+									 "<a href=\"http://www.clamav.net\" target=\"_new\"><b>Clam AV</b> Antivirus Software</a>",
+									 "<a href=\"http://www.coresecurity.com/corelabs/freesoft/index.php\" target=\"_new\"><b>msyslog</b> a modular syslog</a>",
+									 "<a href=\"http://www.sodan.org/~penny/vncrec/\" target=\"_new\"><b>vncrec</b> VNC (RFB) recording software</a>",
+									 "<a href=\"http://www.openssl.org/\" target=\"_new\"><b>OpenSSL</b> SSL/TLS library</a>",
+			);
+
+			var $g_phone = "+43 1234 5678";
+            var $g_email = "office@viswall.local";              					// Email
+            var $g_web = "http://www.viswall.local";              					// Web
+            var $g_footertext = "Development by Horst Rohrweck";
+            var $g_mailservername = "localhost";                      // Mail server
+            var $g_language = "1";          	 								// choose from languages in the /languages/ directory.
+            var $g_refreshtime = "1200";       	 								// View Jobs refresh rate in seconds
+            var $g_cookietimeout = "1800";   	    			 				// Timout for cookies
+            var $g_enable_javascript = 1;    		    						// 1 = enable, 0 = disable
+            var $debug = 0;                                                     // SQL Debugging Info  1=on, 0=off
+			
+			function info () {
+				$this->g_copyright=str_replace("##NOW",date("Y"),$this->g_copyright);
+			}
+		}
+        
+        ////////////////////////
+		// Path Configuration //
+		////////////////////////
+		class path
+		{
+            var $path_virtual;
+            var $path_direct;
+            var $path_modules;
+            var $path_modules_objects;
+            var $path_modules_functions;
+            var $path_modules_auth;
+            var $path_html;
+            
+            function path()
+            {
+                $this->path_virtual = "http://".$GLOBALS['HTTP_HOST'].dirname($GLOBALS['REQUEST_URI'])."/";
+                $this->path_direct = $GLOBALS['DOCUMENT_ROOT'].dirname($GLOBALS['REQUEST_URI']);
+                $this->path_modules = ($this->path_direct)."/modules";
+                $this->path_modules_objects = ($this->path_modules)."/objects";
+                $this->path_modules_functions = ($this->path_modules)."/functions";
+                $this->path_modules_auth = ($this->path_modules)."/auth";
+                $this->path_html = ($this->path_direct)."/templates";
+                $this->path_modules_popups = ($this->path_modules)."/popups";
+            }
+		}
+		
+		class dbvars
+		{
+			var $sql_db_table_so_services = "so_services";
+			var $sql_db_table_io_interfaces = "io_interfaces";
+			var $sql_db_table_io_gateway = "io_gateway";
+			var $sql_db_table_no_hosts = "no_hosts";
+			var $sql_db_table_no_networks = "no_networks";
+			var $sql_db_table_nat_layers = "nat_layers";
+			var $sql_db_table_no_layer = "no_layer";
+			var $sql_db_table_strategies_filter = "strategies_filter";
+			var $sql_db_table_strategies_nat = "strategies_nat";
+			var $sql_db_table_strategies_routing = "strategies_routing";
+			var $sql_db_table_po_layers = "po_layers";
+			var $sql_db_table_po_protocols = "po_protocols";
+			var $sql_db_table_pptp_layers = "pptp_layers";
+			var $sql_db_table_cbq_rules = "cbq_rules";
+			var $sql_db_table_strategies_cbq = "strategies_cbq";
+			var $sql_db_table_strategies_tbf = "strategies_tbf";
+		}
+?>

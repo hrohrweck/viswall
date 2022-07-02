@@ -1,0 +1,18 @@
+#!/usr/bin/php
+<?
+$test=mysql_connect("localhost","root","");
+mysql_select_db("bueroshop");
+$result=mysql_query("SELECT AID,Email from Aliases WHERE Email LIKE '%@mail.b-shop.at'");
+while ($row=mysql_fetch_array($result)) {
+	list($local,$domain)=split("@",$row['Email']);
+	mysql_query ("UPDATE Aliases set Email='".$local."' WHERE AID=".$row['AID']);
+}
+
+$test=mysql_connect("localhost","root","");
+mysql_select_db("bueroshop");
+$result=mysql_query("SELECT AID,Forwarder from Aliases WHERE Forwarder LIKE '%@mail.b-shop.at'");
+while ($row=mysql_fetch_array($result)) {
+	list($local,$domain)=split("@",$row['Forwarder']);
+	mysql_query ("UPDATE Aliases set Forwarder='".$local."' WHERE AID=".$row['AID']);
+}
+?>

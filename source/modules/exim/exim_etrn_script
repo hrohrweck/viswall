@@ -1,0 +1,20 @@
+#!/bin/sh
+ 
+# Where exim lives
+EXIM=/usr/sbin/exim
+ 
+# Something appropriate to generate a temporary unique string 
+UNIQ=`head -c100 /dev/urandom | md5sum | cut -f 1 -d" "`
+
+arg=$1
+domain=`echo $arg | sed 's/^\#//g'`
+ 
+if ( test -f /var/spool/mail/etrn/${domain} ); then
+ exim_lock -q /var/spool/mail/etrn/${domain} "mv /var/spool/mail/etrn/${domain} /tmp/etrn-bsmtp-${UNIQ}"
+ ( cat /tmp/etrn-bsmtp-${UNIQ}
+   echo "QUIT" ) | $EXIM -bS -oMr etrn_requeue
+ rm -f /tmp/etrn-bsmtp-${UNIQ}
+fi
+ 
+$EXIM -R $domain
+

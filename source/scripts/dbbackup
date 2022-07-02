@@ -1,0 +1,4 @@
+#!/bin/bash
+USER=$1
+PASSWORD=$2
+/usr/bin/mysqldump --databases exim mysql viswall -u $USER -p$PASSWORD | /bin/gzip >/viswall/backups/dbbackup-current.dump.gz

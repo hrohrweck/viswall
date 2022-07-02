@@ -1,0 +1,10 @@
+#!/bin/bash
+
+for cert in $(find /etc/openvpn/keys/viswall/users/ -name "vpncert.pem" |grep "\/certs\/");
+do
+	DIR=$(dirname $cert)
+	USER=$(basename $(dirname $(dirname $cert)))
+
+	
+done
+

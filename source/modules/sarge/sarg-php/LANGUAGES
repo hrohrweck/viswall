@@ -1,0 +1,13 @@
+This PHP modules is under i18n. 
+Available languages are:
+
+	English			orso@brturbo.com
+	Brazilian_Portuguese	orso@brturbo.com
+	Russian             	Michael Stepanenko <mistic@ecolines.ru>
+
+If you want to traslate, follow this steps:
+
+1. edit translation.this file
+2. translate every msgid sentence in msgstr tag
+3. send to orso@brturbo.com to implement
+   * plase send your name and email address.

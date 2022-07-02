@@ -1,0 +1,17 @@
+#!/bin/bash
+cd /viswall/execscripts/pptpd
+/viswall/execscripts/pptpd/ip-down.php $1 $2 $3 $4 $5 $6 >/var/log/ip-down.txt
+
+user=$PEERNAME
+
+if [ -x /viswall/execscripts/pptpd/rules/$user-down ]; then
+   /viswall/execscripts/pptpd/rules/$user-down $5
+fi
+
+# deactivate IP Accounting
+/usr/sbin/iptables -D FORWARD -i $1 -j VPN-$1
+/usr/sbin/iptables -D FORWARD -o $1 -j VPN-$1
+
+/usr/sbin/iptables -D VPN-$1 -o $1
+/usr/sbin/iptables -D VPN-$1 -i $1
+/usr/sbin/iptables -X VPN-$1

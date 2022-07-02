@@ -1,0 +1,2 @@
+#!/bin/bash
+sudo docker run -d --restart=always --name exim4 -p 25:25 -p 465:465 -p 587:587 -p 143:143 -p 110:110 -p 993:993 -p 995:995 -v /data/docker/exim/backups:/backups -v /data/docker/exim/spamassassin:/var/mail/.spamassassin -v /data/docker/exim/mail:/var/mail -v /data/docker/exim/spool:/var/spool/exim4 -v /data/docker/exim/log/clamav:/var/log/clamav -v /data/docker/exim/log:/var/log/console -v /data/docker/exim/log/exim4:/var/log/exim4 -v /data/docker/exim/mysql:/var/lib/mysql exim4:latest

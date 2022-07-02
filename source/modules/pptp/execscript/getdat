@@ -1,0 +1,4 @@
+#!/bin/bash
+date > /tmp/$1-traffic.dat
+iptables -L -Z VPN-$1 -vxn >> /tmp/$1-traffic.dat
+

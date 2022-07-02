@@ -1,0 +1,5 @@
+00    */1 *  *  * clamav      /usr/bin/freshclam -F
+00    */1 *  *  * root        /viswall/scripts/exim/cleanup
+*/10  *   *  *  * Debian-exim /usr/bin/fetchmail -f /etc/fetchmail.conf --syslog -s --sslproto '' --all --nokeep --flush
+00    0   *  *  * root        cd /viswall/scripts/exim/malwarereport;/viswall/scripts/exim/malwarereport/reporting.php
+57   23   *  *  * root        /viswall/scripts/sbrmmail.sh 1> /dev/null

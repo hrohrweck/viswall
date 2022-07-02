@@ -1,0 +1,15 @@
+#!/bin/bash
+HOST=$(hostname).$(domainname)
+IP=$(/sbin/ifconfig eth0 |/bin/grep "inet addr" |cut -d":" -f 2|cut -d" " -f 1)
+
+/bin/tar cj /viswall/backups >/tmp/backup-complete.tar.bz2
+nail -a /tmp/backup-complete.tar.bz2 -s "viswall backup for $HOST at $IP" sysbackup <<EOF
+Dear Admin,
+
+this is the viswall backup distribution script from $HOST at $IP, you can find the current config as attached file.
+
+have a nice day,
+your viswall
+EOF
+/bin/rm -f /tmp/backup-complete.tar.bz2
+

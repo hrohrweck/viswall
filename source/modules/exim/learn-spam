@@ -1,0 +1,11 @@
+#!/bin/bash
+dir=$(date +%Y%m%d)
+cd /var/spool/mail/spam/new
+/usr/bin/sa-learn -u exim --spam * >/dev/null
+/bin/su exim -c "/usr/bin/spamassassin -r /var/spool/mail/spam/new/*" >/dev/null 2>/dev/null
+
+if [ ! -d "/var/spool/mail/learned-spam/$dir" ]; then
+	mkdir "/var/spool/mail/learned-spam/$dir"
+fi
+
+mv * "/var/spool/mail/learned-spam/$dir" >/dev/null

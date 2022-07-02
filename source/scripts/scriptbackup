@@ -1,0 +1,2 @@
+#!/bin/bash
+/bin/tar cj /viswall/scripts >/viswall/backups/scriptbackup-current.tar.bz2

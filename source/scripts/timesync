@@ -1,0 +1,2 @@
+#!/bin/bash
+/usr/sbin/ntpdate -s ntp0.fau.de ntp1.fau.de ntp2.fau.de ntp3.fau.de ntps1-0.cs.tu-berlin.de ntps1-1.cs.tu-berlin.de ptbtime1.ptb.de ptbtime2.ptb.de rustime01.rus.uni-stuttgart.de GPS.FreeBSD.dk tick.nap.com.ar time.sinectis.com.ar tock.nap.com.ar ntp1.belbone.be ntp2.belbone.be ntp.cais.rnp.br ntp.hiway.com.br ntp.massayonet.com.br ntp.pop-pr.rnp.br ntp.ufes.br ntp1.pucpr.br ntp.cpsc.ucalgary.ca ntp1.cmc.ec.gc.ca

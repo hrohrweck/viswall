@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# Script which handles the routing issues as necessary for pppd
+# Only the link to Newman requires this handling.
+#
+# When the ppp link comes up, this script is called with the following
+# parameters
+#       $1      the interface name used by pppd (e.g. ppp3)
+#       $2      the tty device name
+#       $3      the tty device speed
+#       $4      the local IP address for the interface
+#       $5      the remote IP address
+#       $6      the parameter specified by the 'ipparam' option to pppd
+#
+#logger "TEST: " $1 $2 $3 $4 $5 $6 $7 $8
+number=$(cat /var/run/$1.pid)
+user=$PEERNAME
+logger "User: " $user
+datum=$(date +"%Y-%m-%d %H:%M:%S")
+echo "$datum;$number;$user;$1;$2;$3;$4;$5" >> /var/log/pptp.log
+cd /viswall/execscripts/pptpd
+/viswall/execscripts/pptpd/ip-up.php $number "$datum" $user $1 $2 $3 $4 $5 $6 >/var/log/ip-up.out
+
+if [ -x /viswall/execscripts/pptpd/rules/$user-up ]; then
+   /viswall/execscripts/pptpd/rules/$user-up $5
+fi
+
+# Setup Traffic accounting
+/usr/sbin/iptables -N VPN-$1
+/usr/sbin/iptables -A VPN-$1 -o $1
+/usr/sbin/iptables -A VPN-$1 -i $1
+
+/usr/sbin/iptables -I FORWARD -i $1 -j VPN-$1
+/usr/sbin/iptables -I FORWARD -o $1 -j VPN-$1

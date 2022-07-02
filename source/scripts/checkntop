@@ -1,0 +1,5 @@
+#!/bin/bash
+if [ ! "$(ps awx |grep ntop |grep access |wc -l)" == 1 ]
+then
+	/etc/init.d/ntop restart
+fi

@@ -1,0 +1,32 @@
+<?php
+include "../config.php";
+header("Content-type: image/png");
+
+$myinfo=new info();
+
+$bgcolor=array(0x3E,0x46,0x46);
+$fontcolor1=array(0xBA,0xBA,0xBA);
+$fontcolor2=array(0xFF,0xFF,0xFF);
+
+$fontsize=8;
+$x=250;
+$y=58;
+
+// create image
+$im    = imagecreatetruecolor($x, $y);
+
+// fill background
+$bgcolor = imagecolorallocate($im, $bgcolor[0], $bgcolor[1], $bgcolor[2]);
+imagefill($im,0,0,$bgcolor);
+
+// set font color
+$fontcolor1 = imagecolorallocate($im, $fontcolor1[0], $fontcolor1[1], $fontcolor1[2]);
+$fontcolor2 = imagecolorallocate($im, $fontcolor2[0], $fontcolor2[1], $fontcolor2[2]);
+
+imagettftext($im, $fontsize, 0, 5, $fontsize+5, $fontcolor2, "../templates/fonts/arialbd.ttf", $myinfo->g_slogan );
+imagettftext($im, $fontsize, 0, 5, ($fontsize*2)+10, $fontcolor2, "../templates/fonts/arialbd.ttf", $myinfo->g_copyright );
+imagettftext($im, $fontsize, 0, 5, ($fontsize*3)+15, $fontcolor1, "../templates/fonts/arialbd.ttf", $myinfo->g_address[1] );
+imagettftext($im, $fontsize, 0, 5, ($fontsize*4)+20, $fontcolor1, "../templates/fonts/arialbd.ttf", $myinfo->g_address[2] );
+imagepng($im);
+imagedestroy($im);
+?>

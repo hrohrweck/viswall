@@ -1,0 +1,14 @@
+#!/bin/bash
+REMOTE_IP=$1
+PUBLIC_IP=$(/sbin/ifconfig eth0 |grep "inet addr" |cut -d ":" -f 2 |cut -d " " -f 1)
+LAN_IP=$(/sbin/ifconfig eth1 |grep "inet addr" |cut -d ":" -f 2 |cut -d " " -f 1)
+
+sbDate=`date +"%Y-%m-%d %H:%M:%S"`
+IPTABLES_BIN="/usr/sbin/iptables"
+
+# $IPTABLES_BIN -t nat -A POSTROUTING -s $REMOTE_IP -d 10.1.0.0/16 -j SNAT --to $LAN_IP
+# $IPTABLES_BIN -t nat -A POSTROUTING -s $REMOTE_IP -j SNAT --to $PUBLIC_IP
+# $IPTABLES_BIN -I FORWARD -s $REMOTE_IP -j ACCEPT
+# $IPTABLES_BIN -I FORWARD -d $REMOTE_IP -j ACCEPT
+
+echo $sbDate edewecht.geocell.de-down: Verbindung abgebaut ... >> /tmp/edewecht.geocell.de.log

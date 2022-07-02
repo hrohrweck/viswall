@@ -1,0 +1,26 @@
+#!/bin/bash
+DBUSER="FILLME"
+DBPASSWORD="FILLME"
+dir=$(date +%Y%m%d)
+cd /var/spool/mail/ham/new
+/usr/bin/sa-learn -u exim --ham * >/dev/null
+
+if [ ! -d "/var/spool/mail/learned-ham/$dir" ]; then
+	mkdir "/var/spool/mail/learned-ham/$dir"
+fi
+
+WHITELIST=$(/bin/cat * |/usr/bin/egrep -e "^From:" |/bin/cut -d "<" -f 2 |/bin/cut -d ">" -f 1 |/bin/cut -d "[" -f 2 |/bin/cut -d "]" -f 1 |/bin/sed "s/mailto://g")
+
+for email in $WHITELIST
+do
+	isthere=$(/usr/bin/mysql spamassassin -B -u $DBUSER -p"$DBPASSWORD" -e "select * from userpref where value='$email';" |/bin/grep "@" |/bin/cut -d"	 " -f 3)
+	
+	if [ "$isthere" == "$email" ]; then
+		echo "bereits in der Datanbank ($email)"
+	else
+		echo "fuege $email hinzu"
+		mysql spamassassin -B -u $DBUSER -p"$DBPASSWORD" -e "insert into userpref (username,preference,value) values ('mail','whitelist_from','$email');"
+	fi
+done
+
+mv * "/var/spool/mail/learned-ham/$dir" >/dev/null

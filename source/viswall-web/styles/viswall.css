@@ -1,0 +1,172 @@
+BODY
+{
+    FONT-SIZE: 10px;
+    COLOR: #000000;
+    FONT-FAMILY: Verdana, Arial, Helvetica;
+	text-decoration : none;
+}
+BODY  A
+{
+	color : #000000;
+	text-decoration : none;
+}
+BODY  A:ACTIVE 
+{
+	color : #000000;
+	text-decoration : none;
+}
+BODY  A:HOVER 
+{
+	color : #000000;
+	text-decoration : none;
+}
+
+BODY .textblack
+{
+    FONT-SIZE: 10px;
+    COLOR: #000000;
+    FONT-FAMILY: Verdana, Arial, Helvetica;
+}
+BODY  .textblack A
+{
+	color : #000000;
+	text-decoration : underline;
+}
+BODY  .textblack A:ACTIVE 
+{
+	color : #000000;
+	text-decoration : underline;
+}
+BODY  .textblack A:HOVER 
+{
+	color : #000000;
+	text-decoration : underline;
+}
+
+
+BODY .textgray
+{
+    FONT-SIZE: 10px;
+    COLOR: #555555;
+    FONT-FAMILY: Verdana, Arial, Helvetica;
+}
+BODY  .textgray A
+{
+	color : #555555;
+	text-decoration : underline;
+}
+BODY  .textgray A:ACTIVE 
+{
+	color : #555555;
+	text-decoration : underline;
+}
+BODY  .textgray A:HOVER 
+{
+	color : #AE0808;
+	text-decoration : underline;
+}
+
+BODY  .textwhite A
+{
+	color : #FFFFFF;
+	text-decoration : underline;
+}
+BODY  .textwhite A:ACTIVE 
+{
+	color : #FFFFFF;
+	text-decoration : underline;
+}
+BODY  .textwhite A:HOVER 
+{
+	color : #FFFFFF;
+	text-decoration : underline;
+}
+
+BODY  .textred A
+{
+	color : #AE0808;
+	text-decoration : none;
+}
+BODY  .textred A:ACTIVE
+{
+	color : #AE0808;
+	text-decoration : none;
+}
+BODY  .textred A:HOVER
+{
+	color : #AE0808;
+	text-decoration : none;
+}
+
+}
+BODY .logonform {
+	BORDER-RIGHT: 1px solid; 
+	BORDER-TOP:  1px solid; 
+	FONT-SIZE: 10px; 
+	BORDER-LEFT:  1px solid; 
+	COLOR: #464646; 
+	BORDER-BOTTOM:  1px solid; 
+	FONT-FAMILY: Arial, Helvetica; 
+	BACKGROUND-COLOR: #f0f0f0
+}
+
+TABLE .tablehead
+{
+    FONT-SIZE: 10px;
+    COLOR: #FFFFFF;
+    FONT-FAMILY: Verdana, Arial, Helvetica;
+}
+TABLE  .tablehead A
+{
+	color : #FFFFFF;
+	text-decoration : underline;
+}
+TABLE  .tablehead A:ACTIVE 
+{
+	color : #FFFFFF;
+	text-decoration : underline;
+}
+TABLE  .tablehead A:HOVER 
+{
+	color : #FFFFFF;
+	text-decoration : underline;
+}
+
+
+TABLE
+{
+	color : #000000;
+	FONT-SIZE: 10px;
+    FONT-FAMILY: Verdana, Arial, Helvetica ;
+	line-height : 12px;
+	text-decoration : none;
+
+}
+
+#rechts
+{
+    border-right-width:1;
+    border-right-style:solid;
+    border-right-color:#555555;
+    padding-right:2;
+}
+
+#tabelle
+{
+    border-left-width:1;
+    border-left-style:solid;
+    border-left-color:#555555;
+    padding-left:2;
+    border-right-width:1;
+    border-right-style:solid;
+    border-right-color:#555555;
+    padding-right:2;
+    border-top-width:1;
+    border-top-style:solid;
+    border-top-color:#555555;
+	padding-top:2;
+    border-bottom-width:1;
+    border-bottom-style:solid;
+    border-bottom-color:#555555;
+    padding-bottom:2;
+}
