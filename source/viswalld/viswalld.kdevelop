@@ -1,0 +1,51 @@
+<!DOCTYPE kdevelop>
+<kdevelop>
+ <general>
+  <author>Rohrweck Horst</author>
+  <email>horst.rohrweck@domedia.at</email>
+  <projectmanagement>KDevAutoProject</projectmanagement>
+  <primarylanguage>C++</primarylanguage>
+  <keywords>
+  </keywords>
+ </general>
+ <kdevautoproject>
+  <general>
+   <mainprogram>viswalld</mainprogram>
+  </general>
+  <configure>
+   <configargs></configargs>
+  </configure>
+  <make>
+   <abortonerror></abortonerror>
+   <numberofjobs></numberofjobs>
+   <dontact></dontact>
+   <makebin/>
+  </make>
+  <compiler>
+   <cflags></cflags>
+   <cxxflags>-O0 -g3 -Wall</cxxflags>
+  </compiler>
+ </kdevautoproject>
+ <kdevfileview>
+  <groups>
+   <group pattern="*.h;*.hh;*.hxx;*.hpp;*.H" name="Headers" />
+   <group pattern="*.cpp;*.c;*.cc;*.C;*.cxx;*.ec;*.ecpp;*.lxx;*.l++;*.ll;*.l" name="Sources" />
+   <group pattern="AUTHORS;COPYING;ChangeLog;INSTALL;README;TODO;NEWS" name="GNU" />
+   <group pattern="*" name="Others" />
+  </groups>
+ </kdevfileview>
+ <kdevdoctreeview>
+  <ignoretocs>
+   <toc>gtk</toc>
+   <toc>gnustep</toc>
+   <toc>python</toc>
+   <toc>php</toc>
+   <toc>perl</toc>
+  </ignoretocs>
+ </kdevdoctreeview>
+ <kdevdebugger>
+  <general>
+   <dbgshell>libtool</dbgshell>
+  </general>
+ </kdevdebugger>
+</kdevelop>
