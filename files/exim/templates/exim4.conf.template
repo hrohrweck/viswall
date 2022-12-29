@@ -217,7 +217,7 @@ av_scanner = clamd:127.0.0.1 3310
 
 spamd_address = 127.0.0.1 783
 
-perl_startup = do '/viswall/scripts/exim/exim-addon.pl'
+perl_startup = do '/viswall/modules/exim/exim-addon.pl'
 
 # Specify the domain you want to be added to all unqualified addresses
 # here. An unqualified address is one that does not contain an "@" character

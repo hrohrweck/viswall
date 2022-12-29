@@ -35,14 +35,14 @@ RUN chmod +x /etc/cron.daily/backup.sh
 ADD source /tmp/setup
 COPY files/clamav/clamd.conf /etc/clamav/
 COPY files/clamav/freshclam.conf /etc/clamav/
-COPY files/exim/exim4.conf /etc/exim4/exim4.conf.template
+COPY files/exim/templates/exim4.conf.template /etc/exim4/exim4.conf.template.template
 COPY files/exim/exim.filter /etc/exim4/
 COPY files/certs/exim.crt /etc/exim4/
 COPY files/certs/exim.key /etc/exim4/
+RUN chmod +r /etc/exim4/exim.crt && chmod +r /etc/exim4/exim.key
 RUN mkdir -p /viswall && mv /tmp/setup/* /viswall/
-COPY files/config.php /viswall/viswall-web/
-COPY files/config /viswall/
-RUN update-exim4.conf
+COPY files/config.php.template /viswall/viswall-web/
+COPY files/config.template /viswall/
 RUN mkdir -p /var/run/clamav && chown Debian-exim /var/log/exim4 && \
     mkdir -p /var/run/mysqld && chown mysql.mysql /var/run/mysqld && \
     mkdir -p /var/log/clamav && chown -R clamav /var/log/clamav && mkdir -p /var/run/clamav && \
@@ -50,6 +50,8 @@ RUN mkdir -p /var/run/clamav && chown Debian-exim /var/log/exim4 && \
     mkdir -p /var/run/courier && chown -R daemon.daemon /var/run/courier
 RUN cpan App::cpanminus && cpanm install --notest Mail::SPF && cpanm install --notest Mail::SPF::Query && cpan install Config::File
 COPY files/courier/* /etc/courier/
+RUN mkdir -p /etc/courier/templates
+COPY files/courier/templates/* /etc/courier/templates/
 COPY files/cron/* /etc/cron.d
 RUN chmod 644 /etc/cron.d/*
 RUN ln -s /viswall/scripts/exim/learn-ham /etc/cron.hourly/ && \
@@ -63,10 +65,15 @@ RUN cat /etc/exim4/exim.key >/etc/courier/pop3d.pem && \
     chgrp courier /etc/courier/imapd.pem && \
     chmod g+r /etc/courier/imapd.pem   
 COPY files/malwarereport/* /viswall/scripts/exim/malwarereport/
+RUN mkdir -p /viswall/scripts/exim/malwarereport/templates
+COPY files/malwarereport/templates/* /viswall/scripts/exim/malwarereport/templates/
 RUN cd /viswall/scripts/exim/malwarereport && /usr/bin/composer require phpmailer/phpmailer
-COPY files/exim/cleanup /viswall/scripts/exim/
-RUN chmod +x /viswall/scripts/exim/cleanup
+RUN mkdir -p /viswall/scripts/exim
+COPY files/exim/templates/cleanup.template /viswall/scripts/exim/
 
 COPY files/supervisord/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-CMD ["/usr/bin/supervisord"]
+COPY files/start.sh /opt/    
+RUN chmod +x /opt/start.sh
+
+CMD ["/opt/start.sh"]

@@ -1,52 +1,9 @@
 #!/bin/bash
-if [ -z $DB_HOST ]
-then
-    echo "Missing variable DB_HOST"
-    exit 1
-fi
-
-if [ -z $DB_NAME_EXIM ]
-then
-    echo "Missing variable DB_NAME_EXIM"
-    exit 1
-fi
-
-if [ -z $DB_NAME_VISWALL ]
-then
-    echo "Missing variable DB_NAME_VISWALL"
-    exit 1
-fi
-
-if [ -z $DB_NAME_SPAMASSASSIN ]
-then
-    echo "Missing variable DB_NAME_SPAMASSASSIN"
-    exit 1
-fi
-
-if [ -z $DB_USER ]
-then
-    echo "Missing variable DB_USER"
-    exit 1
-fi
-
-if [ -z $DB_PASS ]
-then
-    echo "Missing variable DB_PASS"
-    exit 1
-fi
-
 if [ ! -e files/certs/exim.key ] || [ ! -e files/certs/exim.csr ] || [ ! -e files/certs/exim.crt ]
 then
     openssl genrsa -out files/certs/exim.key 2048
     openssl req -key files/certs/exim.key -new -out files/certs/exim.csr
     openssl x509 -signkey files/certs/exim.key -in files/certs/exim.csr -req -days 3650 -out files/certs/exim.crt
 fi
-
-cat files/courier/templates/authmysqlrc.template |sed "s/##DB_NAME_SPAMASSASSIN##/${DB_NAME_SPAMASSASSIN}/g" |sed "s/##DB_NAME_VISWALL##/${DB_NAME_VISWALL}/g" |sed "s/##DB_NAME_EXIM##/${DB_NAME_EXIM}/g" |sed "s/##DB_HOST##/${DB_HOST}/g" |sed "s/##DB_USER##/${DB_USER}/g" |sed "s/##DB_PASS##/${DB_PASS}/g" > files/courier/authmysqlrc
-cat files/exim/templates/exim4.conf.template |sed "s/##DB_NAME_SPAMASSASSIN##/${DB_NAME_SPAMASSASSIN}/g" |sed "s/##DB_NAME_VISWALL##/${DB_NAME_VISWALL}/g" |sed "s/##DB_NAME_EXIM##/${DB_NAME_EXIM}/g" |sed "s/##DB_HOST##/${DB_HOST}/g" |sed "s/##DB_USER##/${DB_USER}/g" |sed "s/##DB_PASS##/${DB_PASS}/g" > files/exim/exim4.conf
-cat files/exim/templates/cleanup.template |sed "s/##DB_NAME_SPAMASSASSIN##/${DB_NAME_SPAMASSASSIN}/g" |sed "s/##DB_NAME_VISWALL##/${DB_NAME_VISWALL}/g" |sed "s/##DB_NAME_EXIM##/${DB_NAME_EXIM}/g" |sed "s/##DB_HOST##/${DB_HOST}/g" |sed "s/##DB_USER##/${DB_USER}/g" |sed "s/##DB_PASS##/${DB_PASS}/g" > files/exim/cleanup
-cat files/malwarereport/templates/config.php.template |sed "s/##DB_NAME_SPAMASSASSIN##/${DB_NAME_SPAMASSASSIN}/g" |sed "s/##DB_NAME_VISWALL##/${DB_NAME_VISWALL}/g" |sed "s/##DB_NAME_EXIM##/${DB_NAME_EXIM}/g" |sed "s/##DB_HOST##/${DB_HOST}/g" |sed "s/##DB_USER##/${DB_USER}/g" |sed "s/##DB_PASS##/${DB_PASS}/g" > files/malwarereport/config.php
-cat files/config.template |sed "s/##DB_NAME_SPAMASSASSIN##/${DB_NAME_SPAMASSASSIN}/g" |sed "s/##DB_NAME_VISWALL##/${DB_NAME_VISWALL}/g" |sed "s/##DB_NAME_EXIM##/${DB_NAME_EXIM}/g" |sed "s/##DB_HOST##/${DB_HOST}/g" |sed "s/##DB_USER##/${DB_USER}/g" |sed "s/##DB_PASS##/${DB_PASS}/g" > files/config
-cat files/config.php.template |sed "s/##DB_NAME_SPAMASSASSIN##/${DB_NAME_SPAMASSASSIN}/g" |sed "s/##DB_NAME_VISWALL##/${DB_NAME_VISWALL}/g" |sed "s/##DB_NAME_EXIM##/${DB_NAME_EXIM}/g" |sed "s/##DB_HOST##/${DB_HOST}/g" |sed "s/##DB_USER##/${DB_USER}/g" |sed "s/##DB_PASS##/${DB_PASS}/g" > files/config.php
 
 docker build --tag exim4:latest .
