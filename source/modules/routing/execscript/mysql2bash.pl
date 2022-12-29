@@ -1,15 +1,11 @@
 #!/usr/bin/perl
 #
 # vis|wall backend script ip routing
-# itsoft Software GmbH 
 # 29.03.2003
-# Version 1.1 - 27.05.2003
+# Version 1.2 - 29.12.2022
 #
 
-my $mysql_db = "viswall";
-my $mysql_host ="localhost";
-my $mysql_user = "fillme";
-my $mysql_passwd = "fillme";
+my $configfile = "/viswall/config";
 my $datenbank="mysql";
 my $path_output="/viswall/configscripts/route.sh"; 
 my $path_route="/sbin/route";
@@ -24,12 +20,20 @@ my $first="";
 use DBI;
 use Socket;
 use Net::Netmask;
+use Config::File;
+
+my $config_hash = Config::File::read_config_file($configfile);
+
+my $mysql_db = $config_hash->{DB_NAME_VISWALL};
+my $mysql_host = $config_hash->{DB_HOST};
+my $mysql_user = $config_hash->{DB_USER};
+my $mysql_passwd = $config_hash->{DB_PASS};
+
 #Description
 sub headwrite_routing{
 	$first=$first."#!/bin/bash\n";
 	$first=$first."###########################################\n";
 	$first=$first."# Created by vis|wall                     #\n";
-	$first=$first."# itsoft Software GmbH                    #\n";
 	$first=$first."# ROUTING CONTROL SCRIPT  		  #\n";
 	$first=$first."# TIMESTAMP: ".localtime()."     #\n";
 	$first=$first."###########################################\n";

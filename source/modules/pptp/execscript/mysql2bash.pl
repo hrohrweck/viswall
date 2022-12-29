@@ -1,15 +1,11 @@
 #!/usr/bin/perl
 #
 # vis|wall backend script PPTPD
-# itsoft Software GmbH 
-# Version 1.3 - 25.06.2003
+# Version 1.4 - 22.12.2022
 # Standalone Version
 #
 
-my $mysql_db = "viswall";
-my $mysql_host ="localhost";
-my $mysql_user = "fillme";
-my $mysql_passwd = "fillme";
+my $configfile = "/viswall/config";
 my $datenbank="mysql";
 my $db_table_pptpd="pptp_options";
 my $db_table_user = "pptp_layers";
@@ -22,14 +18,20 @@ my $path_pptpctrl = "/usr/local/sbin/pptpctrl";
 my $first="";
 
 use DBI;
+use Config::File;
 
+my $config_hash = Config::File::read_config_file($configfile);
+
+my $mysql_db = $config_hash->{DB_NAME_VISWALL};
+my $mysql_host = $config_hash->{DB_HOST};
+my $mysql_user = $config_hash->{DB_USER};
+my $mysql_passwd = $config_hash->{DB_PASS};
 
 #Beschreibung
 sub headwrite_pptpd{
 $first="";
 $first=$first."###########################################\n";
 $first=$first."# Created by vis|wall                     #\n";
-$first=$first."# itsoft Software GmbH                    #\n";
 $first=$first."# PPTP CONTROL SCRIPT  	        	  #\n";
 $first=$first."# TIMESTAMP: ".localtime()."     #\n";
 $first=$first."###########################################\n";
@@ -41,7 +43,6 @@ sub headwrite_options{
 $first="";
 $first=$first."###########################################\n";
 $first=$first."# Created by vis|wall                     #\n";
-$first=$first."# itsoft Software GmbH                    #\n";
 $first=$first."# PPTP OPTIONS SCRIPT      		  #\n";
 $first=$first."# TIMESTAMP: ".localtime()."     #\n";
 $first=$first."###########################################\n";

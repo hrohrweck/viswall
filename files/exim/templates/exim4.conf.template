@@ -42,7 +42,7 @@
 ######################################################################
 
 ######### MySQL Server and query macro definitions
-hide mysql_servers = localhost/exim/fillme/fillme
+hide mysql_servers = ##DB_HOST##/##DB_NAME_EXIM##/##DB_USER##/##DB_PASS##
 
 USER_QUERY = select Mailusers.Benutzername from Aliases,Mailusers where \
 		Aliases.Email="${quote_mysql:$local_part}" AND \

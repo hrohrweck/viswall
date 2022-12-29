@@ -1,15 +1,11 @@
 #!/usr/bin/perl
 #
 # vis|wall backend script nat and pat
-# itsoft Software GmbH 
 # 24.03.2003
-# Version 1.1 - 27.05.2003
+# Version 1.2 - 29.12.2022
 #
 
-my $mysql_db = "viswall";
-my $mysql_host ="localhost";
-my $mysql_user = "fillme";
-my $mysql_passwd = "fillme";
+my $configfile="/viswall/config";
 my $datenbank="mysql";
 my $db_table_nat="strategies_nat";
 my $path_output="/viswall/configscripts/nat.sh"; 
@@ -17,14 +13,20 @@ my $path_iptables="/usr/sbin/iptables -t nat";
 my $first="";
 
 use DBI;
+use Config::File;
 
+my $config_hash = Config::File::read_config_file($configfile);
+
+my $mysql_db = $config_hash->{DB_NAME_VISWALL};
+my $mysql_host = $config_hash->{DB_HOST};
+my $mysql_user = $config_hash->{DB_USER};
+my $mysql_passwd = $config_hash->{DB_PASS};
 
 #Description
 sub headwrite_nat{
 $first=$first."#!/bin/bash\n";
 $first=$first."###########################################\n";
 $first=$first."# Created by Viswall                      #\n";
-$first=$first."# itsoft Software GmbH                    #\n";
 $first=$first."# NAT&PAT CONFIGURE SCRIPT  	          #\n";
 $first=$first."# TIMESTAMP: ".localtime()."     #\n";
 $first=$first."###########################################\n";

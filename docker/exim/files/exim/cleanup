@@ -1,2 +1,0 @@
-#!/bin/bash
-echo "update Blocklists set active=0 where autolisted=1 and active=1 and blockedpermanent=0 and Timestamp_last_activation<date_sub(curdate(),interval 1 day);" | mysql exim -u fillme -pfillme

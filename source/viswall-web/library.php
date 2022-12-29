@@ -1,6 +1,6 @@
 <?php 
 // //////////////////////////////////////////////
-// ---> itsoft - vis|wall Firewall <---    //
+// ---> vis|wall Firewall <---    //
 // //////////////////////////////////////////////
 // Date	: 29.04.2002                          //
 // //////////////////////////////////////////////
@@ -22,7 +22,7 @@ function generate_html($navigation = 1)
 
     echo "<html>\n";
     echo "	<head>\n";
-    echo "		<title>itsoft Software GmbH vis|wall</title>\n";
+    echo "		<title>vis|wall</title>\n";
     echo "		<link rel=\"stylesheet\" type=\"text/css\" href=\"./styles/viswall.css\">\n";
 
     if ($_GET['module'] == "nidslog") {

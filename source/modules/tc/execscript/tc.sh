@@ -1,7 +1,6 @@
 #!/bin/bash
 ###########################################
 # Created by Viswall                      #
-# DOMEDIA Creative Labs                   #
 # Traffic Control Script (TBF)		 #
 # TIMESTAMP: Tue Jun  3 15:38:36 2003     #
 ###########################################

@@ -32,25 +32,23 @@ RUN mkdir -p /var/run/courier/authdaemon && mkdir -p /var/log/supervisor \
     mkdir -p /tmp/setup && mkdir -p /var/log/console
 COPY files/backup.sh /etc/cron.daily/
 RUN chmod +x /etc/cron.daily/backup.sh
-COPY files/viswall.tar.bz2 /tmp/setup/
-COPY files/fetchmail/fetchmail.conf /etc/
-RUN chown -R Debian-exim.Debian-exim /etc/fetchmail.conf && chmod 700 /etc/fetchmail.conf
+ADD source /tmp/setup
 COPY files/clamav/clamd.conf /etc/clamav/
 COPY files/clamav/freshclam.conf /etc/clamav/
-COPY files/exim/exim4.conf.template /etc/exim4/
+COPY files/exim/exim4.conf /etc/exim4/exim4.conf.template
 COPY files/exim/exim.filter /etc/exim4/
 COPY files/certs/exim.crt /etc/exim4/
 COPY files/certs/exim.key /etc/exim4/
-RUN cd / && tar xvfj /tmp/setup/viswall.tar.bz2
+RUN mkdir -p /viswall && mv /tmp/setup/* /viswall/
+COPY files/config.php /viswall/viswall-web/
+COPY files/config /viswall/
 RUN update-exim4.conf
-COPY files/start.sh /usr/bin/
-RUN chmod +x /usr/bin/start.sh && \
-    mkdir -p /var/run/clamav && chown Debian-exim /var/log/exim4 && \
+RUN mkdir -p /var/run/clamav && chown Debian-exim /var/log/exim4 && \
     mkdir -p /var/run/mysqld && chown mysql.mysql /var/run/mysqld && \
     mkdir -p /var/log/clamav && chown -R clamav /var/log/clamav && mkdir -p /var/run/clamav && \
     chown -R clamav /var/run/clamav && /usr/bin/freshclam && chown -R clamav /var/run/clamav && \
     mkdir -p /var/run/courier && chown -R daemon.daemon /var/run/courier
-RUN cpan App::cpanminus && cpanm install --notest Mail::SPF && cpanm install --notest Mail::SPF::Query
+RUN cpan App::cpanminus && cpanm install --notest Mail::SPF && cpanm install --notest Mail::SPF::Query && cpan install Config::File
 COPY files/courier/* /etc/courier/
 COPY files/cron/* /etc/cron.d
 RUN chmod 644 /etc/cron.d/*
@@ -72,4 +70,3 @@ RUN chmod +x /viswall/scripts/exim/cleanup
 COPY files/supervisord/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 CMD ["/usr/bin/supervisord"]
-#ENTRYPOINT ["/usr/bin/start.sh"]

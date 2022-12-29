@@ -10,10 +10,10 @@
 		////////////////////////////
 		class sql_db
 		{
-            var $sql_db_host = "127.0.0.1";                                     // database host to use
-            var $sql_db_username = "fillme";									// username for $sql_db_username
-            var $sql_db_password = "fillme";                                  // password for $sql_db_password
-            var $sql_db_name = "viswall";                                       // database to use
+            var $sql_db_host = "##DB_HOST##";                                     // database host to use
+            var $sql_db_username = "##DB_USER##";									// username for $sql_db_username
+            var $sql_db_password = "##DB_PASS##";                                  // password for $sql_db_password
+            var $sql_db_name = "##DB_NAME_VISWALL##";                                       // database to use
         }
         
 		///////////////////////////
@@ -30,17 +30,19 @@
 			
 			// developer credits
 			var $g_developer = array("<b>2002:</b> <br>
-			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rohrweck Horst (concept, project leader)<br>
-			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Stumpner Roland (concept, project leader, core system)<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rohrweck Horst (concept, project lead)<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Stumpner Roland (concept, project lead, core system)<br>
 			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Leitner Christian (web interface, core system)<br>
 			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Oliver Oswald (web interface)",
 								     "<b>2003-2004:</b><br>
-			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rohrweck Horst (concept, project leader, core system)<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rohrweck Horst (concept, project lead, core system)<br>
 			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Leitner Christian (core system, web interface)<br>
 			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Oliver Oswald (web interface)",
 									 "<b>2005-2007:</b> <br>
-			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rohrweck Horst (concept, project leader, core system)<br>
-			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Thomas Enzenebner (web interface)");
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rohrweck Horst (concept, project lead, core system)<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Thomas Enzenebner (web interface)",
+									 "<b>2007-:</b> <br>
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rohrweck Horst (one to rule it all)");
 			// graphics & design credits
 			var $g_designer = array("<b>2002:</b> Oliver Weberberger, Cornelia Gretz",
 			                        "<b>2003-2007:</b> Evamaria Hafergut");

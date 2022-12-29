@@ -23,9 +23,9 @@
 #
 # The server name, userid, and password used to log in.
 
-MYSQL_SERVER		127.0.0.1
-MYSQL_USERNAME		fillme
-MYSQL_PASSWORD		fillme
+MYSQL_SERVER		##DB_HOST##
+MYSQL_USERNAME		##DB_USER##
+MYSQL_PASSWORD		##DB_PASS##
 
 ##NAME: MYSQL_SOCKET:0
 #
@@ -53,7 +53,7 @@ MYSQL_OPT		0
 #
 # The name of the MySQL database we will open:
 
-MYSQL_DATABASE		exim
+MYSQL_DATABASE		##DB_NAME_EXIM##
 
 ##NAME: MYSQL_USER_TABLE:0
 #

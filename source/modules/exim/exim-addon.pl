@@ -1,16 +1,12 @@
 #!/usr/bin/perl
 #
 # Exim extension
-# itsoft Software GmbH 
 # 25.08.2004
-# Version 1.1 - 12.09.2004
+# Version 1.2 - 29.12.2022
 # H. Rohrweck
 #
 
-my $mysql_db = "exim";
-my $mysql_host ="localhost";
-my $mysql_user = "fillme";
-my $mysql_passwd = "fillme";
+my $configfile="/viswall/config";
 my $datenbank="mysql";
 my $SPAMCOUNTMIN=30;
 my $observation_path="/var/spool/mail/observation";
@@ -33,7 +29,14 @@ use DBI;
 use Socket;
 use Time::localtime;
 use File::Copy;
-#use Net::Netmask;
+use Config::File;
+
+my $config_hash = Config::File::read_config_file($configfile);
+
+my $mysql_db = $config_hash->{DB_NAME_EXIM};
+my $mysql_host = $config_hash->{DB_HOST};
+my $mysql_user = $config_hash->{DB_USER};
+my $mysql_passwd = $config_hash->{DB_PASS};
 
 # CheckBlock blacklists IP addresses if the spamcount of a message exceeds 10 spam points (-> $spamscore>100) and the IP isn't in the Whitelist
 sub CheckBlock {

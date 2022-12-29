@@ -1,8 +1,5 @@
 #!/usr/bin/perl
-my $mysql_db = "spamassassin";
-my $mysql_host ="localhost";
-my $mysql_user = "fillme";
-my $mysql_passwd = "fillme";
+my $configfile = "/viswall/config"
 my $datenbank="mysql";
 my $db_table_deliver="mss_deliveroptions";
 my $db_table_domainlist="mss_domainlist";
@@ -31,6 +28,14 @@ my $path_filename_rules="/opt/mailscanner/filename.rules.conf";
 my $first="";
 
 use DBI;
+use Config::File;
+
+my $config_hash = Config::File::read_config_file($configfile);
+
+my $mysql_db = $config_hash->{DB_NAME_SPAMASSASSIN};
+my $mysql_host = $config_hash->{DB_HOST};
+my $mysql_user = $config_hash->{DB_USER};
+my $mysql_passwd = $config_hash->{DB_PASS};
 
 
 #Description
@@ -38,7 +43,6 @@ sub headwrite_mss{
 $first=$first."#!/bin/bash\n";
 $first=$first."###########################################\n";
 $first=$first."# Created by Viswall                      #\n";
-$first=$first."# DOMEDIA Creative Labs                   #\n";
 $first=$first."# MAILSCANNER CONFIGURE SCRIPT	          #\n";
 $first=$first."# TIMESTAMP: ".localtime()."     #\n";
 $first=$first."###########################################\n";

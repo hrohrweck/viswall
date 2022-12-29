@@ -1,9 +1,6 @@
 #!/usr/bin/perl
 
-my $mysql_db = "viswall";
-my $mysql_host ="localhost";
-my $mysql_user = "fillme";
-my $mysql_passwd = "fillme";
+my $configfile = "/viswall/config";
 my $datenbank="mysql";
 my $db_table_tbf="squid_settings";
 #my $path_squid="squid.conf";
@@ -11,13 +8,19 @@ my $path_output="/etc/squid/squid.conf";
 my $first="";
 
 use DBI;
+use Config::File;
 
+my $config_hash = Config::File::read_config_file($configfile);
+
+my $mysql_db = $config_hash->{DB_NAME_VISWALL};
+my $mysql_host = $config_hash->{DB_HOST};
+my $mysql_user = $config_hash->{DB_USER};
+my $mysql_passwd = $config_hash->{DB_PASS};
 
 #Beschreibung
 sub headwrite{
 $first=$first."###########################################\n";
 $first=$first."# Created by Viswall                      #\n";
-$first=$first."# DOMEDIA Creative Labs                   #\n";
 $first=$first."# SQUID CONFIGURE SCRIPT 		 #\n";
 $first=$first."# TIMESTAMP: ".localtime()."     #\n";
 $first=$first."###########################################\n";

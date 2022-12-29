@@ -1,15 +1,11 @@
 #!/usr/bin/perl
 #
 # vis|wall backend script QoS CBQ
-# itsoft Software GmbH
 # 02.06.2003
-# Version 1.06 - 06.10.2003
+# Version 1.1 - 29.12.2022
 #
 
-my $mysql_db = "viswall";
-my $mysql_host ="localhost";
-my $mysql_user = "fillme";
-my $mysql_passwd = "fillme";
+my $configfile = "/viswall/config";
 my $datenbank="mysql";
 my $db_table_cbq="strategies_cbq";
 my $db_table_cbq_rules="cbq_rules";
@@ -24,6 +20,14 @@ my $str_subclass=""; # Global Variable used for recursion
 
 use DBI;
 use Net::Netmask;
+use Config::File;
+
+my $config_hash = Config::File::read_config_file($configfile);
+
+my $mysql_db = $config_hash->{DB_NAME_VISWALL};
+my $mysql_host = $config_hash->{DB_HOST};
+my $mysql_user = $config_hash->{DB_USER};
+my $mysql_passwd = $config_hash->{DB_PASS};
 
 sub write_qdiscs{ # Write qdiscs for interfaces
 	my ($dbh)=@_;
@@ -115,7 +119,6 @@ sub headwrite_cbq{
 	my $first="";
 	$first=$first."###########################################\n";
 	$first=$first."# Created by Viswall                      #\n";
-	$first=$first."# itsoft Software GmbH                    #\n";
 	$first=$first."# Traffic Control Script (CBQ)            #\n";
 	$first=$first."# TIMESTAMP: ".localtime()."     #\n";
 	$first=$first."###########################################\n";

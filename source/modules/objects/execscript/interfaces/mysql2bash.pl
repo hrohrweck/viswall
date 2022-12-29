@@ -1,16 +1,11 @@
 #!/usr/bin/perl
 #
 # vis|wall backend script packet filter
-# itsoft Software GmbH 
 # 24.03.2003
-# Version 1.0 - 12.5.2003
+# Version 1.1 - 29.12.2022
 #
 
-
-my $mysql_db = "viswall";
-my $mysql_host ="localhost";
-my $mysql_user = "fillme";
-my $mysql_passwd = "fillme";
+my $configfile = "/viswall/config";
 my $datenbank="mysql";
 my $db_table_interfaces="io_interfaces";
 my $db_table_gateway="io_gateway";
@@ -21,6 +16,14 @@ my $echo_program="/bin/echo";
 my $first="";
 
 use DBI;
+use Config::File;
+
+my $config_hash = Config::File::read_config_file($configfile);
+
+my $mysql_db = $config_hash->{DB_NAME_VISWALL};
+my $mysql_host = $config_hash->{DB_HOST};
+my $mysql_user = $config_hash->{DB_USER};
+my $mysql_passwd = $config_hash->{DB_PASS};
 
 
 #Description
@@ -28,9 +31,6 @@ sub headwrite_interface{
 $first=$first."#!/bin/bash\n";
 $first=$first."###########################################\n";
 $first=$first."# Created by Viswall                      #\n";
-$first=$first."# itsoft Software GmbH                    #\n";
-$first=$first."# script developer: Leitner Christian     #\n";
-$first=$first."# contact: christian.leitner@itsoft.at    #\n";
 $first=$first."# INTERFACE CONFIGURE SCRIPT 		  #\n";
 $first=$first."# TIMESTAMP: ".localtime()."     #\n";
 $first=$first."###########################################\n";
