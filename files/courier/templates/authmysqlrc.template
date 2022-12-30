@@ -90,13 +90,13 @@ MYSQL_CLEAR_PWFIELD	Passwort
 #
 # MYSQL_UID_FIELD - contains the numerical userid of the account
 #
-MYSQL_UID_FIELD		UID
+MYSQL_UID_FIELD		system_uid
 
 ##NAME: MYSQL_GID_FIELD:0
 #
 # Numerical groupid of the account
 
-MYSQL_GID_FIELD		CID
+MYSQL_GID_FIELD		system_gid
 
 ##NAME: MYSQL_LOGIN_FIELD:0
 #
