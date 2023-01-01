@@ -1,0 +1,70 @@
+#! /bin/sh
+#
+# Copyright 1998 - 2005 Double Precision, Inc.
+# See COPYING for distribution information.
+
+
+prefix=/usr
+exec_prefix=/usr
+libexecdir=${prefix}/lib/courier
+sbindir=${exec_prefix}/sbin
+bindir="/usr/bin"
+sysconfdir="/etc/courier"
+
+if test ! -f ${sysconfdir}/pop3d
+then
+	echo "${sysconfdir}/pop3d does not exist, forgot make install-configure?"
+	exit 1
+fi
+
+if test ! -f ${sysconfdir}/pop3d-ssl
+then
+	echo "${sysconfdir}/pop3d-ssl does not exist, forgot make install-configure?"
+	exit 1
+fi
+
+. /etc/courier/pop3d
+. /etc/courier/pop3d-ssl
+
+if test "$TLS_CACHEFILE" != ""
+then
+	rm -f "$TLS_CACHEFILE"
+	touch "$TLS_CACHEFILE"
+	chown courier "$TLS_CACHEFILE"
+	chgrp courier  "$TLS_CACHEFILE"
+	chmod 600  "$TLS_CACHEFILE"
+fi
+/usr/bin/env -i PATH="$PATH" SHELL="$SHELL" \
+	/bin/sh -c " set -a ; \
+	prefix=/usr ; \
+	exec_prefix=/usr ; \
+	sbindir=${exec_prefix}/sbin ; \
+	bindir=/usr/bin ; \
+	libexecdir=${prefix}/lib/courier ; \
+	. /etc/courier/pop3d ; \
+	. /etc/courier/pop3d-ssl ; \
+	PROXY_HOSTNAME=$PROXY_HOSTNAME; \
+	POP3_TLS=1; \
+        POP3_STARTTLS=NO; \
+        POP3_TLS_REQUIRED=0; \
+	/bin/mkdir -p `dirname $SSLPIDFILE` ; \
+	/usr/sbin/courierlogger -pid=$SSLPIDFILE -start $SSLLOGGEROPTS \
+	${exec_prefix}/sbin/couriertcpd -address=$SSLADDRESS \
+		-maxprocs=$MAXDAEMONS -maxperip=$MAXPERIP \
+		$TCPDOPTS \
+		$SSLPORT $COURIERTLS -server -tcpd \
+		        -user=courier \
+			$libexecdir/courier/courierpop3login \
+			$libexecdir/courier/courierpop3d ${MAILDIRPATH}"
+
+while [ 1 -eq 1 ];
+do
+    PID=$(cat $SSLPIDFILE)
+    if [ $(ps awx |grep $PID |sed "/grep/d" |wc -l) -eq 0 ]
+    then
+        sleep 1
+        break
+    fi
+done
+
+exit 0

@@ -1,0 +1,73 @@
+#! /bin/sh
+#
+# Copyright 1998 - 2015 Double Precision, Inc.
+# See COPYING for distribution information.
+
+
+prefix=/usr
+exec_prefix=/usr
+sbindir=${exec_prefix}/sbin
+bindir=/usr/bin
+sysconfdir=/etc/courier
+
+if test ! -f /etc/courier/imapd
+then
+	echo "/etc/courier/imapd does not exist, forgot make install-configure?"
+	exit 1
+fi
+
+if test ! -f /etc/courier/imapd-ssl
+then
+	echo "/etc/courier/imapd-ssl does not exist, forgot make install-configure?"
+	exit 1
+fi
+
+. /etc/courier/imapd
+. /etc/courier/imapd-ssl
+
+if test "$TLS_CACHEFILE" != ""
+then
+	rm -f "$TLS_CACHEFILE"
+	touch "$TLS_CACHEFILE"
+	chown courier "$TLS_CACHEFILE"
+	chgrp courier  "$TLS_CACHEFILE"
+	chmod 600  "$TLS_CACHEFILE"
+fi
+
+umask $IMAP_UMASK
+if test ! -f "${IMAPACCESSFILE}.dat"
+then
+	$sbindir/makeimapaccess
+fi
+ulimit -v $IMAP_ULIMITD
+/usr/bin/env -i /bin/sh -c " set -a ;
+	prefix=/usr ; \
+	exec_prefix=/usr ; \
+	sbindir=${exec_prefix}/sbin ; \
+	bindir=/usr/bin ; \
+	. /etc/courier/imapd ; \
+	. /etc/courier/imapd-ssl ; \
+	PROXY_HOSTNAME=$PROXY_HOSTNAME ; \
+	IMAP_TLS=1; \
+	/bin/mkdir -p `dirname $SSLPIDFILE` ; \
+	/usr/sbin/courierlogger -pid=$SSLPIDFILE $SSLLOGGEROPTS \
+	${exec_prefix}/sbin/couriertcpd -address=$SSLADDRESS \
+		-maxprocs=$MAXDAEMONS -maxperip=$MAXPERIP \
+		-access=$IMAPACCESSFILE.dat \
+		$TCPDOPTS \
+		$SSLPORT $COURIERTLS -server -tcpd \
+		        -user=courier \
+			${prefix}/lib/courier/courier/imaplogin \
+			/usr/bin/imapd ${MAILDIRPATH}"
+
+	while [ 1 -eq 1 ];
+        do
+		PID=$(cat $SSLPIDFILE)
+        	if [ $(ps awx |grep $PID |sed "/grep/d" |wc -l) -eq 0 ]
+                then
+			sleep 1
+			break
+		fi
+	done
+
+exit 0

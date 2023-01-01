@@ -1,0 +1,77 @@
+#! /bin/sh
+#
+# Copyright 1998 - 2005 Double Precision, Inc.  See COPYING for
+# distribution information.
+#
+# Sample script to start Courier's pop3 daemon.
+#
+# This script should work for most systems.  Authenticate via the PAM library,
+# /etc/shadow, or fallback to /etc/passwd
+#
+# You must run this as root, and as a daemon process.
+#
+
+prefix="/usr"
+exec_prefix="/usr"
+sysconfdir="/etc/courier"
+sbindir="${exec_prefix}/sbin"
+bindir="/usr/bin"
+libexecdir="${prefix}/lib/courier"
+
+if test ! -f ${sysconfdir}/pop3d
+then
+	echo "${sysconfdir}/pop3d does not exist, forgot make install-configure?"
+	exit 1
+fi
+
+if test ! -f ${sysconfdir}/pop3d-ssl
+then
+	echo "${sysconfdir}/pop3d-ssl does not exist, forgot make install-configure?"
+	exit 1
+fi
+
+. ${sysconfdir}/pop3d-ssl
+. ${sysconfdir}/pop3d
+
+export PATH
+export SHELL
+
+cd /usr
+
+if test "$TLS_CACHEFILE" != ""
+then
+	rm -f "$TLS_CACHEFILE"
+	touch "$TLS_CACHEFILE"
+	chown courier "$TLS_CACHEFILE"
+	chgrp courier  "$TLS_CACHEFILE"
+	chmod 600  "$TLS_CACHEFILE"
+fi
+
+/usr/bin/env -i /bin/sh -c " set -a; \
+		prefix=/usr ; \
+		exec_prefix=/usr ; \
+		sbindir=${exec_prefix}/sbin ; \
+		bindir=/usr/bin ; \
+		libexecdir=${prefix}/lib/courier ; \
+		. /etc/courier/pop3d ; \
+		. /etc/courier/pop3d-ssl ; \
+	PROXY_HOSTNAME=$PROXY_HOSTNAME ; \
+	/bin/mkdir -p `dirname $PIDFILE` ; \
+	/usr/sbin/courierlogger -pid=$PIDFILE -start $LOGGEROPTS \
+	${exec_prefix}/sbin/couriertcpd -address=$ADDRESS \
+		-maxprocs=$MAXDAEMONS -maxperip=$MAXPERIP \
+		$TCPDOPTS \
+		$PORT ${prefix}/lib/courier/courier/courierpop3login \
+			${prefix}/lib/courier/courier/courierpop3d ${MAILDIRPATH}"
+
+while [ 1 -eq 1 ];
+do
+    PID=$(cat $PIDFILE)
+    if [ $(ps awx |grep $PID |sed "/grep/d" |wc -l) -eq 0 ]
+    then
+        sleep 1
+        break
+    fi
+done
+
+exit 0

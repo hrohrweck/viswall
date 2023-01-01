@@ -269,7 +269,7 @@ TLS_CERTFILE=/etc/courier/imapd.pem
 # In all cases, $TLS_PRIVATE_KEYFILE needs to be linked to one of the existing
 # certificate files.
 #
-#TLS_PRIVATE_KEYFILE=/etc/courier/imapd_private_key.pem
+#TLS_PRIVATE_KEYFILE=/etc/courier/imapd.key
 
 ##NAME: TLS_DHPARAMS:0
 #

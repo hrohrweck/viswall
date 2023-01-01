@@ -1,0 +1,6 @@
+[exim]
+port   = 25,465,587
+logpath = /var/log/exim4/mainlog
+enabled = true
+bantime = 6h
+findtime = 15m
