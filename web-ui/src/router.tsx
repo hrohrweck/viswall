@@ -5,13 +5,14 @@ import { Dashboard } from './pages/Dashboard'
 import { Instances } from './pages/Instances'
 import { InstanceDetail } from './pages/InstanceDetail'
 import { FirewallRules } from './pages/FirewallRules'
-import { MailDomains } from './pages/MailDomains'
 import { Users } from './pages/Users'
 import { Metrics } from './pages/Metrics'
 import { Settings } from './pages/Settings'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { VPNServers } from './pages/VPN/VPNServers'
 import { VPNCreate } from './pages/VPN/VPNCreate'
+import { MailDomains } from './pages/Mail/MailDomains'
+import { MailDomainCreate } from './pages/Mail/MailDomainCreate'
 
 export const router = createBrowserRouter([
   {
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
       {
         path: 'mail',
         element: <MailDomains />,
+      },
+      {
+        path: 'mail/domains/create',
+        element: <MailDomainCreate />,
       },
       {
         path: 'users',
