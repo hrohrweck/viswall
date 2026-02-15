@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import os
 
-from .routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation
+from .routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant
 from shared.database import init_db, get_db
 from shared.models import Base
 
@@ -44,6 +44,7 @@ app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["Metrics"])
 app.include_router(audit.router, prefix="/api/v1/audit", tags=["Audit"])
 app.include_router(vpn.router, prefix="/api/v1/vpn", tags=["VPN"])
 app.include_router(firewall_simulation.router, prefix="/api/v1/simulation", tags=["Firewall Simulation"])
+app.include_router(assistant.router, prefix="/api/v1/assistant", tags=["LLM Assistant"])
 
 @app.get("/health", tags=["Health"])
 async def health_check():
@@ -59,6 +60,7 @@ async def api_info():
             "firewall-management",
             "firewall-rule-simulation",
             "firewall-test-suites",
+            "llm-configuration-assistant",
             "mail-management",
             "metrics-collection",
             "rbac",
