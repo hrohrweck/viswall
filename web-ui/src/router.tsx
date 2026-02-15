@@ -5,6 +5,8 @@ import { Dashboard } from './pages/Dashboard'
 import { Instances } from './pages/Instances'
 import { InstanceDetail } from './pages/InstanceDetail'
 import { FirewallRules } from './pages/FirewallRules'
+import { FirewallSimulator } from './pages/Firewall/FirewallSimulator'
+import { FirewallTestSuite } from './pages/Firewall/FirewallTestSuite'
 import { Users } from './pages/Users'
 import { Metrics } from './pages/Metrics'
 import { Settings } from './pages/Settings'
@@ -42,6 +44,14 @@ export const router = createBrowserRouter([
       {
         path: 'firewall',
         element: <FirewallRules />,
+      },
+      {
+        path: 'firewall/simulator',
+        element: <FirewallSimulator />,
+      },
+      {
+        path: 'firewall/tests',
+        element: <FirewallTestSuite />,
       },
       {
         path: 'vpn',
