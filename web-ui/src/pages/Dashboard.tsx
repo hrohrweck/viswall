@@ -1,10 +1,10 @@
-import { LayoutDashboard, Server, Shield, Mail } from 'lucide-react'
+import { LayoutDashboard, Server, Shield, Mail, Network } from 'lucide-react'
 
 const stats = [
   { label: 'Instances', value: '0', icon: Server, color: 'blue' },
   { label: 'Firewall Rules', value: '0', icon: Shield, color: 'green' },
+  { label: 'VPN Clients', value: '0', icon: Network, color: 'indigo' },
   { label: 'Mail Domains', value: '0', icon: Mail, color: 'purple' },
-  { label: 'Active Users', value: '0', icon: LayoutDashboard, color: 'orange' },
 ]
 
 export function Dashboard() {

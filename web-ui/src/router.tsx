@@ -10,6 +10,8 @@ import { Users } from './pages/Users'
 import { Metrics } from './pages/Metrics'
 import { Settings } from './pages/Settings'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { VPNServers } from './pages/VPN/VPNServers'
+import { VPNCreate } from './pages/VPN/VPNCreate'
 
 export const router = createBrowserRouter([
   {
@@ -39,6 +41,14 @@ export const router = createBrowserRouter([
       {
         path: 'firewall',
         element: <FirewallRules />,
+      },
+      {
+        path: 'vpn',
+        element: <VPNServers />,
+      },
+      {
+        path: 'vpn/create',
+        element: <VPNCreate />,
       },
       {
         path: 'mail',

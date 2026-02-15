@@ -195,3 +195,243 @@ class RoutingRule(Base):
     order_index = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ============================================================================
+# VPN MODELS - Modern and Legacy Protocol Support
+# ============================================================================
+
+class VPNServer(Base):
+    """VPN server configurations - multi-protocol support"""
+    __tablename__ = "vpn_servers"
+    
+    id = Column(Integer, primary_key=True)
+    instance_id = Column(Integer, ForeignKey("instances.id"))
+    
+    # Basic info
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    enabled = Column(Boolean, default=True)
+    
+    # Protocol: wireguard, ipsec, openvpn, pptp, l2tp
+    protocol = Column(String(20), nullable=False)
+    
+    # Network configuration
+    listen_address = Column(String(45), default="0.0.0.0")
+    listen_port = Column(Integer)
+    network_cidr = Column(String(50))  # VPN subnet (e.g., 10.200.0.0/24)
+    
+    # DNS and routing
+    dns_servers = Column(JSON, default=list)
+    push_routes = Column(JSON, default=list)  # Routes to push to clients
+    internet_redirect = Column(Boolean, default=False)  # Redirect all traffic through VPN
+    
+    # Protocol-specific configuration stored as JSON
+    config = Column(JSON, default=dict)
+    
+    # Crypto settings (protocol-specific)
+    cipher = Column(String(50))
+    digest = Column(String(50))
+    
+    # Status
+    status = Column(String(20), default="stopped")  # running, stopped, error
+    connected_clients = Column(Integer, default=0)
+    bytes_received = Column(Integer, default=0)
+    bytes_sent = Column(Integer, default=0)
+    
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class VPNClient(Base):
+    """VPN client configurations (for site-to-site or user clients)"""
+    __tablename__ = "vpn_clients"
+    
+    id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey("vpn_servers.id"))
+    
+    # Client identification
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    enabled = Column(Boolean, default=True)
+    
+    # Client type: user (road warrior), site (site-to-site), service
+    client_type = Column(String(20), default="user")
+    
+    # Authentication
+    auth_type = Column(String(20), default="cert")  # cert, password, sso, psk
+    
+    # Credentials (encrypted or references)
+    public_key = Column(Text)  # For WireGuard
+    certificate = Column(Text)  # For OpenVPN/IPsec
+    private_key_ref = Column(String(255))  # Reference to secure storage
+    psk = Column(String(512))  # Pre-shared key for IPsec/L2TP
+    
+    # Client addressing
+    assigned_ip = Column(String(45))  # Static assignment (optional)
+    
+    # Access control
+    allowed_ips = Column(JSON, default=list)  # Allowed source IPs
+    push_routes_override = Column(JSON, default=list)
+    
+    # User association (for user-type clients)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    # Connection tracking
+    last_connected = Column(DateTime)
+    last_ip = Column(String(45))
+    connection_count = Column(Integer, default=0)
+    bytes_received = Column(Integer, default=0)
+    bytes_sent = Column(Integer, default=0)
+    
+    # QR code / config file for mobile clients
+    config_qr = Column(Text)
+    config_file = Column(Text)  # Base64 encoded config
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class VPNConnection(Base):
+    """Active and historical VPN connections"""
+    __tablename__ = "vpn_connections"
+    
+    id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey("vpn_servers.id"))
+    client_id = Column(Integer, ForeignKey("vpn_clients.id"))
+    
+    # Connection details
+    protocol = Column(String(20))
+    client_ip = Column(String(45))  # Real client IP
+    virtual_ip = Column(String(45))  # Assigned VPN IP
+    
+    # Timestamps
+    connected_at = Column(DateTime, default=datetime.utcnow)
+    disconnected_at = Column(DateTime)
+    duration_seconds = Column(Integer)
+    
+    # Data transfer
+    bytes_received = Column(Integer, default=0)
+    bytes_sent = Column(Integer, default=0)
+    
+    # Status
+    status = Column(String(20), default="active")  # active, disconnected, error
+    disconnect_reason = Column(String(100))
+
+
+class WireGuardPeer(Base):
+    """WireGuard-specific peer configuration (optimized table)"""
+    __tablename__ = "wireguard_peers"
+    
+    id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey("vpn_servers.id"))
+    client_id = Column(Integer, ForeignKey("vpn_clients.id"))
+    
+    # WireGuard specific
+    public_key = Column(String(255), nullable=False, unique=True)
+    preshared_key = Column(String(512))
+    
+    # AllowedIPs in WireGuard format
+    allowed_ips = Column(String(500), default="0.0.0.0/0, ::/0")
+    
+    # Persistent keepalive (seconds)
+    persistent_keepalive = Column(Integer, default=25)
+    
+    # QoS
+    bandwidth_limit_in = Column(Integer)  # kbps
+    bandwidth_limit_out = Column(Integer)
+
+
+class IPSecTunnel(Base):
+    """IPsec tunnel configurations (IKEv2, IKEv1)"""
+    __tablename__ = "ipsec_tunnels"
+    
+    id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey("vpn_servers.id"))
+    client_id = Column(Integer, ForeignKey("vpn_clients.id"))
+    
+    # IPsec specifics
+    tunnel_type = Column(String(20), default="ikev2")  # ikev2, ikev1
+    
+    # Phase 1 (IKE)
+    ike_encryption = Column(String(50), default="aes256")
+    ike_integrity = Column(String(50), default="sha256")
+    ike_dh_group = Column(String(50), default="modp2048")
+    ike_lifetime = Column(Integer, default=86400)
+    
+    # Phase 2 (ESP)
+    esp_encryption = Column(String(50), default="aes256")
+    esp_integrity = Column(String(50), default="sha256")
+    esp_dh_group = Column(String(50))  # For PFS
+    esp_lifetime = Column(Integer, default=3600)
+    
+    # Authentication
+    auth_method = Column(String(20), default="cert")  # cert, psk, eap
+    local_id = Column(String(255))
+    remote_id = Column(String(255))
+    
+    # Dead Peer Detection
+    dpd_enabled = Column(Boolean, default=True)
+    dpd_interval = Column(Integer, default=30)
+    dpd_timeout = Column(Integer, default=120)
+
+
+class OpenVPNConfig(Base):
+    """OpenVPN-specific configurations"""
+    __tablename__ = "openvpn_configs"
+    
+    id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey("vpn_servers.id"))
+    
+    # Protocol mode
+    mode = Column(String(20), default="tun")  # tun (layer 3), tap (layer 2)
+    topology = Column(String(20), default="subnet")  # subnet, net30, p2p
+    
+    # Crypto
+    cipher = Column(String(50), default="AES-256-GCM")
+    auth_digest = Column(String(50), default="SHA256")
+    tls_version_min = Column(String(10), default="1.2")
+    
+    # Compression
+    compression = Column(String(20))  # lz4, lzo, stub-v2
+    
+    # Connection settings
+    keepalive = Column(String(20), default="10 120")  # ping/ping-restart
+    max_clients = Column(Integer, default=1024)
+    
+    # Certificate settings
+    ca_cert = Column(Text)
+    server_cert = Column(Text)
+    server_key = Column(Text)
+    crl = Column(Text)  # Certificate Revocation List
+    
+    # Advanced options
+    duplicate_cn = Column(Boolean, default=False)  # Allow multiple connections per cert
+    client_to_client = Column(Boolean, default=False)
+    
+    # Plugin configs (auth, etc.)
+    plugins = Column(JSON, default=list)
+
+
+class VPNRoute(Base):
+    """VPN-specific routing rules (split tunneling, etc.)"""
+    __tablename__ = "vpn_routes"
+    
+    id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey("vpn_servers.id"))
+    
+    # Route definition
+    destination = Column(String(50), nullable=False)  # CIDR
+    gateway = Column(String(45))
+    metric = Column(Integer, default=0)
+    
+    # Scope
+    apply_to_all = Column(Boolean, default=True)
+    specific_clients = Column(JSON, default=list)  # Client IDs if not all
+    
+    # Description
+    description = Column(String(255))
+    
+    order_index = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
