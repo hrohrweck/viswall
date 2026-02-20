@@ -63,7 +63,7 @@ jobs:
         PYTHONPATH: ${{ github.workspace }}
       run: |
         cd services/api-gateway
-        pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
+        pytest tests/ -v --cov=. --cov-report=xml --cov-report=term --asyncio-mode=auto
 
     - name: Upload coverage
       uses: codecov/codecov-action@v4
