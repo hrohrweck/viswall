@@ -10,6 +10,7 @@ from shared.models import Base
 
 token_auth = HTTPBearer()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -17,11 +18,12 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
 
+
 app = FastAPI(
     title="Viswall API Gateway",
     description="Central management API for distributed viswall instances",
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS configuration
@@ -43,12 +45,18 @@ app.include_router(mail.router, prefix="/api/v1/mail", tags=["Mail"])
 app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["Metrics"])
 app.include_router(audit.router, prefix="/api/v1/audit", tags=["Audit"])
 app.include_router(vpn.router, prefix="/api/v1/vpn", tags=["VPN"])
-app.include_router(firewall_simulation.router, prefix="/api/v1/simulation", tags=["Firewall Simulation"])
+app.include_router(
+    firewall_simulation.router,
+    prefix="/api/v1/simulation",
+    tags=["Firewall Simulation"],
+)
 app.include_router(assistant.router, prefix="/api/v1/assistant", tags=["LLM Assistant"])
+
 
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "healthy", "service": "viswall-api-gateway"}
+
 
 @app.get("/api/v1/")
 async def api_info():
@@ -66,6 +74,6 @@ async def api_info():
             "rbac",
             "vpn-management-wireguard-ipsec-openvpn-l2tp-pptp",
             "site-to-site-vpn",
-            "split-tunneling"
-        ]
+            "split-tunneling",
+        ],
     }

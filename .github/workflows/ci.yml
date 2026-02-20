@@ -60,6 +60,7 @@ jobs:
         DATABASE_URL: postgresql+asyncpg://viswall:viswall@localhost/viswall_test
         REDIS_URL: redis://localhost:6379/0
         JWT_SECRET_KEY: test-secret-key
+        PYTHONPATH: ${{ github.workspace }}
       run: |
         cd services/api-gateway
         pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
