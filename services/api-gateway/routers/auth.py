@@ -101,4 +101,3 @@ async def test_ldap_connection(config: LDAPConfig):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"LDAP connection failed: {str(e)}",
         )
-
