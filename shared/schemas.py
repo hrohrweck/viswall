@@ -164,6 +164,50 @@ class FirewallRuleResponse(FirewallRuleBase):
     created_at: datetime
     updated_at: datetime
 
+
+# NAT Rule Schemas
+class NATRuleBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    enabled: bool = True
+    nat_type: str = "snat"  # snat, dnat, masquerade
+    source_network: Optional[str] = None
+    dest_network: Optional[str] = None
+    service_protocol: str = "any"
+    service_ports: Optional[str] = None
+    inbound_interface: Optional[str] = None
+    outbound_interface: Optional[str] = None
+    translation_address: Optional[str] = None
+    translation_ports: Optional[str] = None
+
+
+class NATRuleCreate(NATRuleBase):
+    pass
+
+
+class NATRuleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    enabled: Optional[bool] = None
+    nat_type: Optional[str] = None
+    source_network: Optional[str] = None
+    dest_network: Optional[str] = None
+    service_protocol: Optional[str] = None
+    service_ports: Optional[str] = None
+    inbound_interface: Optional[str] = None
+    outbound_interface: Optional[str] = None
+    translation_address: Optional[str] = None
+    translation_ports: Optional[str] = None
+
+
+class NATRuleResponse(NATRuleBase):
+    id: int
+    instance_id: int
+    order_index: int
+    created_by: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
     class Config:
         from_attributes = True
 
@@ -196,7 +240,6 @@ class NATRuleResponse(NATRuleBase):
         from_attributes = True
 
 
-# Network Interface Schemas
 class NetworkInterfaceBase(BaseModel):
     name: str = Field(..., max_length=50)
     type: str = "other"
