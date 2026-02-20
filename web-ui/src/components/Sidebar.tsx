@@ -7,13 +7,15 @@ import {
   Mail,
   Users,
   BarChart3,
-  Settings
+  Settings,
+  Gauge
 } from 'lucide-react'
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/instances', label: 'Instances', icon: Server },
   { path: '/firewall', label: 'Firewall', icon: Shield },
+  { path: '/traffic', label: 'Traffic Shaping', icon: Gauge },
   { path: '/vpn', label: 'VPN', icon: Network },
   { path: '/mail', label: 'Mail', icon: Mail },
   { path: '/users', label: 'Users', icon: Users },
