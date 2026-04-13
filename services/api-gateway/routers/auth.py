@@ -6,7 +6,7 @@ from datetime import datetime
 from shared.database import get_db
 from shared.models import User
 from shared.schemas import LoginRequest, LoginResponse, UserResponse, LDAPConfig
-from shared.security import verify_password, create_access_token, get_password_hash
+from shared.security import verify_password, create_access_token, get_password_hash, get_current_user_id as require_auth, require_admin
 
 router = APIRouter()
 
@@ -103,4 +103,3 @@ async def test_ldap_connection(config: LDAPConfig):
             detail=f"LDAP connection failed: {str(e)}"
         )
 
-from shared.security import get_current_user_id as require_auth, require_admin
