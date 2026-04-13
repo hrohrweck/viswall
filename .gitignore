@@ -50,7 +50,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
+# package-lock.json should be committed for CI reproducibility
 yarn.lock
 
 # Build outputs

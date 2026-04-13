@@ -1,21 +1,15 @@
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api_gateway.main import app
+pytestmark = pytest.mark.asyncio
 
-@pytest.fixture
-async def client():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        yield ac
 
-@pytest.mark.asyncio
 async def test_health_check(client: AsyncClient):
     response = await client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
 
-@pytest.mark.asyncio
+
 async def test_api_info(client: AsyncClient):
     response = await client.get("/api/v1/")
     assert response.status_code == 200
