@@ -1,276 +1,195 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Shield, Zap, Lock, AlertTriangle } from 'lucide-react'
+import { Shield, Zap, Globe, Smartphone } from 'lucide-react'
+import { useInstanceStore } from '../../stores/instance'
+import { useCreateVPNServer } from '../../hooks/useApi'
+import { VPNProtocol } from '../../types'
+import type { VPNServerCreate } from '../../types'
 
-interface ProtocolOption {
-  id: string
-  name: string
-  icon: string
-  securityScore: number
-  performanceScore: number
-  compatibilityScore: number
-  description: string
-  useCases: string[]
-  recommended: boolean
-  warning?: string
-}
-
-const protocols: ProtocolOption[] = [
+const protocols = [
   {
-    id: 'wireguard',
+    id: VPNProtocol.WIREGUARD,
     name: 'WireGuard',
-    icon: '⚡',
-    securityScore: 95,
-    performanceScore: 98,
-    compatibilityScore: 75,
-    description: 'Modern, extremely fast and simple VPN protocol. Uses state-of-the-art cryptography.',
-    useCases: ['Road warriors', 'Site-to-site', 'Containers', 'Mobile devices'],
+    icon: Zap,
+    security: 95,
+    performance: 98,
+    compatibility: 75,
     recommended: true,
+    description: 'Modern, fast, secure. ~4,000 lines of code.',
+    color: 'green',
   },
   {
-    id: 'ipsec',
+    id: VPNProtocol.IPSEC,
     name: 'IPsec/IKEv2',
-    icon: '🔒',
-    securityScore: 90,
-    performanceScore: 85,
-    compatibilityScore: 90,
-    description: 'Enterprise standard with native OS support. Excellent for mobile devices.',
-    useCases: ['Enterprise', 'Mobile VPN', 'Site-to-site', 'Native clients'],
+    icon: Shield,
+    security: 90,
+    performance: 85,
+    compatibility: 90,
     recommended: false,
+    description: 'Enterprise standard with native OS support.',
+    color: 'blue',
   },
   {
-    id: 'openvpn',
+    id: VPNProtocol.OPENVPN,
     name: 'OpenVPN',
-    icon: '🛡️',
-    securityScore: 88,
-    performanceScore: 75,
-    compatibilityScore: 95,
-    description: 'Well-tested, flexible, widely supported. Slower but very compatible.',
-    useCases: ['Legacy support', 'Complex routing', 'Bridge mode'],
+    icon: Globe,
+    security: 88,
+    performance: 75,
+    compatibility: 95,
     recommended: false,
+    description: 'Flexible, widely supported, mature.',
+    color: 'yellow',
   },
   {
-    id: 'l2tp',
+    id: VPNProtocol.L2TP,
     name: 'L2TP/IPsec',
-    icon: '📡',
-    securityScore: 60,
-    performanceScore: 70,
-    compatibilityScore: 98,
-    description: 'Widely supported legacy protocol. Requires IPsec for security.',
-    useCases: ['Legacy clients', 'No custom software needed'],
+    icon: Smartphone,
+    security: 60,
+    performance: 70,
+    compatibility: 98,
     recommended: false,
+    description: 'Legacy compatibility only.',
+    color: 'orange',
   },
   {
-    id: 'pptp',
+    id: VPNProtocol.PPTP,
     name: 'PPTP',
-    icon: '⚠️',
-    securityScore: 20,
-    performanceScore: 80,
-    compatibilityScore: 100,
-    description: 'DEPRECATED - Insecure protocol. Only for legacy compatibility.',
-    useCases: ['Legacy systems only'],
+    icon: Smartphone,
+    security: 20,
+    performance: 80,
+    compatibility: 100,
     recommended: false,
-    warning: 'Not recommended for production use',
+    description: 'Deprecated. Not recommended.',
+    color: 'red',
+    warning: 'This protocol has known security vulnerabilities.',
   },
 ]
 
 export function VPNCreate() {
   const navigate = useNavigate()
+  const { selectedInstanceId } = useInstanceStore()
+  const createMutation = useCreateVPNServer(selectedInstanceId!)
+
   const [step, setStep] = useState(1)
-  const [selectedProtocol, setSelectedProtocol] = useState('')
-  const [config, setConfig] = useState({
-    name: '',
-    network_cidr: '10.200.0.0/24',
-    listen_port: '',
-    dns_servers: ['1.1.1.1', '1.0.0.1'],
-    internet_redirect: true,
-  })
+  const [protocol, setProtocol] = useState<VPNProtocol | null>(null)
+  const [name, setName] = useState('')
+  const [networkCidr, setNetworkCidr] = useState('10.200.0.0/24')
+  const [listenPort, setListenPort] = useState('51820')
+  const [dnsServers, setDnsServers] = useState('1.1.1.1, 1.0.0.1')
+  const [error, setError] = useState('')
 
-  const handleProtocolSelect = (protocolId: string) => {
-    setSelectedProtocol(protocolId)
-    // Set default port based on protocol
-    const defaultPorts: Record<string, string> = {
-      wireguard: '51820',
-      ipsec: '500,4500',
-      openvpn: '1194',
-      l2tp: '500,4500,1701',
-      pptp: '1723',
+  const handleCreate = async () => {
+    if (!protocol || !selectedInstanceId) return
+    setError('')
+    try {
+      const payload: VPNServerCreate = {
+        name,
+        protocol,
+        network_cidr: networkCidr,
+        listen_port: Number(listenPort),
+        dns_servers: dnsServers.split(',').map((s) => s.trim()),
+      }
+      const server = await createMutation.mutateAsync(payload)
+      navigate(`/vpn/servers/${server.id}`)
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to create VPN server')
     }
-    setConfig(prev => ({ ...prev, listen_port: defaultPorts[protocolId] }))
   }
-
-  const renderProtocolSelection = () => (
-    <div className="space-y-4">
-      <p className="text-gray-600 mb-4">Select the VPN protocol for your new server:</p>
-      
-      {protocols.map((protocol) => (
-        <button
-          key={protocol.id}
-          onClick={() => handleProtocolSelect(protocol.id)}
-          className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
-            selectedProtocol === protocol.id
-              ? 'border-primary-500 bg-primary-50'
-              : 'border-gray-200 hover:border-gray-300'
-          }`}
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
-              <span className="text-3xl">{protocol.icon}</span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-gray-900">{protocol.name}</h3>
-                  {protocol.recommended && (
-                    <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
-                      Recommended
-                    </span>
-                  )}
-                  {protocol.warning && (
-                    <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      {protocol.warning}
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-gray-600 mt-1">{protocol.description}</p>
-                
-                <div className="flex gap-4 mt-2">
-                  <span className="text-xs text-gray-500">Security: {protocol.securityScore}/100</span>
-                  <span className="text-xs text-gray-500">Performance: {protocol.performanceScore}/100</span>
-                </div>
-                
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {protocol.useCases.map((useCase) => (
-                    <span key={useCase} className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
-                      {useCase}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-            
-            {selectedProtocol === protocol.id && (
-              <Zap className="w-5 h-5 text-primary-600" />
-            )}
-          </div>
-        </button>
-      ))}
-    </div>
-  )
-
-  const renderConfiguration = () => (
-    <div className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Server Name
-        </label>
-        <input
-          type="text"
-          value={config.name}
-          onChange={(e) => setConfig({ ...config, name: e.target.value })}
-          placeholder="e.g., Main Office VPN"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Network CIDR
-          </label>
-          <input
-            type="text"
-            value={config.network_cidr}
-            onChange={(e) => setConfig({ ...config, network_cidr: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">VPN client IP range</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Listen Port
-          </label>
-          <input
-            type="text"
-            value={config.listen_port}
-            onChange={(e) => setConfig({ ...config, listen_port: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">Comma-separated for multiple</p>
-        </div>
-      </div>
-
-      <div>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={config.internet_redirect}
-            onChange={(e) => setConfig({ ...config, internet_redirect: e.target.checked })}
-            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          />
-          <span className="text-sm text-gray-700">Redirect all client traffic through VPN</span>
-        </label>
-      </div>
-    </div>
-  )
 
   return (
     <div>
-      <button
-        onClick={() => navigate('/vpn')}
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to VPN
-      </button>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">New VPN Server</h2>
 
-      <div className="flex items-center gap-4 mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Create VPN Server</h2>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span className={step >= 1 ? 'text-primary-600 font-medium' : ''}>Protocol</span>
-          <ChevronRight className="w-4 h-4" />
-          <span className={step >= 2 ? 'text-primary-600 font-medium' : ''}>Configuration</span>
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
+      )}
+
+      {step === 1 && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">1. Choose Protocol</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {protocols.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => {
+                  setProtocol(p.id)
+                  if (p.id === VPNProtocol.WIREGUARD) setListenPort('51820')
+                  else if (p.id === VPNProtocol.OPENVPN) setListenPort('1194')
+                  else setListenPort('500')
+                }}
+                className={`relative p-4 rounded-lg border-2 text-left transition-colors ${
+                  protocol === p.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {p.recommended && (
+                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                    Recommended
+                  </span>
+                )}
+                <div className="flex items-center gap-3 mb-2">
+                  <p.icon className={`w-5 h-5 text-${p.color}-600`} />
+                  <span className="font-semibold text-gray-900">{p.name}</span>
+                </div>
+                <p className="text-sm text-gray-600 mb-3">{p.description}</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="w-16 text-gray-500">Security</span>
+                    <div className="flex-1 h-1.5 bg-gray-200 rounded">
+                      <div className={`h-full bg-${p.color}-500 rounded`} style={{ width: `${p.security}%` }} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="w-16 text-gray-500">Speed</span>
+                    <div className="flex-1 h-1.5 bg-gray-200 rounded">
+                      <div className={`h-full bg-${p.color}-500 rounded`} style={{ width: `${p.performance}%` }} />
+                    </div>
+                  </div>
+                </div>
+                {p.warning && (
+                  <p className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">{p.warning}</p>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end mt-6">
+            <button onClick={() => setStep(2)} disabled={!protocol} className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+              Next
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        {step === 1 && renderProtocolSelection()}
-        {step === 2 && renderConfiguration()}
-
-        <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
-          {step > 1 ? (
-            <button
-              onClick={() => setStep(step - 1)}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900"
-            >
-              Back
+      {step === 2 && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">2. Configuration</h3>
+          <div className="max-w-lg space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Server Name</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Main Office VPN" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Network CIDR</label>
+                <input type="text" value={networkCidr} onChange={(e) => setNetworkCidr(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Listen Port</label>
+                <input type="number" value={listenPort} onChange={(e) => setListenPort(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">DNS Servers</label>
+              <input type="text" value={dnsServers} onChange={(e) => setDnsServers(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+          </div>
+          <div className="flex justify-between mt-6">
+            <button onClick={() => setStep(1)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Back</button>
+            <button onClick={handleCreate} disabled={!name || createMutation.isPending} className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+              {createMutation.isPending ? 'Creating...' : 'Create VPN Server'}
             </button>
-          ) : (
-            <div />
-          )}
-
-          {step < 2 ? (
-            <button
-              onClick={() => setStep(step + 1)}
-              disabled={!selectedProtocol}
-              className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Continue
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                // Submit form
-                navigate('/vpn')
-              }}
-              disabled={!config.name}
-              className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-            >
-              Create Server
-            </button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

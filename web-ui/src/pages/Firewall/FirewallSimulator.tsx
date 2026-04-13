@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Play, Pause, RotateCcw, CheckCircle, XCircle, AlertTriangle, ChevronRight } from 'lucide-react'
+import { Play, Pause, RotateCcw, CheckCircle, XCircle, ChevronRight } from 'lucide-react'
 
 interface Packet {
   src_ip: string
@@ -67,13 +67,13 @@ export function FirewallSimulator() {
     connection_state: 'NEW'
   })
 
-  const [rules, setRules] = useState<Rule[]>([
+  const [rules] = useState<Rule[]>([
     { id: 1, name: 'Block WAN SSH', chain: 'input', action: 'drop', dst_port: 22, interface_in: 'eth0', log: true, order: 10, enabled: true },
     { id: 2, name: 'Allow LAN to WAN', chain: 'forward', action: 'accept', interface_in: 'eth1', interface_out: 'eth0', log: false, order: 100, enabled: true },
     { id: 3, name: 'Block Bad IPs', chain: 'forward', action: 'drop', src_ip: '10.0.0.0/8', log: true, order: 50, enabled: true },
   ])
 
-  const [interfaces] = useState({ eth0: 'wan', eth1: 'lan' })
+  const [_interfaces] = useState({ eth0: 'wan', eth1: 'lan' })
   const [simulation, setSimulation] = useState<SimulationResult | null>(null)
   const [currentStep, setCurrentStep] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)

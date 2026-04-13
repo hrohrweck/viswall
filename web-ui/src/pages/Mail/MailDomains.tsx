@@ -1,54 +1,50 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Mail, Shield, AlertTriangle, CheckCircle } from 'lucide-react'
-
-interface MailDomain {
-  id: number
-  domain: string
-  enabled: boolean
-  user_count: number
-  spam_filter_enabled: boolean
-  virus_scan_enabled: boolean
-  dkim_enabled: boolean
-  dmarc_enabled: boolean
-  llm_enabled: boolean
-}
-
-const mockDomains: MailDomain[] = [
-  {
-    id: 1,
-    domain: 'example.com',
-    enabled: true,
-    user_count: 25,
-    spam_filter_enabled: true,
-    virus_scan_enabled: true,
-    dkim_enabled: true,
-    dmarc_enabled: true,
-    llm_enabled: false,
-  },
-  {
-    id: 2,
-    domain: 'company.org',
-    enabled: true,
-    user_count: 150,
-    spam_filter_enabled: true,
-    virus_scan_enabled: true,
-    dkim_enabled: true,
-    dmarc_enabled: false,
-    llm_enabled: true,
-  },
-]
+import { useState } from 'react'
+import { useInstanceStore } from '../../stores/instance'
+import { useMailDomains, useDeleteMailDomain } from '../../hooks/useApi'
+import { InstanceSelector, StatusBadge, ConfirmDialog, EmptyState, LoadingSpinner } from '../../components/ui'
+import type { MailDomain } from '../../types'
 
 export function MailDomains() {
-  const [domains] = useState(mockDomains)
-  const [selectedInstance] = useState(1)
+  const { selectedInstanceId } = useInstanceStore()
+  const { data: domains, isLoading } = useMailDomains(selectedInstanceId!)
+  const deleteMutation = useDeleteMailDomain(selectedInstanceId!)
+  const [deleteTarget, setDeleteTarget] = useState<MailDomain | null>(null)
+
+  const handleDelete = async () => {
+    if (deleteTarget) {
+      await deleteMutation.mutateAsync(deleteTarget.id)
+      setDeleteTarget(null)
+    }
+  }
+
+  if (!selectedInstanceId) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Mail Domains</h2>
+            <p className="text-gray-600 mt-1">Manage email domains, users, and security settings</p>
+          </div>
+        </div>
+        <EmptyState icon={Mail} title="Select an Instance" description="Choose an instance to manage mail domains." />
+        <div className="mt-4"><InstanceSelector /></div>
+      </div>
+    )
+  }
+
+  if (isLoading) return <LoadingSpinner />
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Mail Domains</h2>
-          <p className="text-gray-600 mt-1">Manage email domains, users, and security settings</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Mail Domains</h2>
+            <p className="text-gray-600 mt-1">Manage email domains, users, and security settings</p>
+          </div>
+          <InstanceSelector />
         </div>
         <Link
           to="/mail/domains/create"
@@ -59,72 +55,37 @@ export function MailDomains() {
         </Link>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Mail className="w-5 h-5 text-blue-600" />
+      {domains && domains.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg"><Mail className="w-5 h-5 text-blue-600" /></div>
+              <div><p className="text-sm text-gray-600">Total Domains</p><p className="text-2xl font-bold">{domains.length}</p></div>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Domains</p>
-              <p className="text-2xl font-bold">{domains.length}</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg"><CheckCircle className="w-5 h-5 text-green-600" /></div>
+              <div><p className="text-sm text-gray-600">Active</p><p className="text-2xl font-bold">{domains.filter((d) => d.enabled).length}</p></div>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg"><Shield className="w-5 h-5 text-purple-600" /></div>
+              <div><p className="text-sm text-gray-600">Spam Filter</p><p className="text-2xl font-bold">{domains.filter((d) => d.spam_filter_enabled).length}</p></div>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 rounded-lg"><AlertTriangle className="w-5 h-5 text-red-600" /></div>
+              <div><p className="text-sm text-gray-600">Antivirus</p><p className="text-2xl font-bold">{domains.filter((d) => d.virus_scan_enabled).length}</p></div>
             </div>
           </div>
         </div>
+      )}
 
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Active Users</p>
-              <p className="text-2xl font-bold">{domains.reduce((acc, d) => acc + d.user_count, 0)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Shield className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Spam Blocked</p>
-              <p className="text-2xl font-bold">1,247</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Viruses Blocked</p>
-              <p className="text-2xl font-bold">23</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Domains List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        {domains.length === 0 ? (
-          <div className="p-12 text-center">
-            <Mail className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No mail domains</h3>
-            <p className="text-gray-600 mb-6">Add your first email domain to get started.</p>
-            <Link
-              to="/mail/domains/create"
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-            >
-              Add Domain
-            </Link>
-          </div>
-        ) : (
+      {domains && domains.length > 0 ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="divide-y divide-gray-200">
             {domains.map((domain) => (
               <Link
@@ -136,47 +97,48 @@ export function MailDomains() {
                   <div className={`p-3 rounded-lg ${domain.enabled ? 'bg-blue-100' : 'bg-gray-100'}`}>
                     <Mail className={`w-6 h-6 ${domain.enabled ? 'text-blue-600' : 'text-gray-400'}`} />
                   </div>
-                  
                   <div>
                     <h3 className="font-semibold text-gray-900">{domain.domain}</h3>
                     <div className="flex items-center gap-3 text-sm text-gray-600 mt-1">
-                      <span>{domain.user_count} users</span㸾
-                      {domain.spam_filter_enabled && (
-                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
-                          Spam Filter
-                        </span>
-                      )}
-                      {domain.virus_scan_enabled && (
-                        <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs">
-                          Antivirus
-                        </span>
-                      )}
-                      {domain.dkim_enabled && (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">
-                          DKIM
-                        </span>
-                      )}
-                      {domain.llm_enabled && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
-                          AI Classify
-                        </span>
-                      )}
+                      {domain.spam_filter_enabled && <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">Spam Filter</span>}
+                      {domain.virus_scan_enabled && <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs">Antivirus</span>}
+                      {domain.dkim_enabled && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">DKIM</span>}
+                      {domain.dmarc_enabled && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">DMARC</span>}
+                      {domain.llm_enabled && <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">AI Classify</span>}
                     </div>
                   </div>
                 </div>
-                
-                <span className={`px-3 py-1 text-sm rounded-full ${
-                  domain.enabled
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {domain.enabled ? 'Active' : 'Disabled'}
-                </span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(domain) }}
+                    className="text-sm text-red-600 hover:text-red-700 opacity-0 group-hover:opacity-100"
+                  >
+                    Delete
+                  </button>
+                  <StatusBadge status={domain.enabled ? 'active' : 'inactive'} />
+                </div>
               </Link>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <EmptyState
+          icon={Mail}
+          title="No mail domains"
+          description="Add your first email domain to get started."
+          actionLabel="Add Domain"
+          actionTo="/mail/domains/create"
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete Domain"
+        message={`Delete "${deleteTarget?.domain}"? All associated users and mail data will be removed.`}
+        loading={deleteMutation.isPending}
+      />
     </div>
   )
 }

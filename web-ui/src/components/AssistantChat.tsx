@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Shield, Check, X, Lightbulb, Wand2, Play } from 'lucide-react'
+import { Send, Bot, User, Shield, Check, Lightbulb, Wand2, Play } from 'lucide-react'
 
 interface Message {
   id: string
@@ -33,8 +33,7 @@ export function AssistantChat() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Hi! I'm your Viswall configuration assistant. I can help you:\n\n• Create firewall rules\n• Generate test cases\n• Set up VPN or mail\n• Explain configurations\n• Troubleshoot issues\n
-What would you like to do?",
+      content: "Hi! I'm your Viswall configuration assistant. I can help you:\n\n• Create firewall rules\n• Generate test cases\n• Set up VPN or mail\n• Explain configurations\n• Troubleshoot issues\n\nWhat would you like to do?",
       type: 'text',
       timestamp: new Date()
     }
