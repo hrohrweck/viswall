@@ -107,8 +107,12 @@ async def update_firewall_rule(
     background_tasks: BackgroundTasks,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
-)
-    
+):
+    result = await db.execute(
+        select(FirewallRule).where(FirewallRule.id == rule_id)
+    )
+    rule = result.scalar_one_or_none()
+
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
     
