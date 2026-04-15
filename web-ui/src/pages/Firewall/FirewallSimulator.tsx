@@ -73,7 +73,7 @@ export function FirewallSimulator() {
     { id: 3, name: 'Block Bad IPs', chain: 'forward', action: 'drop', src_ip: '10.0.0.0/8', log: true, order: 50, enabled: true },
   ])
 
-  const [_interfaces] = useState({ eth0: 'wan', eth1: 'lan' })
+  useState({ eth0: 'wan', eth1: 'lan' })
   const [simulation, setSimulation] = useState<SimulationResult | null>(null)
   const [currentStep, setCurrentStep] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)

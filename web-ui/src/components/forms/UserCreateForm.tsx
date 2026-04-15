@@ -48,8 +48,9 @@ export function UserCreateForm({ initial, instances, onSubmit, onCancel, loading
           instances: selectedInstances,
         } as UserCreate)
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to save user')
+    } catch (err: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setError((err as any)?.response?.data?.detail || 'Failed to save user')
     }
   }
 
