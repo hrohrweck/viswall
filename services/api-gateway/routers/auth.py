@@ -6,7 +6,7 @@ from datetime import datetime
 from shared.database import get_db
 from shared.models import User
 from shared.schemas import LoginRequest, LoginResponse, UserResponse, LDAPConfig
-from shared.security import verify_password, create_access_token, get_password_hash, get_current_user_id as require_auth, require_admin
+from shared.security import verify_password, create_access_token, get_password_hash, require_auth, require_admin
 
 router = APIRouter()
 

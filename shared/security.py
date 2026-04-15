@@ -41,7 +41,7 @@ def decode_token(token: str) -> dict:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(http_bearer)) -> int:
+async def _get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(http_bearer)) -> int:
     payload = decode_token(credentials.credentials)
     user_id = payload.get("sub")
     if user_id is None:
@@ -71,3 +71,6 @@ async def require_admin(credentials: HTTPAuthorizationCredentials = Depends(http
         )
     
     return int(user_id)
+
+require_auth = _get_current_user_id
+get_current_user_id = _get_current_user_id
