@@ -535,3 +535,80 @@ export interface TestSuiteResult {
 export interface ApiError {
   detail: string;
 }
+
+// Metrics Types
+export interface MetricSnapshot {
+  id: number;
+  instance_id: number;
+  timestamp: string;
+  cpu_percent?: number;
+  memory_percent?: number;
+  memory_used_bytes?: number;
+  memory_total_bytes?: number;
+  disk_percent?: number;
+  disk_used_bytes?: number;
+  disk_total_bytes?: number;
+  interface_stats?: Array<{
+    name: string;
+    rx_bytes?: number;
+    tx_bytes?: number;
+  }>;
+  mail_queue_size?: number;
+  mail_inbound_count?: number;
+  mail_outbound_count?: number;
+  mail_spam_count?: number;
+  mail_virus_count?: number;
+}
+
+export interface MetricsQuery {
+  instance_ids?: number[];
+  start_time?: string;
+  end_time?: string;
+  granularity?: string;
+}
+
+export interface MetricsSummary {
+  instance_id: number;
+  cpu_avg: number;
+  cpu_max: number;
+  memory_avg: number;
+  memory_max: number;
+  disk_avg: number;
+  disk_max: number;
+  network_in_total: number;
+  network_out_total: number;
+  mail_total_inbound: number;
+  mail_total_outbound: number;
+  period_start: string;
+  period_end: string;
+}
+
+export interface DashboardData {
+  instance_id: number;
+  firewall_rule_count: number;
+  mail_domain_count: number;
+  vpn_server_count: number;
+  system: {
+    cpu_percent?: number;
+    memory_percent?: number;
+    memory_used_bytes?: number;
+    memory_total_bytes?: number;
+    disk_percent?: number;
+    disk_used_bytes?: number;
+    disk_total_bytes?: number;
+  };
+  network: {
+    interfaces?: Array<{
+      name: string;
+      rx_bytes?: number;
+      tx_bytes?: number;
+    }>;
+  };
+  mail: {
+    queue_size?: number;
+    inbound_count?: number;
+    outbound_count?: number;
+    spam_count?: number;
+    virus_count?: number;
+  };
+}

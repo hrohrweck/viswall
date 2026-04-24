@@ -39,6 +39,10 @@ import type {
   AssistantMessage,
   AssistantResponse,
   AuditLog,
+  MetricSnapshot,
+  MetricsQuery,
+  MetricsSummary,
+  DashboardData,
 } from '../types'
 
 const queryKeys = {
@@ -56,6 +60,11 @@ const queryKeys = {
   vpnClients: (instanceId: number, serverId: number) => ['vpn-clients', instanceId, serverId] as const,
   vpnProtocols: ['vpn-protocols'] as const,
   auditLogs: (params?: Record<string, unknown>) => ['audit-logs', params] as const,
+  metricsLatest: (instanceId: number) => ['metrics', 'latest', instanceId] as const,
+  metricsQuery: (params?: Record<string, unknown>) => ['metrics', 'query', params] as const,
+  metricsSummary: (params?: Record<string, unknown>) => ['metrics', 'summary', params] as const,
+  dashboardData: (instanceId: number) => ['dashboard', instanceId] as const,
+  metricsOverview: ['metrics', 'overview'] as const,
 }
 
 export { queryKeys }
@@ -580,5 +589,71 @@ export function useAuditLogs(params?: Record<string, unknown>) {
       const { data } = await api.get('/audit/logs', { params })
       return data
     },
+  })
+}
+
+// Metrics hooks
+export function useMetricsLatest(instanceId: number, options?: Partial<UseQueryOptions<MetricSnapshot>>) {
+  return useQuery<MetricSnapshot>({
+    queryKey: queryKeys.metricsLatest(instanceId),
+    queryFn: async () => {
+      const { data } = await api.get(`/metrics/latest/${instanceId}`)
+      return data
+    },
+    enabled: instanceId > 0,
+    ...options,
+  })
+}
+
+export function useMetricsQuery(params: MetricsQuery, options?: Partial<UseQueryOptions<MetricSnapshot[]>>) {
+  return useQuery<MetricSnapshot[]>({
+    queryKey: queryKeys.metricsQuery(params as Record<string, unknown>),
+    queryFn: async () => {
+      const { data } = await api.post('/metrics/query', params)
+      return data
+    },
+    ...options,
+  })
+}
+
+export function useMetricsSummary(params: MetricsQuery, options?: Partial<UseQueryOptions<MetricsSummary[]>>) {
+  return useQuery<MetricsSummary[]>({
+    queryKey: queryKeys.metricsSummary(params as Record<string, unknown>),
+    queryFn: async () => {
+      const { data } = await api.post('/metrics/summary', params)
+      return data
+    },
+    ...options,
+  })
+}
+
+export function useDashboardData(instanceId: number, options?: Partial<UseQueryOptions<DashboardData>>) {
+  return useQuery<DashboardData>({
+    queryKey: queryKeys.dashboardData(instanceId),
+    queryFn: async () => {
+      const { data } = await api.get(`/metrics/dashboard/${instanceId}`)
+      return data
+    },
+    enabled: instanceId > 0,
+    ...options,
+  })
+}
+
+export interface MetricsOverview {
+  instances: number
+  active_instances: number
+  firewall_rules: number
+  mail_domains: number
+  vpn_servers: number
+}
+
+export function useMetricsOverview(options?: Partial<UseQueryOptions<MetricsOverview>>) {
+  return useQuery<MetricsOverview>({
+    queryKey: queryKeys.metricsOverview,
+    queryFn: async () => {
+      const { data } = await api.get('/metrics/overview')
+      return data
+    },
+    ...options,
   })
 }
