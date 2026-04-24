@@ -174,7 +174,7 @@ export function AssistantChat() {
 
   const renderMessageContent = (message: Message) => {
     if (message.type === 'rule_suggestion' && message.data) {
-      const data: RuleSuggestion = message.data
+      const data = message.data as RuleData
       return (
         <div className="space-y-4">
           <p>{message.content}</p>
@@ -254,6 +254,7 @@ export function AssistantChat() {
     }
 
     if (message.type === 'test_suggestion' && message.data) {
+      const data = message.data as TestSuggestionData
       return (
         <div className="space-y-4">
           <p>{message.content}</p>
@@ -262,7 +263,7 @@ export function AssistantChat() {
             <h4 className="font-semibold text-gray-900 mb-3">Generated Test Cases</h4>
             
             <div className="space-y-3">
-              {message.data.test_cases.map((test, idx: number) => (
+              {data.test_cases.map((test: TestSuggestionData['test_cases'][number], idx: number) => (
                 <div key={idx} className="p-3 bg-white rounded border border-gray-200">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{test.name}</span>
@@ -286,7 +287,7 @@ export function AssistantChat() {
               ))}
             </div>
 
-            <p className="mt-3 text-sm text-gray-600">{message.data.coverage}</p>
+            <p className="mt-3 text-sm text-gray-600">{data.coverage}</p>
           </div>
 
           <div className="flex gap-2">
