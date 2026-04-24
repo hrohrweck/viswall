@@ -52,6 +52,9 @@ async def create_user(
     
     db.add(user)
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="create", resource_type="user", resource_id=user.id)
+
     await db.refresh(user)
     
     return UserResponse.model_validate(user)
@@ -94,6 +97,9 @@ async def update_user(
         setattr(user, field, value)
     
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="update", resource_type="user", resource_id=str(data.id))
+
     await db.refresh(user)
     
     return UserResponse.model_validate(user)
@@ -114,6 +120,9 @@ async def delete_user(
     
     await db.delete(user)
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="delete", resource_type="user", resource_id=str(user_id))
+
     
     return None
 

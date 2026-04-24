@@ -35,6 +35,7 @@ from shared.schemas import (
     VPNAuthType,
 )
 from shared.security import require_auth, require_admin
+from shared.audit_logger import log_audit
 
 router = APIRouter()
 
@@ -168,6 +169,9 @@ async def create_server(
 
     db.add(server)
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="create", resource_type="vpn_server", resource_id=server.id, instance_id=instance_id)
+
     await db.refresh(server)
 
     return VPNServerResponse.model_validate(server)
@@ -218,6 +222,9 @@ async def update_server(
         setattr(server, field, value)
 
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="update", resource_type="vpn_server", resource_id=server.id, instance_id=server.instance_id)
+
     await db.refresh(server)
 
     return VPNServerResponse.model_validate(server)
@@ -243,6 +250,9 @@ async def delete_server(
 
     await db.delete(server)
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="delete", resource_type="vpn_server", resource_id=server_id, instance_id=server.instance_id)
+
 
 
 @router.post("/servers/{server_id}/start")

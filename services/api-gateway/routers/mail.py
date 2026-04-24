@@ -12,6 +12,7 @@ from shared.schemas import (
     LLMConfig
 )
 from shared.security import require_auth, require_admin, get_password_hash
+from shared.audit_logger import log_audit
 
 router = APIRouter()
 
@@ -82,6 +83,9 @@ async def create_domain(
     
     db.add(domain)
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="create", resource_type="mail_domain", resource_id=domain.id, instance_id=instance_id)
+
     await db.refresh(domain)
     
     # Trigger DKIM generation if enabled
@@ -145,6 +149,9 @@ async def update_domain(
     
     domain.updated_at = datetime.utcnow()
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="update", resource_type="mail_domain", resource_id=domain_id, instance_id=instance_id)
+
     await db.refresh(domain)
     
     # Reload mail config
@@ -172,6 +179,9 @@ async def delete_domain(
     
     await db.delete(domain)
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="delete", resource_type="mail_domain", resource_id=domain_id, instance_id=instance_id)
+
     
     # Reload mail config
     background_tasks.add_task(reload_mail_config, instance_id)

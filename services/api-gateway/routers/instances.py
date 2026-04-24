@@ -11,6 +11,7 @@ from shared.schemas import (
     UserResponse
 )
 from shared.security import require_auth, require_admin
+from shared.audit_logger import log_audit
 
 router = APIRouter()
 
@@ -57,6 +58,9 @@ async def create_instance(
     
     db.add(instance)
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="create", resource_type="instance", resource_id=instance.id)
+
     await db.refresh(instance)
     
     return InstanceResponse.model_validate(instance)
@@ -111,6 +115,9 @@ async def update_instance(
         setattr(instance, field, value)
     
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="update", resource_type="instance", resource_id=instance_id, instance_id=instance_id)
+
     await db.refresh(instance)
     
     return InstanceResponse.model_validate(instance)
@@ -133,6 +140,9 @@ async def delete_instance(
     
     await db.delete(instance)
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="delete", resource_type="instance", resource_id=instance_id, instance_id=instance_id)
+
     
     return None
 
