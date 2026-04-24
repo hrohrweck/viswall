@@ -251,38 +251,6 @@ class RoutingRule(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class NATRule(Base):
-    """NAT rules for source/destination NAT"""
-
-    __tablename__ = "nat_rules"
-
-    id = Column(Integer, primary_key=True)
-    instance_id = Column(Integer, ForeignKey("instances.id"))
-    name = Column(String(100), nullable=False)
-    description = Column(Text)
-    enabled = Column(Boolean, default=True)
-
-    # NAT type: snat, dnat, masquerade
-    nat_type = Column(String(20), default="snat")
-
-    # Match conditions
-    source_network = Column(String(50))
-    dest_network = Column(String(50))
-    service_protocol = Column(String(10))
-    service_ports = Column(String(100))
-    inbound_interface = Column(String(50))
-    outbound_interface = Column(String(50))
-
-    # NAT action
-    translation_address = Column(String(45))
-    translation_ports = Column(String(100))
-
-    order_index = Column(Integer, default=0)
-    created_by = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
 # ============================================================================
 # VPN MODELS - Modern and Legacy Protocol Support
 # ============================================================================
