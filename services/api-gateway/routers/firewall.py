@@ -34,6 +34,7 @@ from shared.schemas import (
     QoSQueueStats,
 )
 from shared.security import require_auth, require_admin
+from shared.audit_logger import log_audit
 
 router = APIRouter()
 
@@ -97,6 +98,9 @@ async def create_firewall_rule(
 
     db.add(rule)
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="create", resource_type="firewall_rule", resource_id=rule.id, instance_id=rule.instance_id)
+
     await db.refresh(rule)
 
     # Trigger firewall reload
@@ -144,6 +148,9 @@ async def update_firewall_rule(
         setattr(rule, field, value)
 
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="update", resource_type="firewall_rule", resource_id=rule.id, instance_id=rule.instance_id)
+
     await db.refresh(rule)
 
     background_tasks.add_task(reload_firewall, rule.instance_id)
@@ -168,6 +175,9 @@ async def delete_firewall_rule(
     instance_id = rule.instance_id
     await db.delete(rule)
     await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=user_id, action="delete", resource_type="firewall_rule", resource_id=rule_id, instance_id=instance_id)
+
 
     background_tasks.add_task(reload_firewall, instance_id)
 
