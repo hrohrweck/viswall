@@ -2,13 +2,13 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import sessionmaker
 import os
 
-DATABASE_URL = os.getenv(
+_DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql+asyncpg://viswall:viswall@localhost/viswall"
 )
 
 engine = create_async_engine(
-    DATABASE_URL,
+    _DATABASE_URL,
     echo=os.getenv("SQL_DEBUG", "false").lower() == "true",
     future=True
 )
@@ -20,6 +20,21 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 async def get_db():
+    # Recreate engine if DATABASE_URL has changed (for testing)
+    global engine, AsyncSessionLocal
+    current_url = os.getenv("DATABASE_URL", _DATABASE_URL)
+    if current_url != _DATABASE_URL:
+        engine = create_async_engine(
+            current_url,
+            echo=os.getenv("SQL_DEBUG", "false").lower() == "true",
+            future=True
+        )
+        AsyncSessionLocal = async_sessionmaker(
+            engine,
+            class_=AsyncSession,
+            expire_on_commit=False
+        )
+    
     async with AsyncSessionLocal() as session:
         try:
             yield session
