@@ -1,5 +1,6 @@
 import sys
 import os
+import asyncio
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
@@ -19,8 +20,10 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key")
 from main import app
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="session")
 async def client():
+    # Give database a moment to fully initialize
+    await asyncio.sleep(2)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
