@@ -536,6 +536,50 @@ export interface ApiError {
   detail: string;
 }
 
+// Routing Types
+export interface RoutingRule {
+  id: number;
+  instance_id: number;
+  name: string;
+  enabled: boolean;
+  source_network?: string;
+  dest_network?: string;
+  service?: string;
+  inbound_interface?: string;
+  gateway?: string;
+  outbound_interface?: string;
+  mark?: number;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoutingRuleCreate {
+  name: string;
+  enabled?: boolean;
+  source_network?: string;
+  dest_network?: string;
+  service?: string;
+  inbound_interface?: string;
+  gateway?: string;
+  outbound_interface?: string;
+  mark?: number;
+  order_index?: number;
+}
+
+export interface RoutingRuleUpdate {
+  name?: string;
+  enabled?: boolean;
+  source_network?: string;
+  dest_network?: string;
+  service?: string;
+  inbound_interface?: string;
+  gateway?: string;
+  outbound_interface?: string;
+  mark?: number;
+  order_index?: number;
+}
+
 // Metrics Types
 export interface MetricSnapshot {
   id: number;

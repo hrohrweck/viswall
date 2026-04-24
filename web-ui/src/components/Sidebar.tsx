@@ -8,13 +8,17 @@ import {
   Users,
   BarChart3,
   Settings,
-  Gauge
+  Gauge,
+  Route,
+  ClipboardList,
 } from 'lucide-react'
+import { useAuthStore } from '../stores/auth'
 
-const navItems = [
+const baseNavItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/instances', label: 'Instances', icon: Server },
   { path: '/firewall', label: 'Firewall', icon: Shield },
+  { path: '/routing', label: 'Routing', icon: Route },
   { path: '/traffic', label: 'Traffic Shaping', icon: Gauge },
   { path: '/vpn', label: 'VPN', icon: Network },
   { path: '/mail', label: 'Mail', icon: Mail },
@@ -24,6 +28,14 @@ const navItems = [
 ]
 
 export function Sidebar() {
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin'
+
+  const navItems = [
+    ...baseNavItems,
+    ...(isAdmin ? [{ path: '/audit', label: 'Audit Logs', icon: ClipboardList }] : []),
+  ]
+
   return (
     <aside className="w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-73px)]">
       <nav className="p-4">
