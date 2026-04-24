@@ -141,7 +141,7 @@ async def update_domain(
         domain.llm_config.update(update_data.pop("llm_config"))
     
     for field, value in update_data.items():
-        setattr(domain, value)
+        setattr(domain, field, value)
     
     domain.updated_at = datetime.utcnow()
     await db.commit()

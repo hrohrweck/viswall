@@ -147,6 +147,34 @@ class FirewallRuleResponse(FirewallRuleBase):
     class Config:
         from_attributes = True
 
+# NAT Rule Schemas
+class NATRuleBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    enabled: bool = True
+    type: str = "snat"  # snat, dnat, masquerade
+    interface: Optional[str] = None
+    source_network: Optional[str] = None
+    dest_network: Optional[str] = None
+    to_source: Optional[str] = None
+    to_destination: Optional[str] = None
+    service_protocol: Optional[str] = None
+    service_ports: Optional[str] = None
+
+class NATRuleCreate(NATRuleBase):
+    pass
+
+class NATRuleResponse(NATRuleBase):
+    id: int
+    instance_id: int
+    order_index: int
+    created_by: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
 # Network Interface Schemas
 class NetworkInterfaceBase(BaseModel):
     name: str = Field(..., max_length=50)
@@ -295,6 +323,7 @@ class RoutingRuleBase(BaseModel):
     gateway: Optional[str] = None
     outbound_interface: Optional[str] = None
     mark: Optional[int] = None
+    order_index: Optional[int] = None
 
 class RoutingRuleCreate(RoutingRuleBase):
     pass
@@ -309,6 +338,7 @@ class RoutingRuleUpdate(BaseModel):
     gateway: Optional[str] = None
     outbound_interface: Optional[str] = None
     mark: Optional[int] = None
+    order_index: Optional[int] = None
 
 class RoutingRuleResponse(RoutingRuleBase):
     id: int

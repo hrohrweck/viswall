@@ -8,13 +8,14 @@ import { FirewallRules } from './pages/FirewallRules'
 import { FirewallSimulator } from './pages/Firewall/FirewallSimulator'
 import { FirewallTestSuite } from './pages/Firewall/FirewallTestSuite'
 import { Users } from './pages/Users'
-import { Metrics } from './pages/Metrics'
 import { Settings } from './pages/Settings'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { VPNServers } from './pages/VPN/VPNServers'
 import { VPNCreate } from './pages/VPN/VPNCreate'
+import { VPNServerDetail } from './pages/VPN/VPNServerDetail'
 import { MailDomains } from './pages/Mail/MailDomains'
 import { MailDomainCreate } from './pages/Mail/MailDomainCreate'
+import { MailDomainDetail } from './pages/Mail/MailDomainDetail'
 
 export const router = createBrowserRouter([
   {
@@ -62,6 +63,10 @@ export const router = createBrowserRouter([
         element: <VPNCreate />,
       },
       {
+        path: 'vpn/servers/:id',
+        element: <VPNServerDetail />,
+      },
+      {
         path: 'mail',
         element: <MailDomains />,
       },
@@ -70,12 +75,16 @@ export const router = createBrowserRouter([
         element: <MailDomainCreate />,
       },
       {
+        path: 'mail/domains/:id',
+        element: <MailDomainDetail />,
+      },
+      {
         path: 'users',
         element: <Users />,
       },
       {
         path: 'metrics',
-        element: <Metrics />,
+        element: <Settings />,
       },
       {
         path: 'settings',

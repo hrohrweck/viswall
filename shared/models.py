@@ -79,6 +79,31 @@ class FirewallRule(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class NATRule(Base):
+    """NAT rules for source/destination NAT"""
+    __tablename__ = "nat_rules"
+
+    id = Column(Integer, primary_key=True)
+    instance_id = Column(Integer, ForeignKey("instances.id"))
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    enabled = Column(Boolean, default=True)
+
+    type = Column(String(20), default="snat")  # snat, dnat, masquerade
+    interface = Column(String(50))
+    source_network = Column(String(100))
+    dest_network = Column(String(100))
+    to_source = Column(String(100))
+    to_destination = Column(String(100))
+    service_protocol = Column(String(10))
+    service_ports = Column(String(100))
+
+    order_index = Column(Integer, default=0)
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class NetworkInterface(Base):
     """Network interface configuration"""
     __tablename__ = "network_interfaces"

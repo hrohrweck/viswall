@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import os
 
-from .routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant
+from routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant
 from shared.database import init_db, get_db
 from shared.models import Base
 

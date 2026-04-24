@@ -115,7 +115,7 @@ jobs:
     - name: Set up Docker Compose
       run: |
         cd deployments/docker
-        docker-compose up -d postgres redis
+        docker compose up -d postgres redis
         sleep 10  # Wait for services
 
     - name: Run API integration tests

@@ -1,16 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Shield, Check, X, Lightbulb, Wand2, Play } from 'lucide-react'
+import { Send, Bot, User, Shield, Check, Lightbulb, Wand2, Play } from 'lucide-react'
 
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  type?: 'text' | 'rule_suggestion' | 'test_suggestion' | 'explanation'
-  data?: any
-  timestamp: Date
+interface TestCase {
+  name: string
+  should: string
 }
 
-interface RuleSuggestion {
+interface RuleData {
   rule: {
     name: string
     chain: string
@@ -22,10 +18,37 @@ interface RuleSuggestion {
     dst_port?: number
     interface_in?: string
     interface_out?: string
+    log?: boolean
   }
   explanation: string
   security_notes: string
-  suggested_tests: any[]
+  suggested_tests: TestCase[]
+}
+
+interface TestSuggestionData {
+  test_cases: {
+    name: string
+    description: string
+    packet: {
+      src_ip: string
+      dst_ip: string
+      protocol: string
+      src_port?: number
+      dst_port: number
+    }
+    expected_action: string
+    critical: boolean
+  }[]
+  coverage: string
+}
+
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  type?: 'text' | 'rule_suggestion' | 'test_suggestion' | 'explanation'
+  data?: RuleData | TestSuggestionData
+  timestamp: Date
 }
 
 export function AssistantChat() {
@@ -33,8 +56,7 @@ export function AssistantChat() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Hi! I'm your Viswall configuration assistant. I can help you:\n\n• Create firewall rules\n• Generate test cases\n• Set up VPN or mail\n• Explain configurations\n• Troubleshoot issues\n
-What would you like to do?",
+      content: "Hi! I'm your Viswall configuration assistant. I can help you:\n\n• Create firewall rules\n• Generate test cases\n• Set up VPN or mail\n• Explain configurations\n• Troubleshoot issues\n\nWhat would you like to do?",
       type: 'text',
       timestamp: new Date()
     }
@@ -152,7 +174,7 @@ What would you like to do?",
 
   const renderMessageContent = (message: Message) => {
     if (message.type === 'rule_suggestion' && message.data) {
-      const data: RuleSuggestion = message.data
+      const data = message.data as RuleData
       return (
         <div className="space-y-4">
           <p>{message.content}</p>
@@ -209,7 +231,7 @@ What would you like to do?",
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <h4 className="font-semibold text-gray-900 mb-3">Suggested Tests</h4>
               <div className="space-y-2">
-                {data.suggested_tests.map((test: any, idx: number) => (
+                {data.suggested_tests.map((test: TestCase, idx: number) => (
                   <div key={idx} className="flex items-center gap-2 text-sm">
                     <Check className="w-4 h-4 text-green-600" />
                     <span>{test.name} (should {test.should})</span>
@@ -232,6 +254,7 @@ What would you like to do?",
     }
 
     if (message.type === 'test_suggestion' && message.data) {
+      const data = message.data as TestSuggestionData
       return (
         <div className="space-y-4">
           <p>{message.content}</p>
@@ -240,7 +263,7 @@ What would you like to do?",
             <h4 className="font-semibold text-gray-900 mb-3">Generated Test Cases</h4>
             
             <div className="space-y-3">
-              {message.data.test_cases.map((test: any, idx: number) => (
+              {data.test_cases.map((test: TestSuggestionData['test_cases'][number], idx: number) => (
                 <div key={idx} className="p-3 bg-white rounded border border-gray-200">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{test.name}</span>
@@ -264,7 +287,7 @@ What would you like to do?",
               ))}
             </div>
 
-            <p className="mt-3 text-sm text-gray-600">{message.data.coverage}</p>
+            <p className="mt-3 text-sm text-gray-600">{data.coverage}</p>
           </div>
 
           <div className="flex gap-2">

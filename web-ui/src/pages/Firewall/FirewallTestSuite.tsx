@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Play, CheckCircle, XCircle, AlertTriangle, Download, FileJson } from 'lucide-react'
 
 interface TestCase {
@@ -37,7 +37,7 @@ interface TestSuiteResult {
 }
 
 export function FirewallTestSuite() {
-  const [testSuites, setTestSuites] = useState([
+  const [testSuites] = useState([
     { id: 'basic', name: 'Basic Connectivity', description: 'Essential connectivity tests', count: 5 },
     { id: 'security', name: 'Security', description: 'Security-focused tests', count: 3 },
     { id: 'application', name: 'Applications', description: 'Application-specific tests', count: 3 },
