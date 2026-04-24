@@ -22,7 +22,6 @@ export function Login() {
       setAuth(response.data.access_token, response.data.user)
       navigate('/')
     } catch (err: unknown) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setError((err as any)?.response?.data?.detail || 'Login failed')
     } finally {
       setLoading(false)

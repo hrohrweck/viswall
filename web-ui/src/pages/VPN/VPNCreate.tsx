@@ -92,7 +92,6 @@ export function VPNCreate() {
       const server = await createMutation.mutateAsync(payload)
       navigate(`/vpn/servers/${server.id}`)
     } catch (err: unknown) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setError((err as any)?.response?.data?.detail || 'Failed to create VPN server')
     }
   }

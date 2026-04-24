@@ -39,7 +39,6 @@ export function FirewallRuleForm({ initial, onSubmit, onCancel, loading }: Firew
         log_enabled: logEnabled,
       })
     } catch (err: unknown) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setError((err as any)?.response?.data?.detail || 'Failed to save rule')
     }
   }
