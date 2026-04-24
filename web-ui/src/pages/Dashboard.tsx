@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom'
 import { Server, Shield, Mail, Network, Plus, ArrowRight } from 'lucide-react'
-import { useInstances } from '../hooks/useApi'
+import { useInstances, useMetricsOverview } from '../hooks/useApi'
 import { LoadingSpinner, StatusBadge } from '../components/ui'
 import { formatDistanceToNow } from 'date-fns'
 
 export function Dashboard() {
-  const { data: instances, isLoading } = useInstances()
+  const { data: instances, isLoading: instancesLoading } = useInstances()
+  const { data: overview, isLoading: overviewLoading } = useMetricsOverview()
+
+  const isLoading = instancesLoading || overviewLoading
 
   if (isLoading) return <LoadingSpinner />
 
@@ -13,10 +16,34 @@ export function Dashboard() {
   const activeInstances = instances?.filter((i) => i.status === 'active').length ?? 0
 
   const stats = [
-    { label: 'Instances', value: instanceCount, icon: Server, color: 'blue', detail: `${activeInstances} active` },
-    { label: 'Firewall Rules', value: '-', icon: Shield, color: 'green', detail: 'Per instance' },
-    { label: 'VPN Servers', value: '-', icon: Network, color: 'indigo', detail: 'Per instance' },
-    { label: 'Mail Domains', value: '-', icon: Mail, color: 'purple', detail: 'Per instance' },
+    {
+      label: 'Instances',
+      value: instanceCount,
+      icon: Server,
+      color: 'blue',
+      detail: `${activeInstances} active`,
+    },
+    {
+      label: 'Firewall Rules',
+      value: overview?.firewall_rules ?? 0,
+      icon: Shield,
+      color: 'green',
+      detail: 'Across all instances',
+    },
+    {
+      label: 'VPN Servers',
+      value: overview?.vpn_servers ?? 0,
+      icon: Network,
+      color: 'indigo',
+      detail: 'Across all instances',
+    },
+    {
+      label: 'Mail Domains',
+      value: overview?.mail_domains ?? 0,
+      icon: Mail,
+      color: 'purple',
+      detail: 'Across all instances',
+    },
   ]
 
   return (
