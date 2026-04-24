@@ -27,7 +27,6 @@ export function InstanceCreateForm({ onSubmit, onCancel, loading }: InstanceCrea
     try {
       await onSubmit({ name, hostname, capabilities: selectedCaps })
     } catch (err: unknown) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setError((err as any)?.response?.data?.detail || 'Failed to create instance')
     }
   }

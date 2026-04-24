@@ -7,6 +7,7 @@ import { InstanceDetail } from './pages/InstanceDetail'
 import { FirewallRules } from './pages/FirewallRules'
 import { FirewallSimulator } from './pages/Firewall/FirewallSimulator'
 import { FirewallTestSuite } from './pages/Firewall/FirewallTestSuite'
+import { TrafficShaping } from './pages/TrafficShaping'
 import { Users } from './pages/Users'
 import { Settings } from './pages/Settings'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
       {
         path: 'firewall/tests',
         element: <FirewallTestSuite />,
+      },
+      {
+        path: 'traffic',
+        element: <TrafficShaping />,
       },
       {
         path: 'vpn',

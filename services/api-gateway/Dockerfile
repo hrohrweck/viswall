@@ -13,7 +13,7 @@ COPY services/api-gateway/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY services/api-gateway/ ./services/api-gateway/
+COPY services/api-gateway/ ./
 COPY shared/ ./shared/
 
 # Set Python path

@@ -60,9 +60,10 @@ jobs:
         DATABASE_URL: postgresql+asyncpg://viswall:viswall@localhost/viswall_test
         REDIS_URL: redis://localhost:6379/0
         JWT_SECRET_KEY: test-secret-key
+        PYTHONPATH: ${{ github.workspace }}
       run: |
         cd services/api-gateway
-        pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
+        pytest tests/ -v --cov=. --cov-report=xml --cov-report=term --asyncio-mode=auto
 
     - name: Upload coverage
       uses: codecov/codecov-action@v4
@@ -81,12 +82,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: web-ui/package-lock.json
 
     - name: Install dependencies
       working-directory: web-ui
-      run: npm ci
+      run: npm install
 
     - name: Run linter
       working-directory: web-ui

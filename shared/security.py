@@ -14,11 +14,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 http_bearer = HTTPBearer()
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
+
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -29,6 +32,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
 
 def decode_token(token: str) -> dict:
     try:
@@ -41,7 +45,10 @@ def decode_token(token: str) -> dict:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-async def _get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(http_bearer)) -> int:
+
+async def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
+) -> int:
     payload = decode_token(credentials.credentials)
     user_id = payload.get("sub")
     if user_id is None:
@@ -52,25 +59,27 @@ async def _get_current_user_id(credentials: HTTPAuthorizationCredentials = Depen
         )
     return int(user_id)
 
-async def require_admin(credentials: HTTPAuthorizationCredentials = Depends(http_bearer)) -> int:
+
+require_auth = get_current_user_id
+
+
+async def require_admin(
+    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
+) -> int:
     payload = decode_token(credentials.credentials)
     user_id = payload.get("sub")
     role = payload.get("role")
-    
+
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if role not in ["superadmin", "admin"]:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
         )
-    
-    return int(user_id)
 
-require_auth = _get_current_user_id
-get_current_user_id = _get_current_user_id
+    return int(user_id)
