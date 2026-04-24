@@ -1,17 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Bot, User, Shield, Check, Lightbulb, Wand2, Play } from 'lucide-react'
 
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  type?: 'text' | 'rule_suggestion' | 'test_suggestion' | 'explanation'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data?: any
-  timestamp: Date
+interface TestCase {
+  name: string
+  should: string
 }
 
-interface RuleSuggestion {
+interface RuleData {
   rule: {
     name: string
     chain: string
@@ -23,11 +18,37 @@ interface RuleSuggestion {
     dst_port?: number
     interface_in?: string
     interface_out?: string
+    log?: boolean
   }
   explanation: string
   security_notes: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  suggested_tests: any[]
+  suggested_tests: TestCase[]
+}
+
+interface TestSuggestionData {
+  test_cases: {
+    name: string
+    description: string
+    packet: {
+      src_ip: string
+      dst_ip: string
+      protocol: string
+      src_port?: number
+      dst_port: number
+    }
+    expected_action: string
+    critical: boolean
+  }[]
+  coverage: string
+}
+
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  type?: 'text' | 'rule_suggestion' | 'test_suggestion' | 'explanation'
+  data?: RuleData | TestSuggestionData
+  timestamp: Date
 }
 
 export function AssistantChat() {
@@ -210,7 +231,7 @@ export function AssistantChat() {
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <h4 className="font-semibold text-gray-900 mb-3">Suggested Tests</h4>
               <div className="space-y-2">
-                {data.suggested_tests.map((test: any, idx: number) => (
+                {data.suggested_tests.map((test: TestCase, idx: number) => (
                   <div key={idx} className="flex items-center gap-2 text-sm">
                     <Check className="w-4 h-4 text-green-600" />
                     <span>{test.name} (should {test.should})</span>
@@ -241,7 +262,7 @@ export function AssistantChat() {
             <h4 className="font-semibold text-gray-900 mb-3">Generated Test Cases</h4>
             
             <div className="space-y-3">
-              {message.data.test_cases.map((test: any, idx: number) => (
+              {message.data.test_cases.map((test, idx: number) => (
                 <div key={idx} className="p-3 bg-white rounded border border-gray-200">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{test.name}</span>
