@@ -11,6 +11,8 @@ import { TrafficShaping } from './pages/TrafficShaping'
 import { Users } from './pages/Users'
 import { Settings } from './pages/Settings'
 import { Metrics } from './pages/Metrics'
+import { AuditLogs } from './pages/AuditLogs'
+import { RoutingRules } from './pages/RoutingRules'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { VPNServers } from './pages/VPN/VPNServers'
 import { VPNCreate } from './pages/VPN/VPNCreate'
@@ -47,6 +49,10 @@ export const router = createBrowserRouter([
       {
         path: 'firewall',
         element: <FirewallRules />,
+      },
+      {
+        path: 'routing',
+        element: <RoutingRules />,
       },
       {
         path: 'firewall/simulator',
@@ -91,6 +97,10 @@ export const router = createBrowserRouter([
       {
         path: 'metrics',
         element: <Metrics />,
+      },
+      {
+        path: 'audit',
+        element: <AuditLogs />,
       },
       {
         path: 'settings',

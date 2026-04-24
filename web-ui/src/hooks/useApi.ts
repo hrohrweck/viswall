@@ -43,6 +43,9 @@ import type {
   MetricsQuery,
   MetricsSummary,
   DashboardData,
+  RoutingRule,
+  RoutingRuleCreate,
+  RoutingRuleUpdate,
 } from '../types'
 
 const queryKeys = {
@@ -65,6 +68,7 @@ const queryKeys = {
   metricsSummary: (params?: Record<string, unknown>) => ['metrics', 'summary', params] as const,
   dashboardData: (instanceId: number) => ['dashboard', instanceId] as const,
   metricsOverview: ['metrics', 'overview'] as const,
+  routingRules: (instanceId: number) => ['routing-rules', instanceId] as const,
 }
 
 export { queryKeys }
@@ -655,5 +659,69 @@ export function useMetricsOverview(options?: Partial<UseQueryOptions<MetricsOver
       return data
     },
     ...options,
+  })
+}
+
+// Routing hooks
+export function useRoutingRules(instanceId: number, options?: Partial<UseQueryOptions<RoutingRule[]>>) {
+  return useQuery<RoutingRule[]>({
+    queryKey: queryKeys.routingRules(instanceId),
+    queryFn: async () => {
+      const { data } = await api.get(`/routing/rules/${instanceId}`)
+      return data
+    },
+    enabled: instanceId > 0,
+    ...options,
+  })
+}
+
+export function useCreateRoutingRule(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (rule: RoutingRuleCreate) => {
+      const { data } = await api.post(`/routing/rules/${instanceId}`, rule)
+      return data as RoutingRule
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.routingRules(instanceId) })
+    },
+  })
+}
+
+export function useUpdateRoutingRule(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...rule }: { id: number } & RoutingRuleUpdate) => {
+      const { data } = await api.patch(`/routing/rules/${id}`, rule)
+      return data as RoutingRule
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.routingRules(instanceId) })
+    },
+  })
+}
+
+export function useDeleteRoutingRule(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/routing/rules/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.routingRules(instanceId) })
+    },
+  })
+}
+
+export function useApplyRouting(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/routing/apply/${instanceId}`)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.routingRules(instanceId) })
+    },
   })
 }
