@@ -1,0 +1,53 @@
+{
+  /* Database URLs - using PostgreSQL backend */
+  SOGoProfileURL = "postgresql://${SOGO_DB_USER}:${SOGO_DB_PASS}@${SOGO_DB_HOST}:5432/${SOGO_DB_NAME}/sogo_user_profile";
+  OCSFolderInfoURL = "postgresql://${SOGO_DB_USER}:${SOGO_DB_PASS}@${SOGO_DB_HOST}:5432/${SOGO_DB_NAME}/sogo_folder_info";
+  OCSSessionsFolderURL = "postgresql://${SOGO_DB_USER}:${SOGO_DB_PASS}@${SOGO_DB_HOST}:5432/${SOGO_DB_NAME}/sogo_sessions_folder";
+
+  /* Combined storage mode (9-table model) for simpler schema */
+  OCSStoreURL = "postgresql://${SOGO_DB_USER}:${SOGO_DB_PASS}@${SOGO_DB_HOST}:5432/${SOGO_DB_NAME}/sogo_store";
+  OCSAclURL = "postgresql://${SOGO_DB_USER}:${SOGO_DB_PASS}@${SOGO_DB_HOST}:5432/${SOGO_DB_NAME}/sogo_acl";
+  OCSCacheFolderURL = "postgresql://${SOGO_DB_USER}:${SOGO_DB_PASS}@${SOGO_DB_HOST}:5432/${SOGO_DB_NAME}/sogo_cache_folder";
+
+  /* Timezone */
+  SOGoTimeZone = "${SOGO_TIMEZONE}";
+
+  /* Authentication against existing Viswall users table via SQL VIEW */
+  SOGoUserSources = (
+    {
+      type = sql;
+      id = viswall_users;
+      viewURL = "postgresql://${SOGO_DB_USER}:${SOGO_DB_PASS}@${SOGO_DB_HOST}:5432/${SOGO_DB_NAME}/sogo_user_view";
+      canAuthenticate = YES;
+      isAddressBook = YES;
+      userPasswordAlgorithm = blf-crypt;
+      displayName = "Viswall Users";
+    }
+  );
+
+  /* SOGo daemon settings */
+  SOGoMemcachedHost = "127.0.0.1";
+  WOPort = 20000;
+  WOLogFile = /var/log/sogo/sogo.log;
+  WOPidFile = /var/run/sogo/sogo.pid;
+
+  /* DAV access */
+  SOGoCalendarDAVAccessEnabled = YES;
+  SOGoAddressBookDAVAccessEnabled = YES;
+  SOGoMailAuxiliaryUserAccountsEnabled = NO;
+
+  /* ActiveSync (mobile sync) */
+  SOGoActiveSyncEnabled = YES;
+  SOGoMaximumPingInterval = 300;
+  SOGoMaximumSyncInterval = 30;
+
+  /* Web interface settings */
+  SOGoLoginModule = Calendar;
+  SOGoPageTitle = "Viswall Groupware";
+  SOGoVacationEnabled = YES;
+  SOGoSieveScriptsEnabled = YES;
+  SOGoSieveServer = "sieve://dovecot:4190";
+
+  /* Language */
+  SOGoLanguage = English;
+}

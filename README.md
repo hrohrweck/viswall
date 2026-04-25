@@ -87,10 +87,10 @@ viswall/
 - [x] Grafana provisioned dashboards with Prometheus metrics endpoint
 - [x] Ansible deployment playbooks for manager and agent nodes
 - [x] LLM-based email classification with editable categories (OpenAI/Anthropic/local)
+- [x] Groupware integration (SOGo with CalDAV/CardDAV/ActiveSync via nginx reverse proxy)
 
 ### Planned
 
-- [ ] Full groupware integration (Calendar, Contacts)
 - [ ] API client SDKs
 
 ## 🔧 Development

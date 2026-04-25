@@ -39,7 +39,8 @@ viswall/
 │   │   └── Dockerfile
 │   ├── firewall-service/     # Agent code (1,223 lines) — wired into docker-compose (commented by default)
 │   ├── mail-service/         # Agent code (902 lines) — wired into docker-compose (commented by default)
-│   └── vpn-service/          # Agent code (573 lines) — wired into docker-compose (commented by default)
+│   ├── vpn-service/          # Agent code (573 lines) — wired into docker-compose (commented by default)
+│   └── sogo-service/         # SOGo groupware (CalDAV/CardDAV/ActiveSync) — wired into docker-compose
 ├── web-ui/                   # React + TypeScript SPA
 │   ├── src/
 │   │   ├── pages/            # Page components
@@ -60,7 +61,8 @@ viswall/
 │   ├── security.py           # JWT auth, password hashing
 │   └── audit_logger.py       # Audit log helper
 ├── deployments/docker/       # Docker Compose stack
-│   ├── docker-compose.yml    # postgres, redis, api-gateway, web-ui, prometheus, grafana
+│   ├── docker-compose.yml    # postgres, redis, api-gateway, web-ui, nginx, sogo, prometheus, grafana
+│   ├── nginx/                # nginx reverse proxy with TLS termination (self-signed or Let's Encrypt)
 │   └── .env.example
 └── .github/workflows/ci.yml  # GitHub Actions: test-backend, test-frontend, test-integration
 ```
@@ -217,7 +219,8 @@ These are intentional or known areas needing future work. Agents should be aware
 3. **Ansible deployment**: Playbooks in `deployments/ansible/` support manager and agent node deployment.
 4. **Grafana dashboards**: Provisioned with Prometheus datasource and a Viswall Overview dashboard. Add more dashboards to `deployments/docker/grafana/dashboards/`.
 5. **LLM email classification**: Implemented with editable per-domain categories. Supports OpenAI, Anthropic Claude, and local (Ollama) models. Classification view in Mail Domain Detail page.
-6. **Legacy code**: `source/` and `files/` contain the old PHP/Perl/C++ codebase. Not used.
+6. **Groupware (SOGo)**: Integrated via nginx reverse proxy. Provides CalDAV/CardDAV/ActiveSync. Authenticates against existing `users` table via PostgreSQL VIEW. Access SOGo at `/sogo`. Enable per-domain in Mail Domain settings.
+7. **Legacy code**: `source/` and `files/` contain the old PHP/Perl/C++ codebase. Not used.
 
 ---
 

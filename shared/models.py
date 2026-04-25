@@ -167,6 +167,9 @@ class MailDomain(Base):
     llm_enabled = Column(Boolean, default=False)
     llm_config = Column(JSON, default=dict)
 
+    # Groupware (SOGo integration)
+    groupware_enabled = Column(Boolean, default=False)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
