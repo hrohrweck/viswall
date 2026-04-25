@@ -67,6 +67,12 @@ htmlcov/
 # Docker
 .dockerignore
 
+# Generated files
+services/api-gateway/openapi.json
+
+# Planning documents
+.opencode/plans/*.md
+
 # Legacy code (preserved but not used)
 source/
 files/
