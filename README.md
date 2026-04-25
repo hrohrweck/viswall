@@ -86,10 +86,10 @@ viswall/
 - [x] Service agents wired into docker-compose (firewall, mail, VPN)
 - [x] Grafana provisioned dashboards with Prometheus metrics endpoint
 - [x] Ansible deployment playbooks for manager and agent nodes
+- [x] LLM-based email classification with editable categories (OpenAI/Anthropic/local)
 
 ### Planned
 
-- [ ] LLM-based email classification
 - [ ] Full groupware integration (Calendar, Contacts)
 - [ ] API client SDKs
 
