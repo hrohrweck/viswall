@@ -624,3 +624,74 @@ class QoSClass(Base):
 
     # Relationship back to policy
     policy = relationship("QoSPolicy", back_populates="classes")
+
+
+# ============================================================================
+# LLM PROVIDER REGISTRY
+# ============================================================================
+
+
+class LLMProvider(Base):
+    """Configured LLM providers (OpenAI, Anthropic, Ollama, custom)"""
+
+    __tablename__ = "llm_providers"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    provider_type = Column(String(20), nullable=False)  # openai, anthropic, ollama, custom
+    base_url = Column(String(500), nullable=True)
+    api_key = Column(String(500), nullable=True)
+    is_enabled = Column(Boolean, default=True)
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    models = relationship("LLMModel", back_populates="provider", cascade="all, delete-orphan")
+    use_case_configs = relationship("LLMUseCaseConfig", back_populates="provider")
+
+
+class LLMModel(Base):
+    """Models available per provider"""
+
+    __tablename__ = "llm_models"
+
+    id = Column(Integer, primary_key=True)
+    provider_id = Column(Integer, ForeignKey("llm_providers.id"), nullable=False)
+    name = Column(String(100), nullable=False)  # model identifier, e.g. gpt-4, llama3.2
+    display_name = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    max_tokens = Column(Integer, nullable=True)
+    supports_vision = Column(Boolean, default=False)
+    is_enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    provider = relationship("LLMProvider", back_populates="models")
+    use_case_configs = relationship("LLMUseCaseConfig", back_populates="model")
+
+
+class LLMUseCaseConfig(Base):
+    """Per-use-case LLM configuration (email classification, assistant chat, etc.)"""
+
+    __tablename__ = "llm_use_case_configs"
+
+    id = Column(Integer, primary_key=True)
+    use_case = Column(String(50), nullable=False, unique=True)  # email_classification, assistant_chat, security_audit
+    provider_id = Column(Integer, ForeignKey("llm_providers.id"), nullable=True)
+    model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
+
+    # Generation parameters
+    temperature = Column(Float, default=0.3)
+    max_tokens = Column(Integer, default=500)
+    top_p = Column(Float, default=1.0)
+    system_prompt = Column(Text, nullable=True)
+    timeout_seconds = Column(Integer, default=30)
+
+    is_enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    provider = relationship("LLMProvider", back_populates="use_case_configs")
+    model = relationship("LLMModel", back_populates="use_case_configs")

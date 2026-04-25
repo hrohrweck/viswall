@@ -38,6 +38,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
     # No direct port binding — accessed via nginx reverse proxy
     depends_on:
       postgres:
@@ -132,6 +133,23 @@ services:
     networks:
       - viswall
 
+  # Ollama LLM (local inference)
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    # No port binding — accessed internally by api-gateway
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    networks:
+      - viswall
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
   # ============================================================================
   # SERVICE AGENTS (optional — uncomment to run agents in docker-compose)
   # These agents normally run on individual viswall instances.
@@ -183,6 +201,22 @@ services:
   #   depends_on:
   #     - api-gateway
 
+  # Ollama model pull (runs once on startup)
+  ollama-pull:
+    image: curlimages/curl:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Pulling qwen3.5:9b model...' &&
+        curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"qwen3.5:9b\"}' &&
+        echo 'Model pull complete.'
+      "
+    networks:
+      - viswall
+    restart: "no"
+
 volumes:
   postgres_data:
   redis_data:
@@ -190,6 +224,7 @@ volumes:
   grafana_data:
   certbot_data:
   certbot_www:
+  ollama_data:
 
 networks:
   viswall:

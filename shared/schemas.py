@@ -543,6 +543,123 @@ class LLMConfig(BaseModel):
 
 
 # ============================================================================
+# LLM PROVIDER REGISTRY SCHEMAS
+# ============================================================================
+
+
+class LLMProviderType(str, Enum):
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    OLLAMA = "ollama"
+    CUSTOM = "custom"
+
+
+class LLMProviderBase(BaseModel):
+    name: str
+    provider_type: LLMProviderType
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    is_enabled: bool = True
+    is_default: bool = False
+
+
+class LLMProviderCreate(LLMProviderBase):
+    pass
+
+
+class LLMProviderUpdate(BaseModel):
+    name: Optional[str] = None
+    provider_type: Optional[LLMProviderType] = None
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    is_enabled: Optional[bool] = None
+    is_default: Optional[bool] = None
+
+
+class LLMProviderResponse(LLMProviderBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LLMModelBase(BaseModel):
+    name: str
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    max_tokens: Optional[int] = None
+    supports_vision: bool = False
+    is_enabled: bool = True
+
+
+class LLMModelCreate(LLMModelBase):
+    provider_id: int
+
+
+class LLMModelUpdate(BaseModel):
+    name: Optional[str] = None
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    max_tokens: Optional[int] = None
+    supports_vision: Optional[bool] = None
+    is_enabled: Optional[bool] = None
+
+
+class LLMModelResponse(LLMModelBase):
+    id: int
+    provider_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LLMUseCase(str, Enum):
+    EMAIL_CLASSIFICATION = "email_classification"
+    ASSISTANT_CHAT = "assistant_chat"
+    SECURITY_AUDIT = "security_audit"
+
+
+class LLMUseCaseConfigBase(BaseModel):
+    use_case: LLMUseCase
+    provider_id: Optional[int] = None
+    model_id: Optional[int] = None
+    temperature: float = 0.3
+    max_tokens: int = 500
+    top_p: float = 1.0
+    system_prompt: Optional[str] = None
+    timeout_seconds: int = 30
+    is_enabled: bool = True
+
+
+class LLMUseCaseConfigCreate(LLMUseCaseConfigBase):
+    pass
+
+
+class LLMUseCaseConfigUpdate(BaseModel):
+    use_case: Optional[LLMUseCase] = None
+    provider_id: Optional[int] = None
+    model_id: Optional[int] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    top_p: Optional[float] = None
+    system_prompt: Optional[str] = None
+    timeout_seconds: Optional[int] = None
+    is_enabled: Optional[bool] = None
+
+
+class LLMUseCaseConfigResponse(LLMUseCaseConfigBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================================
 # VPN SCHEMAS - Multi-Protocol Support
 # ============================================================================
 
