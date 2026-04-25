@@ -7,10 +7,10 @@ This is a complete rewrite of the legacy viswall security appliance into a moder
 The new architecture follows microservices principles with:
 
 - **API Gateway**: Central FastAPI-based management layer
-- **Web UI**: Modern React frontend
-- **Modular Services**: Mail, Firewall, VPN, Metrics as independent services
+- **Web UI**: Modern React 18 + TypeScript SPA
+- **Modular Services**: Mail, Firewall, VPN as independent agent services
 - **Multi-instance Support**: Single UI managing multiple viswall instances
-- **Flexible Deployment**: Docker containers or native Ubuntu installation
+- **Flexible Deployment**: Docker containers
 
 ## 🚀 Quick Start
 
@@ -28,20 +28,9 @@ docker-compose up -d
 # Access:
 # - Web UI: http://localhost:3000
 # - API: http://localhost:8000
+# - API Docs: http://localhost:8000/docs
 # - Grafana: http://localhost:3001 (admin/admin)
 # - Prometheus: http://localhost:9090
-```
-
-### Native Deployment
-
-```bash
-cd deployments/ansible
-
-# Edit inventory
-vim inventory/production.ini
-
-# Deploy
-ansible-playbook -i inventory/production.ini site.yml
 ```
 
 ## 📁 Project Structure
@@ -50,42 +39,60 @@ ansible-playbook -i inventory/production.ini site.yml
 viswall/
 ├── services/
 │   ├── api-gateway/      # Central management API (FastAPI)
-│   ├── auth-service/     # Authentication service (LDAP/AD/Local)
-│   ├── mail-service/     # Mail infrastructure (Exim/Postfix + ClamAV + SpamAssassin)
-│   ├── firewall-service/ # Firewall agent (nftables/iptables)
-│   ├── metrics-service/  # Metrics collection (Prometheus/Grafana)
-│   └── llm-service/      # LLM-based email classification
-├── web-ui/               # React frontend
-├── shared/               # Shared models, schemas, utilities
+│   │   ├── routers/      # API routes per domain
+│   │   ├── migrations/   # Alembic database migrations
+│   │   └── tests/        # pytest test suite
+│   ├── firewall-service/ # Firewall agent (Python, not yet in docker-compose)
+│   ├── mail-service/     # Mail agent (Python, not yet in docker-compose)
+│   └── vpn-service/      # VPN agent (Python, not yet in docker-compose)
+├── web-ui/               # React 18 + TypeScript frontend
+│   ├── src/pages/        # Page components
+│   ├── src/components/   # Reusable UI components
+│   ├── src/hooks/        # TanStack Query API hooks
+│   └── src/types/        # TypeScript type definitions
+├── shared/               # Shared Python modules
+│   ├── models.py         # SQLAlchemy ORM models (all tables)
+│   ├── schemas.py        # Pydantic schemas (all schemas)
+│   ├── database.py       # Async engine + Alembic integration
+│   ├── security.py       # JWT auth utilities
+│   └── audit_logger.py   # Audit logging helper
 ├── deployments/
-│   ├── docker/           # Docker Compose configurations
-│   └── ansible/          # Native deployment playbooks
-└── tests/                # Automated tests
+│   └── docker/           # Docker Compose configurations
+└── .github/workflows/    # GitHub Actions CI/CD
 ```
 
 ## ✅ Features
 
 ### Implemented
+
 - [x] Multi-instance management architecture
-- [x] RBAC with LDAP/AD/Local auth backends
+- [x] RBAC with local authentication (admin, superadmin, user, readonly)
 - [x] FastAPI-based REST API with automatic OpenAPI docs
 - [x] Docker deployment with PostgreSQL, Redis, Prometheus, Grafana
-- [x] GitHub Actions CI/CD pipeline
-- [x] Database models for instances, users, firewall rules, mail domains
+- [x] GitHub Actions CI/CD pipeline (backend + frontend + integration tests)
+- [x] React 18 SPA with full routing
+- [x] Firewall rules CRUD + simulator + test suites
+- [x] Traffic shaping / QoS policies and classes
+- [x] VPN management (WireGuard, IPsec, OpenVPN, L2TP, PPTP) with client configs
+- [x] Mail domain and user management with DKIM/DMARC/SPF toggles
+- [x] Metrics dashboard with Recharts (CPU, memory, disk, mail activity)
+- [x] Routing rules (policy-based routing)
+- [x] Audit logging for all CRUD and deploy operations
+- [x] Database migrations with Alembic
 
-### In Progress
-- [ ] Mail service containerization
-- [ ] Firewall agent for rule deployment
-- [ ] React web UI implementation
-- [ ] Real-time metrics collection
+### In Progress / Known Gaps
+
+- [ ] LDAP/AD authentication (stubbed, returns 501)
+- [ ] Service agents wired into docker-compose (firewall, mail, VPN agents exist but run independently)
+- [ ] Metrics collector background job (no automatic MetricSnapshot writes)
+- [ ] Settings page (placeholder only)
+- [ ] Grafana provisioned dashboards
+- [ ] Ansible deployment scripts
 
 ### Planned
+
 - [ ] LLM-based email classification
 - [ ] Full groupware integration (Calendar, Contacts)
-- [ ] Policy-based routing
-- [ ] Traffic shaping (QoS)
-- [ ] VPN management (WireGuard, OpenVPN, IPsec)
-- [ ] Native Ansible deployment
 - [ ] API client SDKs
 
 ## 🔧 Development
@@ -98,8 +105,16 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
+# Database migrations
+cd services/api-gateway
+python -m alembic upgrade head        # Apply migrations
+python -m alembic revision --autogenerate -m "Description"  # Create new migration
+
 # Run with auto-reload
-uvicorn services.api-gateway.main:app --reload
+export DATABASE_URL="postgresql+asyncpg://viswall:viswall@localhost/viswall"
+export REDIS_URL="redis://localhost:6379/0"
+export JWT_SECRET_KEY="dev-secret-key"
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Frontend
@@ -107,20 +122,27 @@ uvicorn services.api-gateway.main:app --reload
 ```bash
 cd web-ui
 npm install
-npm run dev
+npm run dev         # Vite dev server on :5173
+npm run type-check  # TypeScript check
+npm run lint        # ESLint
+npm run test:ci     # Vitest
+npm run build       # Production build
 ```
 
 ## 🧪 Testing
 
 ```bash
 # Backend tests
-pytest services/api-gateway/tests/ -v
+cd services/api-gateway
+python -m pytest tests/ -v --asyncio-mode=auto
 
 # Frontend tests
-npm run test --prefix web-ui
+cd web-ui
+npm run test:ci
 
-# Integration tests
-docker-compose -f deployments/docker/docker-compose.test.yml up --abort-on-container-exit
+# Full checks (run before committing)
+cd services/api-gateway && python -m pytest tests/ -v
+cd web-ui && npm run type-check && npm run lint && npm run test:ci && npm run build
 ```
 
 ## 📄 License
@@ -129,4 +151,4 @@ MIT License - See LICENSE file for details.
 
 ---
 
-**Note**: This is a complete rewrite. The legacy PHP codebase in `source/` is preserved for reference but not used in the new architecture.
+**Note**: This is a complete rewrite. The legacy PHP codebase in `source/` and `files/` is preserved for reference but not used in the new architecture.
