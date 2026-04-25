@@ -37,8 +37,15 @@ class AssistantContext:
 
 class LLMConfigurationAssistant:
     """LLM-powered assistant for configuration management"""
-    
-    def __init__(self, provider: str = "openai", model: str = "gpt-4", api_key: Optional[str] = None):
+
+    def __init__(
+        self,
+        db: Optional[Any] = None,
+        provider: str = "openai",
+        model: str = "gpt-4",
+        api_key: Optional[str] = None,
+    ):
+        self.db = db
         self.provider = provider
         self.model = model
         self.api_key = api_key
@@ -540,17 +547,28 @@ Respond in JSON format:
         }
     
     async def _call_llm(self, prompt: str) -> str:
-        """Call the LLM with a prompt"""
-        # This would integrate with OpenAI, Anthropic, or local LLM
-        # For now, return a placeholder that will be overridden in production
-        
-        # In production:
-        # if self.provider == "openai":
-        #     return await self._call_openai(prompt)
-        # elif self.provider == "anthropic":
-        #     return await self._call_anthropic(prompt)
-        
-        return "{}"  # Placeholder - real implementation would call LLM API
+        """Call the LLM with a prompt.
+
+        Uses the LLM provider registry when a database session is available,
+        otherwise falls back to the legacy provider/model/api_key configuration.
+        """
+        if self.db is not None:
+            from shared.llm_client import LLMClientFactory, LLMError
+            try:
+                return await LLMClientFactory.chat_for_use_case(
+                    db=self.db,
+                    use_case="assistant_chat",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful network security assistant."},
+                        {"role": "user", "content": prompt},
+                    ],
+                )
+            except LLMError as e:
+                # Return a graceful fallback so the UI doesn't crash
+                return f'{{"error": "{str(e)}"}}'
+
+        # Legacy fallback — should not be reached in normal operation
+        return "{}"
     
     async def generate_natural_language_summary(
         self,

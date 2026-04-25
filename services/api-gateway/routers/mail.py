@@ -16,7 +16,7 @@ from shared.schemas import (
 from shared.security import require_auth, require_admin, get_password_hash
 from shared.audit_logger import log_audit
 from mail_classifier import (
-    classify_email_with_domain_config,
+    classify_email,
     LLMClassificationError,
     DEFAULT_CATEGORIES,
 )
@@ -510,15 +510,15 @@ async def test_classify_email(
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
 
-    if not domain.llm_enabled or not domain.llm_config:
-        raise HTTPException(status_code=400, detail="LLM not configured for this domain")
+    if not domain.llm_enabled:
+        raise HTTPException(status_code=400, detail="LLM not enabled for this domain")
 
     try:
-        classification = await classify_email_with_domain_config(
+        classification = await classify_email(
+            db=db,
             subject=test_data.get("subject", "Test email"),
             sender=test_data.get("sender", "test@example.com"),
             body_preview=test_data.get("body_preview"),
-            llm_config=domain.llm_config,
         )
         return classification
     except LLMClassificationError as e:
@@ -537,7 +537,7 @@ async def classify_inbound_email(
     )
     domain = result.scalar_one_or_none()
 
-    if not domain or not domain.llm_enabled or not domain.llm_config:
+    if not domain or not domain.llm_enabled:
         # Store message without classification
         message = MailMessage(
             domain_id=data.domain_id,
@@ -554,11 +554,11 @@ async def classify_inbound_email(
         return {"classified": False, "reason": "LLM not enabled"}
 
     try:
-        classification = await classify_email_with_domain_config(
+        classification = await classify_email(
+            db=db,
             subject=data.subject or "",
             sender=data.sender,
             body_preview=data.body_preview,
-            llm_config=domain.llm_config,
         )
     except LLMClassificationError as e:
         # Store message with classification error
@@ -681,7 +681,7 @@ async def reclassify_message(
 ):
     """Retry LLM classification for an existing message"""
     result = await db.execute(
-        select(MailMessage, MailDomain.llm_config)
+        select(MailMessage, MailDomain)
         .join(MailDomain)
         .where(MailMessage.id == message_id)
     )
@@ -689,17 +689,17 @@ async def reclassify_message(
     if not row:
         raise HTTPException(status_code=404, detail="Message not found")
 
-    message, llm_config = row
+    message, domain = row
 
-    if not llm_config:
-        raise HTTPException(status_code=400, detail="LLM not configured for this domain")
+    if not domain.llm_enabled:
+        raise HTTPException(status_code=400, detail="LLM not enabled for this domain")
 
     try:
-        classification = await classify_email_with_domain_config(
+        classification = await classify_email(
+            db=db,
             subject=message.subject or "",
             sender=message.sender,
             body_preview=message.body_preview,
-            llm_config=llm_config,
         )
     except LLMClassificationError as e:
         raise HTTPException(status_code=502, detail=str(e))
