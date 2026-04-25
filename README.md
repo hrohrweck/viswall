@@ -248,7 +248,7 @@ Docker Compose automatically merges `docker-compose.yml` and `docker-compose.ove
 
 ## IPv6 Support
 
-Viswall is designed for dual-stack (IPv4 + IPv6) operation. The Docker Compose stack enables IPv6 by default on a ULA subnet (`fd00:viswall::/64`), and all major components have been updated to handle IPv6 addresses and traffic.
+Viswall is designed for dual-stack (IPv4 + IPv6) operation. The Docker Compose stack enables IPv6 by default on a ULA subnet (`fd00:42::/64`), and all major components have been updated to handle IPv6 addresses and traffic.
 
 ### Support Matrix
 
