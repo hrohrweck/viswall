@@ -79,34 +79,59 @@ class WireGuardManager:
         private_key: str,
         listen_port: int = 51820,
         network_cidr: str = "10.200.0.0/24",
+        ipv6_tunnel_network: Optional[str] = None,
+        ipv6_nat_enabled: bool = False,
         post_up: Optional[str] = None,
         post_down: Optional[str] = None
     ) -> str:
-        """Create WireGuard server configuration"""
+        """Create WireGuard server configuration (dual-stack aware)"""
+        addresses = [self._get_server_ip(network_cidr)]
+        if ipv6_tunnel_network:
+            addresses.append(self._get_server_ip(ipv6_tunnel_network))
+
         config = f"""[Interface]
 PrivateKey = {private_key}
-Address = {self._get_server_ip(network_cidr)}
+Address = {', '.join(addresses)}
 ListenPort = {listen_port}
 """
-        
-        # Add firewall rules for NAT and forwarding
+
+        # Build PostUp/PostDown for dual-stack
         if not post_up:
-            post_up = (
-                f"iptables -A FORWARD -i {self.interface_name} -j ACCEPT; "
-                f"iptables -A FORWARD -o {self.interface_name} -j ACCEPT; "
-                f"iptables -t nat -A POSTROUTING -s {network_cidr} -o eth0 -j MASQUERADE"
-            )
-        
+            post_up_cmds = [
+                f"iptables -A FORWARD -i {self.interface_name} -j ACCEPT",
+                f"iptables -A FORWARD -o {self.interface_name} -j ACCEPT",
+                f"iptables -t nat -A POSTROUTING -s {network_cidr} -o eth0 -j MASQUERADE",
+            ]
+            # IPv6 forwarding
+            post_up_cmds.extend([
+                f"ip6tables -A FORWARD -i {self.interface_name} -j ACCEPT",
+                f"ip6tables -A FORWARD -o {self.interface_name} -j ACCEPT",
+            ])
+            if ipv6_tunnel_network and ipv6_nat_enabled:
+                post_up_cmds.append(
+                    f"ip6tables -t nat -A POSTROUTING -s {ipv6_tunnel_network} -o eth0 -j MASQUERADE"
+                )
+            post_up = "; ".join(post_up_cmds)
+
         if not post_down:
-            post_down = (
-                f"iptables -D FORWARD -i {self.interface_name} -j ACCEPT; "
-                f"iptables -D FORWARD -o {self.interface_name} -j ACCEPT; "
-                f"iptables -t nat -D POSTROUTING -s {network_cidr} -o eth0 -j MASQUERADE"
-            )
-        
+            post_down_cmds = [
+                f"iptables -D FORWARD -i {self.interface_name} -j ACCEPT",
+                f"iptables -D FORWARD -o {self.interface_name} -j ACCEPT",
+                f"iptables -t nat -D POSTROUTING -s {network_cidr} -o eth0 -j MASQUERADE",
+            ]
+            post_down_cmds.extend([
+                f"ip6tables -D FORWARD -i {self.interface_name} -j ACCEPT",
+                f"ip6tables -D FORWARD -o {self.interface_name} -j ACCEPT",
+            ])
+            if ipv6_tunnel_network and ipv6_nat_enabled:
+                post_down_cmds.append(
+                    f"ip6tables -t nat -D POSTROUTING -s {ipv6_tunnel_network} -o eth0 -j MASQUERADE"
+                )
+            post_down = "; ".join(post_down_cmds)
+
         config += f"PostUp = {post_up}\n"
         config += f"PostDown = {post_down}\n"
-        
+
         return config
     
     def add_peer(
@@ -243,9 +268,10 @@ class IPSecManager:
         server_id: str,
         left_subnet: str,
         right_source_ip: str = "10.201.0.0/24",
+        right_source_ip_v6: Optional[str] = None,
         eap_enabled: bool = True
     ) -> str:
-        """Create IKEv2 road warrior (remote access) config"""
+        """Create IKEv2 road warrior (remote access) config (dual-stack aware)"""
         config = f"""config setup
     charondebug="ike 2, knl 2, cfg 2, net 2, esp 2, dmn 2, mgr 2"
     uniqueids=yes
@@ -258,34 +284,36 @@ conn {server_id}
     keyexchange=ikev2
     fragmentation=yes
     forceencaps=yes
-    
+
     # Left (local) side
     left=%any
     leftid=@{server_id}
     leftcert=serverCert.pem
     leftsendcert=always
     leftsubnet={left_subnet}
-    
+
     # Right (remote) side
     right=%any
     rightid=%any
     rightauth=eap-mschapv2
     rightsourceip={right_source_ip}
     rightdns=1.1.1.1,1.0.0.1
-    
+
     # IKE (Phase 1) - Modern secure defaults
     ike=aes256gcm16-sha384-ecp384!
     esp=aes256gcm16-sha384-ecp384!
-    
+
     # DPD
     dpdaction=clear
     dpddelay=300s
     dpdtimeout=1500s
-    
+
     # Lifetime
     ikelifetime=24h
     lifetime=8h
 """
+        if right_source_ip_v6:
+            config += f"    rightsourceip={right_source_ip_v6}\n"
         return config
     
     def create_site_to_site_config(
@@ -358,11 +386,12 @@ class OpenVPNManager:
         protocol: str = "udp",
         network: str = "10.202.0.0",
         netmask: str = "255.255.255.0",
+        ipv6_tunnel_network: Optional[str] = None,
         cipher: str = "AES-256-GCM",
         auth_digest: str = "SHA256",
         tls_version: str = "1.2"
     ) -> str:
-        """Create OpenVPN server configuration"""
+        """Create OpenVPN server configuration (dual-stack aware)"""
         config = f"""# OpenVPN Server Configuration
 port {port}
 proto {protocol}
@@ -371,7 +400,11 @@ dev tun
 # Network
 server {network} {netmask}
 ifconfig-pool-persist /var/log/openvpn/ipp.txt
+"""
+        if ipv6_tunnel_network:
+            config += f"server-ipv6 {ipv6_tunnel_network}\n"
 
+        config += """
 push "redirect-gateway def1 bypass-dhcp"
 push "dhcp-option DNS 1.1.1.1"
 push "dhcp-option DNS 1.0.0.1"
@@ -493,21 +526,25 @@ class VPNAgent:
         private_key = config.get("private_key")
         if not private_key:
             private_key, public_key = await self.wireguard.generate_keypair()
-        
+
+        wg_cfg = config.get("wireguard_config", {})
+
         # Create server config
         wg_config = self.wireguard.create_server_config(
             private_key=private_key,
             listen_port=config.get("listen_port", 51820),
             network_cidr=config.get("network_cidr", "10.200.0.0/24"),
+            ipv6_tunnel_network=config.get("ipv6_tunnel_network"),
+            ipv6_nat_enabled=wg_cfg.get("ipv6_nat_enabled", False),
             post_up=config.get("post_up"),
             post_down=config.get("post_down")
         )
-        
+
         # Add existing peers
         for peer in config.get("peers", []):
             client = VPNClientConfig(**peer)
             wg_config = self.wireguard.add_peer(wg_config, client)
-        
+
         return await self.wireguard.apply_config(wg_config)
     
     async def _deploy_ipsec(self, config: Dict[str, Any]) -> bool:
@@ -517,11 +554,12 @@ class VPNAgent:
             ipsec_config = self.ipsec.create_road_warrior_config(
                 server_id=config.get("name", "viswall"),
                 left_subnet=config.get("left_subnet", "0.0.0.0/0"),
-                right_source_ip=config.get("network_cidr", "10.201.0.0/24")
+                right_source_ip=config.get("network_cidr", "10.201.0.0/24"),
+                right_source_ip_v6=config.get("ipv6_tunnel_network")
             )
         else:
             ipsec_config = self.ipsec.create_site_to_site_config(**config)
-        
+
         secrets = config.get("secrets", "")
         return await self.ipsec.apply_config(ipsec_config, secrets)
     
@@ -531,6 +569,7 @@ class VPNAgent:
             port=config.get("port", 1194),
             protocol=config.get("protocol", "udp"),
             network=config.get("network", "10.202.0.0"),
+            ipv6_tunnel_network=config.get("ipv6_tunnel_network"),
             cipher=config.get("cipher", "AES-256-GCM")
         )
         

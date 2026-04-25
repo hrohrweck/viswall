@@ -315,6 +315,7 @@ class VPNServer(Base):
     listen_address = Column(String(45), default="0.0.0.0")
     listen_port = Column(Integer)
     network_cidr = Column(String(50))  # VPN subnet (e.g., 10.200.0.0/24)
+    ipv6_tunnel_network = Column(String(50))  # IPv6 VPN subnet (e.g., fd00:200::/64)
 
     # DNS and routing
     dns_servers = Column(JSON, default=list)
