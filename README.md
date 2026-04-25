@@ -246,6 +246,46 @@ Docker Compose automatically merges `docker-compose.yml` and `docker-compose.ove
 
 ---
 
+## IPv6 Support
+
+Viswall is designed for dual-stack (IPv4 + IPv6) operation. The Docker Compose stack enables IPv6 by default on a ULA subnet (`fd00:viswall::/64`), and all major components have been updated to handle IPv6 addresses and traffic.
+
+### Support Matrix
+
+| Component | IPv6 Status | Notes |
+|-----------|------------|-------|
+| Docker Networking | Enabled by default | ULA subnet via `IPV6_SUBNET` env var |
+| Nginx | Dual-stack listeners | `listen [::]:80` and `listen [::]:443` |
+| API Gateway | Dual-stack bind | Uvicorn bound to `::` |
+| Firewall Agent | Full dual-stack | Parallel `ip`/`ip6` nftables sets and rules; IPv6 `tc flower` filters |
+| VPN — WireGuard | Full dual-stack | `ip6tables` FORWARD + optional NAT via `ipv6_nat_enabled` |
+| VPN — IPsec | IPv6 client pools | `rightsourceip` supports IPv6 when `ipv6_tunnel_network` is set |
+| VPN — OpenVPN | IPv6 server directive | `server-ipv6` added when `ipv6_tunnel_network` is set |
+| Mail — Exim | Dual-stack listeners | `local_interfaces = 0.0.0.0 : ::`; IPv6 HELO validation |
+| Mail — SOGo | Dual-stack localhost | Memcached host set to `localhost` (resolves to `::1`) |
+| Monitoring | Hostname-based | Prometheus/Grafana use Docker DNS; works when IPv6 is enabled |
+
+### Prerequisites
+
+Your Docker daemon must have IPv6 support enabled. On most modern Linux distributions this is automatic when `enable_ipv6: true` is present in the Compose file. If you encounter issues, ensure `/etc/docker/daemon.json` contains:
+
+```json
+{
+  "ipv6": true,
+  "fixed-cidr-v6": "fd00::/64"
+}
+```
+
+### VPN IPv6 Tunnels
+
+When creating a VPN server, set `ipv6_tunnel_network` to allocate an IPv6 client pool:
+
+- **WireGuard**: `ipv6_tunnel_network: fd00:200::/64` — clients get dual-stack `AllowedIPs`. Enable `ipv6_nat_enabled` only if you need NAT66 (routed IPv6 is the default).
+- **OpenVPN**: `ipv6_tunnel_network: fd00:201::/64` — adds `server-ipv6` to the config.
+- **IPsec**: `ipv6_tunnel_network: fd00:202::/64` — used as IPv6 `rightsourceip` in road-warrior mode.
+
+---
+
 ## Quick Start
 
 ```bash
