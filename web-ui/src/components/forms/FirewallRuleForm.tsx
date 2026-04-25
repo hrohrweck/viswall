@@ -92,7 +92,7 @@ export function FirewallRuleForm({ initial, onSubmit, onCancel, loading }: Firew
               type="text"
               value={sourceValue}
               onChange={(e) => setSourceValue(e.target.value)}
-              placeholder={sourceType === 'network' ? '10.0.0.0/8' : 'eth0'}
+              placeholder={sourceType === 'network' ? '10.0.0.0/8 or 2001:db8::/64' : 'eth0'}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             />
           </div>
@@ -120,7 +120,7 @@ export function FirewallRuleForm({ initial, onSubmit, onCancel, loading }: Firew
               type="text"
               value={destValue}
               onChange={(e) => setDestValue(e.target.value)}
-              placeholder={destType === 'network' ? '192.168.1.0/24' : 'eth1'}
+              placeholder={destType === 'network' ? '192.168.1.0/24 or fd00::/64' : 'eth1'}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             />
           </div>
