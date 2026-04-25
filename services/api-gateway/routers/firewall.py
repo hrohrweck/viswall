@@ -24,6 +24,8 @@ from shared.schemas import (
     RoutingRuleCreate,
     RoutingRuleUpdate,
     RoutingRuleResponse,
+    NetworkInterfaceCreate,
+    NetworkInterfaceResponse,
     QoSPolicyCreate,
     QoSPolicyUpdate,
     QoSPolicyResponse,
@@ -245,6 +247,25 @@ async def apply_firewall(
     """Apply firewall configuration to instance"""
     background_tasks.add_task(reload_firewall, instance_id)
     return {"status": "queued"}
+
+
+# ============================================================================
+# NETWORK INTERFACE ENDPOINTS
+# ============================================================================
+
+
+@router.get("/interfaces/{instance_id}", response_model=List[NetworkInterfaceResponse])
+async def list_network_interfaces(
+    instance_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """List network interfaces for an instance"""
+    result = await db.execute(
+        select(NetworkInterface).where(NetworkInterface.instance_id == instance_id)
+    )
+    interfaces = result.scalars().all()
+    return [NetworkInterfaceResponse.model_validate(i) for i in interfaces]
 
 
 # ============================================================================

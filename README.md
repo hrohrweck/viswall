@@ -43,9 +43,9 @@ viswall/
 │   │   ├── metrics_collector.py  # Background metrics collection task
 │   │   ├── migrations/   # Alembic database migrations
 │   │   └── tests/        # pytest test suite
-│   ├── firewall-service/ # Firewall agent (Python, not yet in docker-compose)
-│   ├── mail-service/     # Mail agent (Python, not yet in docker-compose)
-│   └── vpn-service/      # VPN agent (Python, not yet in docker-compose)
+│   ├── firewall-service/ # Firewall agent (wired into docker-compose, commented by default)
+│   ├── mail-service/     # Mail agent (wired into docker-compose, commented by default)
+│   └── vpn-service/      # VPN agent (wired into docker-compose, commented by default)
 ├── web-ui/               # React 18 + TypeScript frontend
 │   ├── src/pages/        # Page components
 │   ├── src/components/   # Reusable UI components
@@ -82,13 +82,10 @@ viswall/
 - [x] Audit logging for all CRUD and deploy operations
 - [x] Database migrations with Alembic
 - [x] Settings page with LLM config and theme toggle
-
-### In Progress / Known Gaps
-
-- [ ] LDAP/AD authentication (stubbed, returns 501)
-- [ ] Service agents wired into docker-compose (firewall, mail, VPN agents exist but run independently)
-- [ ] Grafana provisioned dashboards
-- [ ] Ansible deployment scripts
+- [x] LDAP/AD authentication with auto-provisioning
+- [x] Service agents wired into docker-compose (firewall, mail, VPN)
+- [x] Grafana provisioned dashboards with Prometheus metrics endpoint
+- [x] Ansible deployment playbooks for manager and agent nodes
 
 ### Planned
 
