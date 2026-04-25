@@ -89,3 +89,68 @@ jobs:
         run: |
           cd sdk/python
           python -m mypy viswall/
+
+  test-typescript-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install TypeScript SDK dependencies
+        run: |
+          cd sdk/typescript
+          npm ci
+      
+      - name: Run TypeScript type check
+        run: |
+          cd sdk/typescript
+          npx tsc --noEmit
+      
+      - name: Run TypeScript SDK tests
+        run: |
+          cd sdk/typescript
+          npx vitest run
+      
+      - name: Build TypeScript SDK
+        run: |
+          cd sdk/typescript
+          npx tsc
+
+  test-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Python SDK
+        run: |
+          cd sdk/python
+          pip install -e ".[dev]"
+      
+      - name: Install CLI
+        run: |
+          cd sdk/cli
+          pip install -e ".[dev]"
+      
+      - name: Run CLI tests
+        run: |
+          cd sdk/cli
+          python -m pytest tests/ -v
+      
+      - name: Run ruff on CLI
+        run: |
+          cd sdk/cli
+          python -m ruff check viswall_cli/
+      
+      - name: Run mypy on CLI
+        run: |
+          cd sdk/cli
+          python -m mypy viswall_cli/
