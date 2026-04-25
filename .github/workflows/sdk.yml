@@ -76,6 +76,10 @@ jobs:
           cd sdk/python
           pip install -e ".[dev]"
       
+      - name: Install linters
+        run: |
+          pip install ruff mypy
+      
       - name: Run ruff
         run: |
           cd sdk/python

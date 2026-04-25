@@ -93,7 +93,7 @@ class FirewallResource:
 
     def block_ip(self, instance_id: int, ip: str, duration: Optional[int] = None) -> Dict[str, Any]:
         """Block an IP address."""
-        data = {"ip": ip}
+        data: Dict[str, Any] = {"ip": ip}
         if duration:
             data["duration"] = duration
         return self._client._request("POST", f"/firewall/block/{instance_id}", json=data)

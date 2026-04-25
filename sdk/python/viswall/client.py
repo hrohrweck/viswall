@@ -96,7 +96,7 @@ class ViswallClient:
         *,
         params: Optional[Dict[str, Any]] = None,
         json: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+    ) -> Any:
         """Make an HTTP request and handle errors.
         
         Args:
