@@ -37,9 +37,9 @@ viswall/
 │   │   ├── alembic.ini       # Alembic config
 │   │   ├── requirements.txt
 │   │   └── Dockerfile
-│   ├── firewall-service/     # Agent code (1,223 lines) — NOT yet in docker-compose
-│   ├── mail-service/         # Agent code (902 lines) — NOT yet in docker-compose
-│   └── vpn-service/          # Agent code (573 lines) — NOT yet in docker-compose
+│   ├── firewall-service/     # Agent code (1,223 lines) — wired into docker-compose (commented by default)
+│   ├── mail-service/         # Agent code (902 lines) — wired into docker-compose (commented by default)
+│   └── vpn-service/          # Agent code (573 lines) — wired into docker-compose (commented by default)
 ├── web-ui/                   # React + TypeScript SPA
 │   ├── src/
 │   │   ├── pages/            # Page components
