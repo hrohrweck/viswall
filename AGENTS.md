@@ -146,14 +146,26 @@ Typical workflow:
    - Add route in `web-ui/src/router.tsx`.
    - Add sidebar link in `web-ui/src/components/Sidebar.tsx` if needed.
 
-3. **Tests**:
+3. **SDKs & CLI**:
+   - Any API change (new endpoints, modified schemas, removed fields) must be reflected in the SDKs and CLI.
+   - Export the updated OpenAPI spec: `python scripts/export_openapi.py`
+   - Update the **Python SDK** (`sdk/python/viswall/`) resource classes and tests.
+   - Regenerate **TypeScript SDK** types: `cd sdk/typescript && npm run generate-types`
+   - Update the **CLI** (`sdk/cli/viswall_cli/`) commands if new operations are exposed.
+   - Run SDK tests:
+     - Python SDK: `cd sdk/python && python -m pytest tests/ -v && python -m ruff check viswall/ && python -m mypy viswall/`
+     - TypeScript SDK: `cd sdk/typescript && npm run type-check && npm run test`
+     - CLI: `cd sdk/cli && python -m pytest tests/ -v && python -m ruff check viswall_cli/ && python -m mypy viswall_cli/`
+
+4. **Tests**:
    - Run backend tests: `cd services/api-gateway && python -m pytest tests/ -v --asyncio-mode=auto`
    - Run frontend checks: `cd web-ui && npm run type-check && npm run lint && npm run test:ci && npm run build`
+   - **All relevant tests must pass locally before creating a pull request.** Do not rely solely on CI to catch failures.
 
-4. **Commit & PR**:
-   - Create feature branch from `main`.
-   - One meaningful commit with clear message.
-   - Push and create PR. All CI must pass.
+5. **Commit & PR**:
+    - Create feature branch from `main`.
+    - One meaningful commit with clear message.
+    - Push and create PR. All CI must pass.
 
 ---
 
