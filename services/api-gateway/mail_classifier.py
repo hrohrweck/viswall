@@ -1,22 +1,19 @@
 """
 LLM-based email classification engine for Viswall.
 
-Supports OpenAI, Anthropic Claude, and local models (Ollama).
-Categories are configurable per-domain via llm_config.
+Uses the modular LLM client factory (shared.llm_client) to route requests
+to the configured provider for the 'email_classification' use case.
+
+Per-domain JSON configuration (llm_config) is deprecated — categories and
+provider settings now live in the LLM provider registry tables.
 """
 
-import json
-import os
-import asyncio
-from typing import Dict, Any, Optional, List
-from datetime import datetime
 import logging
+from typing import Dict, Any, Optional, List
 
-try:
-    import httpx
-    HTTPX_AVAILABLE = True
-except ImportError:
-    HTTPX_AVAILABLE = False
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from shared.llm_client import LLMClientFactory, LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -41,68 +38,55 @@ class LLMClassificationError(Exception):
     pass
 
 
-class MailClassifier:
-    """Async LLM client for email classification"""
+def _get_categories(categories: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    """Extract validated category list"""
+    cats = categories or DEFAULT_CATEGORIES
 
-    def __init__(self):
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for LLM classification")
-        self._client = httpx.AsyncClient(timeout=30.0)
+    if not isinstance(cats, list):
+        cats = DEFAULT_CATEGORIES
 
-    async def close(self):
-        await self._client.aclose()
+    if len(cats) < MIN_CATEGORIES:
+        logger.warning(f"Too few categories ({len(cats)}), using defaults")
+        cats = DEFAULT_CATEGORIES
+    if len(cats) > MAX_CATEGORIES:
+        logger.warning(f"Too many categories ({len(cats)}), truncating to {MAX_CATEGORIES}")
+        cats = cats[:MAX_CATEGORIES]
 
-    def _get_categories(self, llm_config: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Extract validated category list from domain config"""
-        categories = llm_config.get("categories", DEFAULT_CATEGORIES)
+    validated = []
+    for cat in cats:
+        if isinstance(cat, dict) and "name" in cat:
+            validated.append({
+                "name": str(cat["name"])[:50],
+                "color": str(cat.get("color", "#6b7280"))[:20],
+                "default_action": str(cat.get("default_action", "deliver"))[:20],
+            })
 
-        if not isinstance(categories, list):
-            categories = DEFAULT_CATEGORIES
+    if len(validated) < MIN_CATEGORIES:
+        return DEFAULT_CATEGORIES
 
-        # Validate count
-        if len(categories) < MIN_CATEGORIES:
-            logger.warning(f"Too few categories ({len(categories)}), using defaults")
-            categories = DEFAULT_CATEGORIES
-        if len(categories) > MAX_CATEGORIES:
-            logger.warning(f"Too many categories ({len(categories)}), truncating to {MAX_CATEGORIES}")
-            categories = categories[:MAX_CATEGORIES]
+    return validated
 
-        # Validate each category has required fields
-        validated = []
-        for cat in categories:
-            if isinstance(cat, dict) and "name" in cat:
-                validated.append({
-                    "name": str(cat["name"])[:50],
-                    "color": str(cat.get("color", "#6b7280"))[:20],
-                    "default_action": str(cat.get("default_action", "deliver"))[:20],
-                })
 
-        if len(validated) < MIN_CATEGORIES:
-            return DEFAULT_CATEGORIES
+def _build_prompt(
+    subject: str,
+    sender: str,
+    body_preview: Optional[str],
+    categories: List[Dict[str, Any]],
+) -> str:
+    """Build classification prompt"""
+    category_names = [c["name"] for c in categories]
+    category_list = ", ".join(category_names)
 
-        return validated
-
-    def _build_prompt(
-        self,
-        subject: str,
-        sender: str,
-        body_preview: Optional[str],
-        categories: List[Dict[str, Any]],
-    ) -> str:
-        """Build classification prompt"""
-        category_names = [c["name"] for c in categories]
-        category_list = ", ".join(category_names)
-
-        prompt = f"""Analyze this email and classify it into exactly one of the following categories: {category_list}.
+    prompt = f"""Analyze this email and classify it into exactly one of the following categories: {category_list}.
 
 Email details:
 - From: {sender}
 - Subject: {subject}
 """
-        if body_preview:
-            prompt += f"- Body preview: {body_preview[:1500]}\n"
+    if body_preview:
+        prompt += f"- Body preview: {body_preview[:1500]}\n"
 
-        prompt += f"""
+    prompt += f"""
 Respond ONLY with a JSON object in this exact format:
 {{
     "category": "one_of_the_categories",
@@ -115,178 +99,66 @@ Rules:
 - Confidence must be a float between 0.0 and 1.0
 - Keep the reason under 200 characters
 """
-        return prompt
-
-    async def classify_email(
-        self,
-        subject: str,
-        sender: str,
-        body_preview: Optional[str],
-        llm_config: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """Classify an email using the configured LLM provider"""
-        provider = llm_config.get("provider", "openai")
-        api_key = llm_config.get("api_key")
-        model = llm_config.get("model", "gpt-4")
-        categories = self._get_categories(llm_config)
-
-        if not api_key and provider != "local":
-            raise LLMClassificationError(f"API key required for provider: {provider}")
-
-        prompt = self._build_prompt(subject, sender, body_preview, categories)
-
-        # Route to provider-specific handler
-        if provider == "openai":
-            result = await self._classify_openai(prompt, api_key, model)
-        elif provider == "anthropic":
-            result = await self._classify_anthropic(prompt, api_key, model)
-        elif provider == "local":
-            result = await self._classify_local(prompt, model)
-        else:
-            raise LLMClassificationError(f"Unsupported provider: {provider}")
-
-        # Validate result against allowed categories
-        if result["category"] not in [c["name"] for c in categories]:
-            logger.warning(f"LLM returned invalid category '{result['category']}', defaulting")
-            result["category"] = categories[0]["name"]
-
-        # Get default action for the category
-        category_map = {c["name"]: c["default_action"] for c in categories}
-        result["default_action"] = category_map.get(result["category"], "deliver")
-        result["provider"] = provider
-        result["model"] = model
-
-        return result
-
-    async def _classify_openai(self, prompt: str, api_key: str, model: str) -> Dict[str, Any]:
-        """Classify using OpenAI API"""
-        try:
-            response = await self._client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are an email classification assistant. Respond only with valid JSON.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": 0.1,
-                    "max_tokens": 200,
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            content = data["choices"][0]["message"]["content"]
-            return self._parse_json_response(content)
-        except httpx.HTTPError as e:
-            raise LLMClassificationError(f"OpenAI API error: {e}")
-        except (KeyError, IndexError) as e:
-            raise LLMClassificationError(f"Invalid OpenAI response: {e}")
-
-    async def _classify_anthropic(self, prompt: str, api_key: str, model: str) -> Dict[str, Any]:
-        """Classify using Anthropic Claude API"""
-        try:
-            response = await self._client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": api_key,
-                    "Content-Type": "application/json",
-                    "anthropic-version": "2023-06-01",
-                },
-                json={
-                    "model": model,
-                    "max_tokens": 200,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": f"You are an email classification assistant. Respond only with valid JSON.\n\n{prompt}",
-                        }
-                    ],
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            content = data["content"][0]["text"]
-            return self._parse_json_response(content)
-        except httpx.HTTPError as e:
-            raise LLMClassificationError(f"Anthropic API error: {e}")
-        except (KeyError, IndexError) as e:
-            raise LLMClassificationError(f"Invalid Anthropic response: {e}")
-
-    async def _classify_local(self, prompt: str, model: str) -> Dict[str, Any]:
-        """Classify using local LLM via Ollama"""
-        ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
-        try:
-            response = await self._client.post(
-                f"{ollama_url}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0.1},
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            content = data.get("response", "")
-            return self._parse_json_response(content)
-        except httpx.HTTPError as e:
-            raise LLMClassificationError(f"Local LLM error: {e}")
-
-    def _parse_json_response(self, content: str) -> Dict[str, Any]:
-        """Parse and validate JSON response from LLM"""
-        # Extract JSON from markdown code blocks if present
-        if "```json" in content:
-            content = content.split("```json")[1].split("```")[0].strip()
-        elif "```" in content:
-            content = content.split("```")[1].split("```")[0].strip()
-
-        try:
-            parsed = json.loads(content)
-        except json.JSONDecodeError as e:
-            raise LLMClassificationError(f"Invalid JSON response: {e}")
-
-        # Validate required fields
-        if "category" not in parsed:
-            raise LLMClassificationError("Missing 'category' field in response")
-
-        # Validate and normalize
-        result = {
-            "category": str(parsed["category"]).lower().strip(),
-            "confidence": float(parsed.get("confidence", 0.5)),
-            "reason": str(parsed.get("reason", "No reason provided"))[:200],
-        }
-
-        # Clamp confidence
-        result["confidence"] = max(0.0, min(1.0, result["confidence"]))
-
-        return result
+    return prompt
 
 
-# Global classifier instance (lazy init)
-_classifier: Optional[MailClassifier] = None
+async def classify_email(
+    db: AsyncSession,
+    subject: str,
+    sender: str,
+    body_preview: Optional[str],
+    categories: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Classify an email using the 'email_classification' use-case config.
+
+    Args:
+        db: Database session for looking up provider configuration.
+        subject: Email subject line.
+        sender: Email sender address.
+        body_preview: Optional body preview text.
+        categories: Optional override categories (falls back to defaults).
+
+    Returns:
+        Dict with keys: category, confidence, reason, default_action, provider, model.
+    """
+    validated_categories = _get_categories(categories)
+    prompt = _build_prompt(subject, sender, body_preview, validated_categories)
+
+    try:
+        result = await LLMClientFactory.classify_for_use_case(
+            db=db,
+            use_case="email_classification",
+            prompt=prompt,
+        )
+    except LLMError as e:
+        raise LLMClassificationError(str(e))
+
+    # Validate result against allowed categories
+    if result["category"] not in [c["name"] for c in validated_categories]:
+        logger.warning(f"LLM returned invalid category '{result['category']}', defaulting")
+        result["category"] = validated_categories[0]["name"]
+
+    # Get default action for the category
+    category_map = {c["name"]: c["default_action"] for c in validated_categories}
+    result["default_action"] = category_map.get(result["category"], "deliver")
+
+    return result
 
 
-def get_classifier() -> MailClassifier:
-    """Get or create the global classifier instance"""
-    global _classifier
-    if _classifier is None:
-        _classifier = MailClassifier()
-    return _classifier
-
-
+# Legacy compatibility wrapper — will be removed in a future release.
 async def classify_email_with_domain_config(
     subject: str,
     sender: str,
     body_preview: Optional[str],
     llm_config: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Convenience function to classify an email"""
-    classifier = get_classifier()
-    return await classifier.classify_email(subject, sender, body_preview, llm_config)
+    """DEPRECATED: Use classify_email(db, ...) instead.
+
+    This wrapper exists for backwards compatibility with code that does not
+    yet have access to an AsyncSession. It will raise an error because the
+    old per-domain JSON config approach is no longer supported.
+    """
+    raise LLMClassificationError(
+        "classify_email_with_domain_config is deprecated. "
+        "Use classify_email(db, subject, sender, body_preview) with the LLM provider registry."
+    )

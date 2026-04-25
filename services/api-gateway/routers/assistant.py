@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
+from shared.database import get_db
 from shared.security import require_auth, require_admin
 from shared.schemas import LLMConfig
+from shared.models import LLMUseCaseConfig
 from shared.llm_assistant import (
     LLMConfigurationAssistant, AssistantContext,
     AssistantIntent
@@ -86,11 +89,12 @@ class SecurityAuditResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat_with_assistant(
     request: ChatRequest,
-    user_id: int = Depends(require_auth)
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Main chat endpoint for the LLM assistant.
-    
+
     Handles natural language requests for:
     - Creating firewall rules
     - Generating test cases
@@ -99,17 +103,17 @@ async def chat_with_assistant(
     - Explaining configurations
     - Troubleshooting issues
     """
-    
-    # Initialize assistant
-    assistant = LLMConfigurationAssistant()
-    
+
+    # Initialize assistant with database session for provider registry lookup
+    assistant = LLMConfigurationAssistant(db=db)
+
     # Build context
     context = AssistantContext(
         instance_id=request.instance_id,
         current_config=request.context,
         user_role="admin"  # Would get from user lookup
     )
-    
+
     # Process the request
     result = await assistant.process_request(request.message, context)
     
@@ -489,42 +493,56 @@ async def get_assistant_capabilities(
     }
 
 
-# In-memory store for LLM config (would be database in production)
-_llm_config_store: dict = {
-    "provider": "openai",
-    "model": "gpt-4",
-    "api_key": None,
-    "api_base": None,
-    "temperature": 0.3,
-    "max_tokens": 500,
-    "system_prompt": "You are an email classification assistant.",
-    "auto_classify": False,
-    "confidence_threshold": 0.8,
-    "categories": [
-        "important",
-        "newsletter",
-        "social",
-        "promotional",
-        "spam",
-        "work",
-    ],
-}
-
-
 @router.get("/config", response_model=LLMConfig)
 async def get_llm_config(
     user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Get current LLM configuration"""
-    return LLMConfig(**_llm_config_store)
+    """Get current LLM configuration (assistant_chat use case)."""
+    result = await db.execute(
+        select(LLMUseCaseConfig).where(LLMUseCaseConfig.use_case == "assistant_chat")
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        raise HTTPException(status_code=404, detail="LLM configuration not found")
+
+    return LLMConfig(
+        provider=config.provider.provider_type if config.provider else "openai",
+        model=config.model.name if config.model else "gpt-4",
+        api_key=config.provider.api_key if config.provider else None,
+        api_base=config.provider.base_url if config.provider else None,
+        temperature=config.temperature,
+        max_tokens=config.max_tokens,
+        system_prompt=config.system_prompt or "You are a helpful network security assistant.",
+    )
 
 
 @router.post("/config", response_model=LLMConfig)
 async def update_llm_config(
     config: LLMConfig,
     user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Update LLM configuration (admin only)"""
-    global _llm_config_store
-    _llm_config_store = config.model_dump()
-    return config
+    """Update LLM configuration (admin only) — modifies the assistant_chat use case."""
+    result = await db.execute(
+        select(LLMUseCaseConfig).where(LLMUseCaseConfig.use_case == "assistant_chat")
+    )
+    use_case = result.scalar_one_or_none()
+    if not use_case:
+        raise HTTPException(status_code=404, detail="LLM use-case config not found")
+
+    use_case.temperature = config.temperature
+    use_case.max_tokens = config.max_tokens
+    use_case.system_prompt = config.system_prompt
+    await db.commit()
+    await db.refresh(use_case)
+
+    return LLMConfig(
+        provider=use_case.provider.provider_type if use_case.provider else "openai",
+        model=use_case.model.name if use_case.model else "gpt-4",
+        api_key=use_case.provider.api_key if use_case.provider else None,
+        api_base=use_case.provider.base_url if use_case.provider else None,
+        temperature=use_case.temperature,
+        max_tokens=use_case.max_tokens,
+        system_prompt=use_case.system_prompt or "",
+    )
