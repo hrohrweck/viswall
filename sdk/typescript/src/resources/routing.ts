@@ -1,0 +1,35 @@
+import { ViswallClient } from '../client';
+
+export class RoutingResource {
+  constructor(private readonly client: ViswallClient) {}
+
+  async listRules(instanceId: number): Promise<unknown[]> {
+    return this.client.request('GET', `/routing/rules/${instanceId}`);
+  }
+
+  async createRule(
+    instanceId: number,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/routing/rules/${instanceId}`, { data });
+  }
+
+  async getRule(ruleId: number): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/routing/rules/detail/${ruleId}`);
+  }
+
+  async updateRule(
+    ruleId: number,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('PATCH', `/routing/rules/${ruleId}`, { data });
+  }
+
+  async deleteRule(ruleId: number): Promise<void> {
+    return this.client.request('DELETE', `/routing/rules/${ruleId}`);
+  }
+
+  async applyRules(instanceId: number): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/routing/apply/${instanceId}`);
+  }
+}
