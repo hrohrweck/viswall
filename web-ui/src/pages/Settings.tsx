@@ -1,9 +1,26 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Save, RefreshCw, Bot, Server, Palette } from 'lucide-react'
-import { useLLMConfig, useUpdateLLMConfig } from '../hooks/useApi'
+import {
+  Settings as SettingsIcon,
+  Save,
+  RefreshCw,
+  Bot,
+  Server,
+  Palette,
+  Shield,
+  Trash2,
+  Plug,
+} from 'lucide-react'
+import {
+  useLLMConfig,
+  useUpdateLLMConfig,
+  useLDAPConfig,
+  useUpdateLDAPConfig,
+  useDeleteLDAPConfig,
+  useTestLDAPConnection,
+} from '../hooks/useApi'
 import { useAuthStore } from '../stores/auth'
 import { LoadingSpinner, EmptyState } from '../components/ui'
-import type { LLMConfig } from '../types'
+import type { LLMConfig, LDAPConfig } from '../types'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -14,29 +31,50 @@ export function Settings() {
   const { data: llmConfig, isLoading: llmLoading } = useLLMConfig()
   const updateLLM = useUpdateLLMConfig()
 
+  const { data: ldapConfig, isLoading: ldapLoading } = useLDAPConfig()
+  const updateLDAP = useUpdateLDAPConfig()
+  const deleteLDAP = useDeleteLDAPConfig()
+  const testLDAP = useTestLDAPConnection()
+
   const [theme, setTheme] = useState<Theme>(() => {
     return (localStorage.getItem('viswall-theme') as Theme) || 'system'
   })
 
-  const [form, setForm] = useState<LLMConfig | null>(null)
+  const [llmForm, setLlmForm] = useState<LLMConfig | null>(null)
+  const [ldapForm, setLdapForm] = useState<LDAPConfig | null>(null)
   const [saved, setSaved] = useState(false)
+  const [ldapSaved, setLdapSaved] = useState(false)
+  const [ldapTestResult, setLdapTestResult] = useState<string | null>(null)
 
   useEffect(() => {
     if (llmConfig) {
-      setForm(llmConfig)
+      setLlmForm(llmConfig)
     }
   }, [llmConfig])
 
   useEffect(() => {
+    if (ldapConfig) {
+      setLdapForm(ldapConfig)
+    } else if (ldapConfig === null) {
+      // Set default empty form
+      setLdapForm({
+        server_url: '',
+        bind_dn: '',
+        bind_password: '',
+        base_dn: '',
+        user_filter: '(objectClass=person)',
+      })
+    }
+  }, [ldapConfig])
+
+  useEffect(() => {
     localStorage.setItem('viswall-theme', theme)
-    // Apply theme class to document
     const root = document.documentElement
     if (theme === 'dark') {
       root.classList.add('dark')
     } else if (theme === 'light') {
       root.classList.remove('dark')
     } else {
-      // system
       if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
         root.classList.add('dark')
       } else {
@@ -46,13 +84,37 @@ export function Settings() {
   }, [theme])
 
   const handleSaveLLM = async () => {
-    if (!form) return
-    await updateLLM.mutateAsync(form)
+    if (!llmForm) return
+    await updateLLM.mutateAsync(llmForm)
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
   }
 
-  if (llmLoading) return <LoadingSpinner />
+  const handleSaveLDAP = async () => {
+    if (!ldapForm) return
+    await updateLDAP.mutateAsync(ldapForm)
+    setLdapSaved(true)
+    setTimeout(() => setLdapSaved(false), 3000)
+  }
+
+  const handleTestLDAP = async () => {
+    if (!ldapForm) return
+    setLdapTestResult(null)
+    try {
+      const result = await testLDAP.mutateAsync(ldapForm)
+      setLdapTestResult(result.message)
+    } catch (err: unknown) {
+      setLdapTestResult((err as any)?.response?.data?.detail || 'Connection failed')
+    }
+  }
+
+  const handleDeleteLDAP = async () => {
+    if (confirm('Are you sure you want to remove the LDAP configuration?')) {
+      await deleteLDAP.mutateAsync()
+    }
+  }
+
+  if (llmLoading || ldapLoading) return <LoadingSpinner />
 
   const inputClass =
     'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white'
@@ -98,14 +160,14 @@ export function Settings() {
             </h3>
           </div>
           <div className="p-6 space-y-4">
-            {form ? (
+            {llmForm ? (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className={labelClass}>Provider</label>
                     <select
-                      value={form.provider}
-                      onChange={(e) => setForm({ ...form, provider: e.target.value })}
+                      value={llmForm.provider}
+                      onChange={(e) => setLlmForm({ ...llmForm, provider: e.target.value })}
                       className={inputClass}
                     >
                       <option value="openai">OpenAI</option>
@@ -117,8 +179,8 @@ export function Settings() {
                     <label className={labelClass}>Model</label>
                     <input
                       type="text"
-                      value={form.model}
-                      onChange={(e) => setForm({ ...form, model: e.target.value })}
+                      value={llmForm.model}
+                      onChange={(e) => setLlmForm({ ...llmForm, model: e.target.value })}
                       className={inputClass}
                       placeholder="gpt-4"
                     />
@@ -129,8 +191,8 @@ export function Settings() {
                   <label className={labelClass}>API Key</label>
                   <input
                     type="password"
-                    value={form.api_key || ''}
-                    onChange={(e) => setForm({ ...form, api_key: e.target.value || undefined })}
+                    value={llmForm.api_key || ''}
+                    onChange={(e) => setLlmForm({ ...llmForm, api_key: e.target.value || undefined })}
                     className={inputClass}
                     placeholder="sk-..."
                   />
@@ -143,8 +205,8 @@ export function Settings() {
                   <label className={labelClass}>API Base URL (optional)</label>
                   <input
                     type="text"
-                    value={form.api_base || ''}
-                    onChange={(e) => setForm({ ...form, api_base: e.target.value || undefined })}
+                    value={llmForm.api_base || ''}
+                    onChange={(e) => setLlmForm({ ...llmForm, api_base: e.target.value || undefined })}
                     className={inputClass}
                     placeholder="https://api.openai.com/v1"
                   />
@@ -152,15 +214,15 @@ export function Settings() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className={labelClass}>Temperature ({form.temperature})</label>
+                    <label className={labelClass}>Temperature ({llmForm.temperature})</label>
                     <input
                       type="range"
                       min={0}
                       max={2}
                       step={0.1}
-                      value={form.temperature}
+                      value={llmForm.temperature}
                       onChange={(e) =>
-                        setForm({ ...form, temperature: parseFloat(e.target.value) })
+                        setLlmForm({ ...llmForm, temperature: parseFloat(e.target.value) })
                       }
                       className="w-full"
                     />
@@ -173,9 +235,9 @@ export function Settings() {
                     <label className={labelClass}>Max Tokens</label>
                     <input
                       type="number"
-                      value={form.max_tokens}
+                      value={llmForm.max_tokens}
                       onChange={(e) =>
-                        setForm({ ...form, max_tokens: parseInt(e.target.value) })
+                        setLlmForm({ ...llmForm, max_tokens: parseInt(e.target.value) })
                       }
                       className={inputClass}
                       min={1}
@@ -187,8 +249,8 @@ export function Settings() {
                 <div>
                   <label className={labelClass}>System Prompt</label>
                   <textarea
-                    value={form.system_prompt}
-                    onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
+                    value={llmForm.system_prompt}
+                    onChange={(e) => setLlmForm({ ...llmForm, system_prompt: e.target.value })}
                     className={inputClass + ' min-h-[80px]'}
                     rows={3}
                   />
@@ -199,9 +261,9 @@ export function Settings() {
                     <input
                       type="checkbox"
                       id="auto_classify"
-                      checked={form.auto_classify}
+                      checked={llmForm.auto_classify}
                       onChange={(e) =>
-                        setForm({ ...form, auto_classify: e.target.checked })
+                        setLlmForm({ ...llmForm, auto_classify: e.target.checked })
                       }
                       className="w-4 h-4"
                     />
@@ -211,20 +273,20 @@ export function Settings() {
                   </div>
                 </div>
 
-                {form.auto_classify && (
+                {llmForm.auto_classify && (
                   <div>
                     <label className={labelClass}>
-                      Confidence Threshold ({form.confidence_threshold})
+                      Confidence Threshold ({llmForm.confidence_threshold})
                     </label>
                     <input
                       type="range"
                       min={0}
                       max={1}
                       step={0.05}
-                      value={form.confidence_threshold}
+                      value={llmForm.confidence_threshold}
                       onChange={(e) =>
-                        setForm({
-                          ...form,
+                        setLlmForm({
+                          ...llmForm,
                           confidence_threshold: parseFloat(e.target.value),
                         })
                       }
@@ -256,6 +318,145 @@ export function Settings() {
                 icon={Bot}
                 title="No Configuration"
                 description="Unable to load LLM configuration."
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* LDAP / AD Configuration */}
+      {isAdmin && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 dark:bg-gray-900 dark:border-gray-700">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3 dark:border-gray-700">
+            <Shield className="w-5 h-5 text-primary-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              LDAP / Active Directory
+            </h3>
+          </div>
+          <div className="p-6 space-y-4">
+            {ldapForm ? (
+              <>
+                <div>
+                  <label className={labelClass}>Server URL</label>
+                  <input
+                    type="text"
+                    value={ldapForm.server_url}
+                    onChange={(e) => setLdapForm({ ...ldapForm, server_url: e.target.value })}
+                    className={inputClass}
+                    placeholder="ldap://localhost:389 or ldaps://ad.example.com:636"
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Bind DN</label>
+                  <input
+                    type="text"
+                    value={ldapForm.bind_dn}
+                    onChange={(e) => setLdapForm({ ...ldapForm, bind_dn: e.target.value })}
+                    className={inputClass}
+                    placeholder="cn=admin,dc=example,dc=com"
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Bind Password</label>
+                  <input
+                    type="password"
+                    value={ldapForm.bind_password}
+                    onChange={(e) => setLdapForm({ ...ldapForm, bind_password: e.target.value })}
+                    className={inputClass}
+                    placeholder="Service account password"
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Base DN</label>
+                  <input
+                    type="text"
+                    value={ldapForm.base_dn}
+                    onChange={(e) => setLdapForm({ ...ldapForm, base_dn: e.target.value })}
+                    className={inputClass}
+                    placeholder="dc=example,dc=com"
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>User Filter</label>
+                  <input
+                    type="text"
+                    value={ldapForm.user_filter}
+                    onChange={(e) => setLdapForm({ ...ldapForm, user_filter: e.target.value })}
+                    className={inputClass}
+                    placeholder="(objectClass=person)"
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Group Filter (optional)</label>
+                  <input
+                    type="text"
+                    value={ldapForm.group_filter || ''}
+                    onChange={(e) => setLdapForm({ ...ldapForm, group_filter: e.target.value || undefined })}
+                    className={inputClass}
+                    placeholder="(objectClass=groupOfNames)"
+                  />
+                </div>
+
+                {ldapTestResult && (
+                  <div
+                    className={`p-3 rounded-lg text-sm ${
+                      ldapTestResult.toLowerCase().includes('success')
+                        ? 'bg-green-50 text-green-700 dark:bg-green-900/20'
+                        : 'bg-red-50 text-red-700 dark:bg-red-900/20'
+                    }`}
+                  >
+                    {ldapTestResult}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-4">
+                  <div className="flex items-center gap-2">
+                    {ldapSaved && (
+                      <span className="text-sm text-green-600 font-medium">
+                        Configuration saved!
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {ldapConfig && (
+                      <button
+                        onClick={handleDeleteLDAP}
+                        disabled={deleteLDAP.isPending}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 text-sm"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Remove
+                      </button>
+                    )}
+                    <button
+                      onClick={handleTestLDAP}
+                      disabled={testLDAP.isPending}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+                    >
+                      <Plug className="w-4 h-4" />
+                      {testLDAP.isPending ? 'Testing...' : 'Test Connection'}
+                    </button>
+                    <button
+                      onClick={handleSaveLDAP}
+                      disabled={updateLDAP.isPending}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      {updateLDAP.isPending ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <EmptyState
+                icon={Shield}
+                title="No Configuration"
+                description="Unable to load LDAP configuration."
               />
             )}
           </div>
