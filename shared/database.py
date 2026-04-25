@@ -27,6 +27,23 @@ async def get_db():
             await session.close()
 
 async def init_db():
-    from shared.models import Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Initialize database by running Alembic migrations."""
+    from alembic.config import Config
+    from alembic import command
+    import os
+
+    api_gateway_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "services", "api-gateway"
+    )
+    alembic_cfg = Config(os.path.join(api_gateway_dir, "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", os.path.join(api_gateway_dir, "migrations"))
+
+    # Use sync API since Alembic doesn't have async API
+    def run_upgrade():
+        command.upgrade(alembic_cfg, "head")
+
+    # Run in a thread pool since alembic is synchronous
+    import asyncio
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, run_upgrade)
