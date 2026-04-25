@@ -150,6 +150,102 @@ python -m alembic upgrade head
 
 ---
 
+## Selective Component Deployment
+
+You do not need to run the entire stack. The manager services are stateless except for PostgreSQL and Redis, and agents are optional depending on which capabilities you need. Use explicit service names with `docker-compose up -d` or create an override file (`docker-compose.override.yml`) to customize the deployment.
+
+### Manager Only (No Agents, No Monitoring)
+
+Run just the control plane — API, web UI, database, and reverse proxy. Use this when you will deploy agents on separate edge nodes.
+
+```bash
+cd deployments/docker
+docker-compose up -d postgres redis api-gateway web-ui nginx
+```
+
+Services started: PostgreSQL, Redis, API Gateway, Web UI, Nginx.
+
+### Minimal Firewall Appliance
+
+Run the manager plus the firewall agent on a single host. The firewall agent requires `privileged: true` and `network_mode: host`.
+
+Uncomment the `firewall-service` block in `docker-compose.yml`, then start:
+
+```bash
+docker-compose up -d postgres redis api-gateway web-ui nginx firewall-service
+```
+
+> **Note:** The firewall agent manipulates the host's netfilter tables. Only run this on a dedicated appliance or VM.
+
+### Mail Server with Groupware
+
+Run the manager, SOGo groupware, Ollama (for LLM email classification), and the mail agent on a single host.
+
+Uncomment the `mail-service` block in `docker-compose.yml`, then start:
+
+```bash
+docker-compose up -d postgres redis api-gateway web-ui nginx sogo ollama ollama-pull mail-service
+```
+
+Exposed ports: `25`, `465`, `587` (SMTP), `143`, `993` (IMAP). SOGo is available at `/sogo`.
+
+### VPN Server
+
+Run the manager plus the VPN agent on a single host. The VPN agent requires `privileged: true` and `network_mode: host`.
+
+Uncomment the `vpn-service` block in `docker-compose.yml`, then start:
+
+```bash
+docker-compose up -d postgres redis api-gateway web-ui nginx vpn-service
+```
+
+> **Note:** The VPN agent creates WireGuard/IPsec interfaces on the host network namespace.
+
+### Full Stack (Single Node)
+
+Run everything on one machine — manager, all agents, monitoring, and LLM inference. This is useful for homelabs and small offices.
+
+Uncomment all agent blocks in `docker-compose.yml`, then start the full stack:
+
+```bash
+docker-compose up -d
+```
+
+### Using Compose Override Files
+
+For cleaner selective deployments, create a `docker-compose.override.yml` instead of editing the main file. For example, to deploy a mail-only node:
+
+```yaml
+# deployments/docker/docker-compose.override.yml
+services:
+  mail-service:
+    build:
+      context: ../..
+      dockerfile: services/mail-service/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://viswall:${DB_PASSWORD:-viswall}@postgres/viswall
+      REDIS_URL: redis://redis:6379/1
+    privileged: true
+    ports:
+      - "25:25"
+      - "465:465"
+      - "587:587"
+      - "143:143"
+      - "993:993"
+    networks:
+      - viswall
+```
+
+Then run:
+
+```bash
+docker-compose up -d
+```
+
+Docker Compose automatically merges `docker-compose.yml` and `docker-compose.override.yml`.
+
+---
+
 ## Quick Start
 
 ```bash
