@@ -51,9 +51,11 @@ acl_check_rcpt:
 
   deny message = Helo name contains a bare IP address (HELO was $sender_helo_name)
        condition = ${if match{$sender_helo_name}{\\N^\\[?\\d+\\.\\d+\\.\\d+\\.\\d+\\]?$\\N}{true}{false}}
+       condition = ${if match{$sender_helo_name}{\\N^\\[?[0-9a-fA-F]*:[0-9a-fA-F]*:[0-9a-fA-F:]*\\]?$\\N}{true}{false}}
 
   deny message = Helo name contains an IP address (HELO was $sender_helo_name)
        condition = ${if match{$sender_helo_name}{\\N\\d+\\.\\d+\\.\\d+\\.\\d+\\N}{true}{false}}
+       condition = ${if match{$sender_helo_name}{\\N[0-9a-fA-F]*:[0-9a-fA-F]*:[0-9a-fA-F:]+\\N}{true}{false}}
 
   deny message = Rejected because $sender_host_address is in a black list at $dnslist_domain\\n$dnslist_text
        dnslists = zen.spamhaus.org : b.barracudacentral.org
