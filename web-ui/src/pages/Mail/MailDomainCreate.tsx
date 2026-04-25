@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Shield, Brain, Mail, Check } from 'lucide-react'
+import { useInstanceStore } from '../../stores/instance'
+import { useCreateMailDomain } from '../../hooks/useApi'
 
 export function MailDomainCreate() {
   const navigate = useNavigate()
+  const { selectedInstanceId } = useInstanceStore()
   const [step, setStep] = useState(1)
   const [config, setConfig] = useState({
     domain: '',
@@ -22,8 +25,21 @@ export function MailDomainCreate() {
     }
   })
 
+  const createMutation = useCreateMailDomain(selectedInstanceId!)
+
   const handleSubmit = async () => {
-    // API call would go here
+    if (!selectedInstanceId) return
+    await createMutation.mutateAsync({
+      domain: config.domain,
+      enabled: config.enabled,
+      spam_filter_enabled: config.spam_filter_enabled,
+      virus_scan_enabled: config.virus_scan_enabled,
+      dkim_enabled: config.dkim_enabled,
+      dmarc_enabled: config.dmarc_enabled,
+      spf_enabled: config.spf_enabled,
+      llm_enabled: config.llm_enabled,
+      llm_config: config.llm_config,
+    })
     navigate('/mail')
   }
 

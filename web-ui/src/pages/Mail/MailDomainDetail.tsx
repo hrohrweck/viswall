@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Plus, Trash2, Shield, Key } from 'lucide-react'
+import { ArrowLeft, Mail, Plus, Trash2, Shield, Key, Brain, Users } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
 import {
   useMailDomain,
@@ -13,6 +13,7 @@ import {
 import { StatusBadge, Modal, ConfirmDialog, LoadingSpinner, EmptyState, DataTable } from '../../components/ui'
 import type { MailUser } from '../../types'
 import { formatBytes } from '../../utils/format'
+import { MailClassificationView } from './MailClassificationView'
 
 export function MailDomainDetail() {
   const { id } = useParams<{ id: string }>()
@@ -32,6 +33,7 @@ export function MailDomainDetail() {
   const [newUsername, setNewUsername] = useState('')
   const [newFullName, setNewFullName] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [activeTab, setActiveTab] = useState<'users' | 'classification'>('users')
 
   if (isLoading) return <LoadingSpinner />
   if (!domain) return <p className="text-gray-600">Domain not found.</p>
@@ -164,23 +166,56 @@ export function MailDomainDetail() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Mailboxes ({users?.length || 0})</h3>
-        <button
-          onClick={() => setShowCreateUser(true)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Add Mailbox
-        </button>
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="flex gap-6">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'users'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Mailboxes ({users?.length || 0})
+          </button>
+          <button
+            onClick={() => setActiveTab('classification')}
+            className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'classification'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Brain className="w-4 h-4" />
+            Classification
+          </button>
+        </nav>
       </div>
 
-      <DataTable
-        columns={userColumns}
-        data={users || []}
-        keyExtractor={(u) => u.id}
-        emptyContent={<EmptyState icon={Mail} title="No mailboxes" description="Create the first mailbox for this domain." actionLabel="Add Mailbox" onAction={() => setShowCreateUser(true)} />}
-      />
+      {activeTab === 'users' && (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Mailboxes</h3>
+            <button
+              onClick={() => setShowCreateUser(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Add Mailbox
+            </button>
+          </div>
+
+          <DataTable
+            columns={userColumns}
+            data={users || []}
+            keyExtractor={(u) => u.id}
+            emptyContent={<EmptyState icon={Mail} title="No mailboxes" description="Create the first mailbox for this domain." actionLabel="Add Mailbox" onAction={() => setShowCreateUser(true)} />}
+          />
+        </>
+      )}
+
+      {activeTab === 'classification' && <MailClassificationView domainId={domainId} />}
 
       <Modal open={showCreateUser} onClose={() => setShowCreateUser(false)} title="Add Mailbox">
         <div className="space-y-4">
