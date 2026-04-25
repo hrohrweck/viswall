@@ -88,10 +88,46 @@ viswall/
 - [x] Ansible deployment playbooks for manager and agent nodes
 - [x] LLM-based email classification with editable categories (OpenAI/Anthropic/local)
 - [x] Groupware integration (SOGo with CalDAV/CardDAV/ActiveSync via nginx reverse proxy)
+- [x] Python SDK (`viswall-sdk`) with resource-oriented API
+- [x] TypeScript SDK (`@viswall/sdk`) with auto-generated OpenAPI types
+- [x] CLI tool (`viswall-cli`) for scripting and automation
 
-### Planned
+## 📦 SDKs & CLI
 
-- [ ] API client SDKs
+### Python SDK
+
+```bash
+cd sdk/python
+pip install -e ".[dev]"
+python -m pytest tests/ -v
+```
+
+### TypeScript SDK
+
+```bash
+cd sdk/typescript
+npm install
+npm run generate-types  # Regenerate from OpenAPI spec
+npm run type-check
+npm run test
+npm run build
+```
+
+### CLI Tool
+
+```bash
+cd sdk/cli
+pip install -e ".[dev]" -e ../python
+
+# Login
+viswall login --url https://viswall.example.com --username admin
+
+# List instances
+viswall instances list
+
+# Create firewall rule
+viswall firewall create --instance-id 1 --name "Allow HTTPS" --action accept --dst-port 443
+```
 
 ## 🔧 Development
 
