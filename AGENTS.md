@@ -212,7 +212,7 @@ All checks must pass before merging.
 
 These are intentional or known areas needing future work. Agents should be aware:
 
-1. **LDAP/AD auth**: Stubbed at `auth.py:41` (returns 501). Only local auth works.
+1. **LDAP/AD auth**: Implemented with auto-provisioning. Configure via Settings page (admin only) or `POST /auth/ldap-config`.
 2. **Service agents**: `firewall-service/`, `mail-service/`, `vpn-service/` agents exist but are NOT wired into docker-compose. They run independently.
 3. **Ansible deployment**: No `deployments/ansible/` directory exists.
 4. **Grafana dashboards**: Grafana is deployed but has no provisioned dashboards.

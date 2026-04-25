@@ -47,6 +47,7 @@ import type {
   RoutingRuleCreate,
   RoutingRuleUpdate,
   LLMConfig,
+  LDAPConfig,
 } from '../types'
 
 const queryKeys = {
@@ -748,6 +749,52 @@ export function useUpdateLLMConfig() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['llm-config'] })
+    },
+  })
+}
+
+// LDAP Config hooks
+export function useLDAPConfig(options?: Partial<UseQueryOptions<LDAPConfig | null>>) {
+  return useQuery<LDAPConfig | null>({
+    queryKey: ['ldap-config'],
+    queryFn: async () => {
+      const { data } = await api.get('/auth/ldap-config')
+      return data as LDAPConfig | null
+    },
+    ...options,
+  })
+}
+
+export function useUpdateLDAPConfig() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (config: LDAPConfig) => {
+      const { data } = await api.post('/auth/ldap-config', config)
+      return data as LDAPConfig
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ldap-config'] })
+    },
+  })
+}
+
+export function useDeleteLDAPConfig() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      await api.delete('/auth/ldap-config')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ldap-config'] })
+    },
+  })
+}
+
+export function useTestLDAPConnection() {
+  return useMutation({
+    mutationFn: async (config: LDAPConfig) => {
+      const { data } = await api.post('/auth/test-ldap', config)
+      return data as { status: string; message: string }
     },
   })
 }
