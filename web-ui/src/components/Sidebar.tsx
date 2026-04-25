@@ -11,6 +11,7 @@ import {
   Gauge,
   Route,
   ClipboardList,
+  Bot,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/auth'
 
@@ -33,7 +34,10 @@ export function Sidebar() {
 
   const navItems = [
     ...baseNavItems,
-    ...(isAdmin ? [{ path: '/audit', label: 'Audit Logs', icon: ClipboardList }] : []),
+    ...(isAdmin ? [
+      { path: '/admin/llm', label: 'LLM Providers', icon: Bot },
+      { path: '/audit', label: 'Audit Logs', icon: ClipboardList },
+    ] : []),
   ]
 
   return (

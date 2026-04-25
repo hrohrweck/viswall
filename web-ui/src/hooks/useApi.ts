@@ -47,6 +47,14 @@ import type {
   RoutingRuleCreate,
   RoutingRuleUpdate,
   LLMConfig,
+  LLMProvider,
+  LLMProviderCreate,
+  LLMProviderUpdate,
+  LLMModel,
+  LLMModelCreate,
+  LLMModelUpdate,
+  LLMUseCaseConfig,
+  LLMUseCaseConfigUpdate,
   LDAPConfig,
   MailMessage,
   CategoryConfig,
@@ -75,6 +83,11 @@ const queryKeys = {
   dashboardData: (instanceId: number) => ['dashboard', instanceId] as const,
   metricsOverview: ['metrics', 'overview'] as const,
   routingRules: (instanceId: number) => ['routing-rules', instanceId] as const,
+  llmProviders: ['llm-providers'] as const,
+  llmProvider: (id: number) => ['llm-providers', id] as const,
+  llmModels: (providerId?: number) => ['llm-models', providerId] as const,
+  llmModel: (id: number) => ['llm-models', id] as const,
+  llmUseCaseConfigs: ['llm-use-case-configs'] as const,
 }
 
 export { queryKeys }
@@ -810,6 +823,139 @@ export function useUpdateLLMConfig() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['llm-config'] })
+    },
+  })
+}
+
+// LLM Admin hooks
+export function useLLMProviders(options?: Partial<UseQueryOptions<LLMProvider[]>>) {
+  return useQuery<LLMProvider[]>({
+    queryKey: queryKeys.llmProviders,
+    queryFn: async () => {
+      const { data } = await api.get('/admin/llm/providers')
+      return data
+    },
+    ...options,
+  })
+}
+
+export function useCreateLLMProvider() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (provider: LLMProviderCreate) => {
+      const { data } = await api.post('/admin/llm/providers', provider)
+      return data as LLMProvider
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.llmProviders })
+    },
+  })
+}
+
+export function useUpdateLLMProvider() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...update }: { id: number } & LLMProviderUpdate) => {
+      const { data } = await api.patch(`/admin/llm/providers/${id}`, update)
+      return data as LLMProvider
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.llmProviders })
+    },
+  })
+}
+
+export function useDeleteLLMProvider() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/admin/llm/providers/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.llmProviders })
+      queryClient.invalidateQueries({ queryKey: queryKeys.llmModels() })
+    },
+  })
+}
+
+export function useTestLLMProvider() {
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post(`/admin/llm/providers/${id}/test`)
+      return data as { status: string; response: string }
+    },
+  })
+}
+
+export function useLLMModels(providerId?: number, options?: Partial<UseQueryOptions<LLMModel[]>>) {
+  return useQuery<LLMModel[]>({
+    queryKey: queryKeys.llmModels(providerId),
+    queryFn: async () => {
+      const { data } = await api.get('/admin/llm/models', { params: providerId ? { provider_id: providerId } : undefined })
+      return data
+    },
+    ...options,
+  })
+}
+
+export function useCreateLLMModel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (model: LLMModelCreate) => {
+      const { data } = await api.post('/admin/llm/models', model)
+      return data as LLMModel
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.llmModels() })
+    },
+  })
+}
+
+export function useUpdateLLMModel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...update }: { id: number } & LLMModelUpdate) => {
+      const { data } = await api.patch(`/admin/llm/models/${id}`, update)
+      return data as LLMModel
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.llmModels() })
+    },
+  })
+}
+
+export function useDeleteLLMModel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/admin/llm/models/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.llmModels() })
+    },
+  })
+}
+
+export function useLLMUseCaseConfigs(options?: Partial<UseQueryOptions<LLMUseCaseConfig[]>>) {
+  return useQuery<LLMUseCaseConfig[]>({
+    queryKey: queryKeys.llmUseCaseConfigs,
+    queryFn: async () => {
+      const { data } = await api.get('/admin/llm/use-cases')
+      return data
+    },
+    ...options,
+  })
+}
+
+export function useUpdateLLMUseCaseConfig() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...update }: { id: number } & LLMUseCaseConfigUpdate) => {
+      const { data } = await api.patch(`/admin/llm/use-cases/${id}`, update)
+      return data as LLMUseCaseConfig
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.llmUseCaseConfigs })
     },
   })
 }

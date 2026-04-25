@@ -20,6 +20,7 @@ import { VPNServerDetail } from './pages/VPN/VPNServerDetail'
 import { MailDomains } from './pages/Mail/MailDomains'
 import { MailDomainCreate } from './pages/Mail/MailDomainCreate'
 import { MailDomainDetail } from './pages/Mail/MailDomainDetail'
+import { LLMConfiguration } from './pages/admin/LLMConfiguration'
 
 export const router = createBrowserRouter([
   {
@@ -105,6 +106,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <Settings />,
+      },
+      {
+        path: 'admin/llm',
+        element: <LLMConfiguration />,
       },
     ],
   },
