@@ -472,6 +472,15 @@ export interface LLMConfig {
   categories: string[];
 }
 
+export interface LDAPConfig {
+  server_url: string;
+  bind_dn: string;
+  bind_password: string;
+  base_dn: string;
+  user_filter: string;
+  group_filter?: string;
+}
+
 export interface AssistantMessage {
   role: 'user' | 'assistant';
   content: string;
