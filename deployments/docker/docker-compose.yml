@@ -232,4 +232,4 @@ networks:
     enable_ipv6: true
     ipam:
       config:
-        - subnet: ${IPV6_SUBNET:-fd00:viswall::/64}
+        - subnet: ${IPV6_SUBNET:-fd00:42::/64}
