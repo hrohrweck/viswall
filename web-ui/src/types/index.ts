@@ -503,6 +503,94 @@ export interface LLMConfig {
   categories: string[];
 }
 
+export interface LLMProvider {
+  id: number;
+  name: string;
+  provider_type: 'openai' | 'anthropic' | 'ollama' | 'custom';
+  base_url: string | null;
+  api_key: string | null;
+  is_enabled: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LLMProviderCreate {
+  name: string;
+  provider_type: 'openai' | 'anthropic' | 'ollama' | 'custom';
+  base_url?: string | null;
+  api_key?: string | null;
+  is_enabled?: boolean;
+  is_default?: boolean;
+}
+
+export interface LLMProviderUpdate {
+  name?: string;
+  provider_type?: 'openai' | 'anthropic' | 'ollama' | 'custom';
+  base_url?: string | null;
+  api_key?: string | null;
+  is_enabled?: boolean;
+  is_default?: boolean;
+}
+
+export interface LLMModel {
+  id: number;
+  provider_id: number;
+  name: string;
+  display_name: string | null;
+  description: string | null;
+  max_tokens: number | null;
+  supports_vision: boolean;
+  is_enabled: boolean;
+  created_at: string;
+}
+
+export interface LLMModelCreate {
+  provider_id: number;
+  name: string;
+  display_name?: string | null;
+  description?: string | null;
+  max_tokens?: number | null;
+  supports_vision?: boolean;
+  is_enabled?: boolean;
+}
+
+export interface LLMModelUpdate {
+  name?: string;
+  display_name?: string | null;
+  description?: string | null;
+  max_tokens?: number | null;
+  supports_vision?: boolean;
+  is_enabled?: boolean;
+}
+
+export interface LLMUseCaseConfig {
+  id: number;
+  use_case: 'email_classification' | 'assistant_chat' | 'security_audit';
+  provider_id: number | null;
+  model_id: number | null;
+  temperature: number;
+  max_tokens: number;
+  top_p: number;
+  system_prompt: string | null;
+  timeout_seconds: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LLMUseCaseConfigUpdate {
+  use_case?: 'email_classification' | 'assistant_chat' | 'security_audit';
+  provider_id?: number | null;
+  model_id?: number | null;
+  temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
+  system_prompt?: string | null;
+  timeout_seconds?: number;
+  is_enabled?: boolean;
+}
+
 export interface LDAPConfig {
   server_url: string;
   bind_dn: string;
