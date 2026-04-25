@@ -37,9 +37,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://viswall:${DB_PASSWORD:-viswall}@postgres/viswall
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-    ports:
-      - "8000:8000"
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost}
+    # No direct port binding — accessed via nginx reverse proxy
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,11 +55,50 @@ services:
       context: ../..
       dockerfile: web-ui/Dockerfile
     environment:
-      VITE_API_URL: http://localhost:8000/api/v1
-    ports:
-      - "3000:80"
+      VITE_API_URL: /api/v1
+    # No direct port binding — accessed via nginx reverse proxy
     depends_on:
       - api-gateway
+    networks:
+      - viswall
+
+  # nginx Reverse Proxy (TLS termination)
+  nginx:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/nginx/Dockerfile
+    environment:
+      SSL_MODE: ${SSL_MODE:-selfsigned}
+      DOMAIN: ${DOMAIN:-localhost}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:-admin@localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - certbot_data:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    depends_on:
+      - api-gateway
+      - web-ui
+      - sogo
+    networks:
+      - viswall
+
+  # SOGo Groupware (CalDAV/CardDAV/ActiveSync)
+  sogo:
+    build:
+      context: ../..
+      dockerfile: services/sogo-service/Dockerfile
+    environment:
+      SOGO_DB_HOST: postgres
+      SOGO_DB_NAME: viswall
+      SOGO_DB_USER: viswall
+      SOGO_DB_PASS: ${DB_PASSWORD:-viswall}
+      SOGO_TIMEZONE: ${TZ:-UTC}
+    # No direct port binding — accessed via nginx reverse proxy
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - viswall
 
@@ -150,6 +188,8 @@ volumes:
   redis_data:
   prometheus_data:
   grafana_data:
+  certbot_data:
+  certbot_www:
 
 networks:
   viswall:

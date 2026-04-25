@@ -275,6 +275,7 @@ class MailDomainBase(BaseModel):
     dmarc_enabled: bool = True
     spf_enabled: bool = True
     llm_enabled: bool = False
+    groupware_enabled: bool = False
 
 
 class MailDomainCreate(MailDomainBase):
@@ -289,6 +290,7 @@ class MailDomainUpdate(BaseModel):
     dmarc_enabled: Optional[bool] = None
     spf_enabled: Optional[bool] = None
     llm_enabled: Optional[bool] = None
+    groupware_enabled: Optional[bool] = None
     llm_config: Optional[Dict[str, Any]] = None
 
 

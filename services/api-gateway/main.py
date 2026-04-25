@@ -6,7 +6,7 @@ import asyncio
 import os
 import time
 
-from routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant
+from routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant, groupware
 from shared.database import init_db, get_db
 from shared.models import Base
 from metrics_collector import start_metrics_collector
@@ -118,6 +118,9 @@ app.include_router(
     tags=["Firewall Simulation"],
 )
 app.include_router(assistant.router, prefix="/api/v1/assistant", tags=["LLM Assistant"])
+app.include_router(
+    groupware.router, prefix="/api/v1/groupware", tags=["Groupware"]
+)
 
 
 @app.get("/health", tags=["Health"])
