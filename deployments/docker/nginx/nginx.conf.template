@@ -46,6 +46,7 @@ http {
     # HTTP server - redirect to HTTPS
     server {
         listen 80;
+        listen [::]:80;
         server_name _;
 
         # Let's Encrypt challenge
@@ -62,6 +63,7 @@ http {
     # HTTPS server
     server {
         listen 443 ssl http2;
+        listen [::]:443 ssl http2;
         server_name _;
 
         # SSL configuration

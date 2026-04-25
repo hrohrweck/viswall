@@ -140,7 +140,7 @@ services:
       - ollama_data:/root/.ollama
     # No port binding — accessed internally by api-gateway
     environment:
-      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_HOST: ':11434'
     networks:
       - viswall
     healthcheck:
@@ -229,3 +229,7 @@ volumes:
 networks:
   viswall:
     driver: bridge
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: ${IPV6_SUBNET:-fd00:viswall::/64}
