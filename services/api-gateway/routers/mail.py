@@ -5,14 +5,21 @@ from typing import List, Optional
 from datetime import datetime
 
 from shared.database import get_db
-from shared.models import MailDomain, MailUser, Instance, User
+from shared.models import MailDomain, MailUser, Instance, User, MailMessage
 from shared.schemas import (
     MailDomainCreate, MailDomainUpdate, MailDomainResponse,
     MailUserCreate, MailUserUpdate, MailUserResponse,
+    MailMessageCreate, MailMessageResponse, MailClassificationResult,
+    MailMessageListParams, MailMessageActionRequest,
     LLMConfig
 )
 from shared.security import require_auth, require_admin, get_password_hash
 from shared.audit_logger import log_audit
+from mail_classifier import (
+    classify_email_with_domain_config,
+    LLMClassificationError,
+    DEFAULT_CATEGORIES,
+)
 
 router = APIRouter()
 
@@ -68,6 +75,11 @@ async def create_domain(
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Domain already exists on this instance")
     
+    # Inject default categories if LLM is enabled but no categories provided
+    llm_config = data.llm_config or {}
+    if data.llm_enabled and not llm_config.get("categories"):
+        llm_config["categories"] = DEFAULT_CATEGORIES
+
     domain = MailDomain(
         instance_id=instance_id,
         domain=data.domain,
@@ -78,7 +90,7 @@ async def create_domain(
         dmarc_enabled=data.dmarc_enabled,
         spf_enabled=data.spf_enabled,
         llm_enabled=data.llm_enabled,
-        llm_config=data.llm_config or {}
+        llm_config=llm_config
     )
     
     db.add(domain)
@@ -482,33 +494,258 @@ async def get_mail_stats(
 # LLM CLASSIFICATION ENDPOINTS
 # ============================================================================
 
-@router.post("/domains/{domain_id}/llm/test")
-async def test_llm_classification(
+@router.post("/domains/{domain_id}/classify")
+async def test_classify_email(
     domain_id: int,
-    test_email: dict,
+    test_data: dict,
     admin_id: int = Depends(require_admin),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    """Test LLM classification on sample email"""
+    """Test LLM classification on a sample email"""
     result = await db.execute(
         select(MailDomain).where(MailDomain.id == domain_id)
     )
     domain = result.scalar_one_or_none()
-    
+
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
-    
+
     if not domain.llm_enabled or not domain.llm_config:
         raise HTTPException(status_code=400, detail="LLM not configured for this domain")
-    
-    # In real implementation, call LLM service
+
+    try:
+        classification = await classify_email_with_domain_config(
+            subject=test_data.get("subject", "Test email"),
+            sender=test_data.get("sender", "test@example.com"),
+            body_preview=test_data.get("body_preview"),
+            llm_config=domain.llm_config,
+        )
+        return classification
+    except LLMClassificationError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@router.post("/classify-inbound")
+async def classify_inbound_email(
+    data: MailMessageCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Internal endpoint for mail agent to classify incoming email"""
+    # Verify domain exists and LLM is enabled
+    result = await db.execute(
+        select(MailDomain).where(MailDomain.id == data.domain_id)
+    )
+    domain = result.scalar_one_or_none()
+
+    if not domain or not domain.llm_enabled or not domain.llm_config:
+        # Store message without classification
+        message = MailMessage(
+            domain_id=data.domain_id,
+            message_id=data.message_id,
+            sender=data.sender,
+            recipients=data.recipients,
+            subject=data.subject,
+            size_bytes=data.size_bytes,
+            body_preview=data.body_preview,
+            status="pending",
+        )
+        db.add(message)
+        await db.commit()
+        return {"classified": False, "reason": "LLM not enabled"}
+
+    try:
+        classification = await classify_email_with_domain_config(
+            subject=data.subject or "",
+            sender=data.sender,
+            body_preview=data.body_preview,
+            llm_config=domain.llm_config,
+        )
+    except LLMClassificationError as e:
+        # Store message with classification error
+        message = MailMessage(
+            domain_id=data.domain_id,
+            message_id=data.message_id,
+            sender=data.sender,
+            recipients=data.recipients,
+            subject=data.subject,
+            size_bytes=data.size_bytes,
+            body_preview=data.body_preview,
+            status="pending",
+        )
+        db.add(message)
+        await db.commit()
+        return {"classified": False, "reason": str(e)}
+
+    # Store classified message
+    message = MailMessage(
+        domain_id=data.domain_id,
+        message_id=data.message_id,
+        sender=data.sender,
+        recipients=data.recipients,
+        subject=data.subject,
+        size_bytes=data.size_bytes,
+        body_preview=data.body_preview,
+        llm_category=classification["category"],
+        llm_confidence=classification["confidence"],
+        llm_reason=classification["reason"],
+        llm_provider=classification["provider"],
+        llm_model=classification["model"],
+        classified_at=datetime.utcnow(),
+        action_taken=classification["default_action"],
+        status="classified",
+    )
+    db.add(message)
+    await db.commit()
+
     return {
         "classified": True,
-        "category": "test",
-        "confidence": 0.95,
-        "action": "deliver",
-        "reason": "LLM classification test"
+        "category": classification["category"],
+        "confidence": classification["confidence"],
+        "action": classification["default_action"],
+        "reason": classification["reason"],
     }
+
+
+@router.get("/messages/{domain_id}", response_model=List[MailMessageResponse])
+async def list_mail_messages(
+    domain_id: int,
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """List classified emails for a domain with optional filters"""
+    # Verify access
+    result = await db.execute(
+        select(MailDomain.instance_id).where(MailDomain.id == domain_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Domain not found")
+
+    instance_id = row[0]
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one()
+    if user.role != "superadmin" and instance_id not in (user.instances or []):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Build query
+    query = select(MailMessage).where(MailMessage.domain_id == domain_id)
+
+    if category:
+        query = query.where(MailMessage.llm_category == category)
+    if status:
+        query = query.where(MailMessage.status == status)
+
+    query = query.order_by(MailMessage.received_at.desc()).limit(limit).offset(offset)
+
+    result = await db.execute(query)
+    messages = result.scalars().all()
+    return [MailMessageResponse.model_validate(m) for m in messages]
+
+
+@router.get("/messages/detail/{message_id}", response_model=MailMessageResponse)
+async def get_mail_message(
+    message_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get detailed information about a classified email"""
+    result = await db.execute(
+        select(MailMessage, MailDomain.instance_id)
+        .join(MailDomain)
+        .where(MailMessage.id == message_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    message, instance_id = row
+
+    # Verify access
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one()
+    if user.role != "superadmin" and instance_id not in (user.instances or []):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return MailMessageResponse.model_validate(message)
+
+
+@router.post("/messages/{message_id}/reclassify")
+async def reclassify_message(
+    message_id: int,
+    admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retry LLM classification for an existing message"""
+    result = await db.execute(
+        select(MailMessage, MailDomain.llm_config)
+        .join(MailDomain)
+        .where(MailMessage.id == message_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    message, llm_config = row
+
+    if not llm_config:
+        raise HTTPException(status_code=400, detail="LLM not configured for this domain")
+
+    try:
+        classification = await classify_email_with_domain_config(
+            subject=message.subject or "",
+            sender=message.sender,
+            body_preview=message.body_preview,
+            llm_config=llm_config,
+        )
+    except LLMClassificationError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    # Update message
+    message.llm_category = classification["category"]
+    message.llm_confidence = classification["confidence"]
+    message.llm_reason = classification["reason"]
+    message.llm_provider = classification["provider"]
+    message.llm_model = classification["model"]
+    message.classified_at = datetime.utcnow()
+    message.action_taken = classification["default_action"]
+    message.status = "classified"
+
+    await db.commit()
+    await db.refresh(message)
+
+    return MailMessageResponse.model_validate(message)
+
+
+@router.post("/messages/{message_id}/action")
+async def message_action(
+    message_id: int,
+    action_data: MailMessageActionRequest,
+    admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Take admin action on a classified message (deliver, quarantine, reject)"""
+    result = await db.execute(
+        select(MailMessage).where(MailMessage.id == message_id)
+    )
+    message = result.scalar_one_or_none()
+
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    message.action_taken = action_data.action
+    message.action_reason = action_data.reason
+    message.action_taken_at = datetime.utcnow()
+    message.action_taken_by = admin_id
+    message.status = action_data.action
+
+    await db.commit()
+    await db.refresh(message)
+
+    return MailMessageResponse.model_validate(message)
 
 # ============================================================================
 # BACKGROUND TASKS (These would be actual async tasks in production)
