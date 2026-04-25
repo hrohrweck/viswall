@@ -40,6 +40,7 @@ viswall/
 ├── services/
 │   ├── api-gateway/      # Central management API (FastAPI)
 │   │   ├── routers/      # API routes per domain
+│   │   ├── metrics_collector.py  # Background metrics collection task
 │   │   ├── migrations/   # Alembic database migrations
 │   │   └── tests/        # pytest test suite
 │   ├── firewall-service/ # Firewall agent (Python, not yet in docker-compose)
@@ -76,16 +77,16 @@ viswall/
 - [x] VPN management (WireGuard, IPsec, OpenVPN, L2TP, PPTP) with client configs
 - [x] Mail domain and user management with DKIM/DMARC/SPF toggles
 - [x] Metrics dashboard with Recharts (CPU, memory, disk, mail activity)
+- [x] Metrics collector background job (auto-inserts MetricSnapshot rows)
 - [x] Routing rules (policy-based routing)
 - [x] Audit logging for all CRUD and deploy operations
 - [x] Database migrations with Alembic
+- [x] Settings page with LLM config and theme toggle
 
 ### In Progress / Known Gaps
 
 - [ ] LDAP/AD authentication (stubbed, returns 501)
 - [ ] Service agents wired into docker-compose (firewall, mail, VPN agents exist but run independently)
-- [ ] Metrics collector background job (no automatic MetricSnapshot writes)
-- [ ] Settings page (placeholder only)
 - [ ] Grafana provisioned dashboards
 - [ ] Ansible deployment scripts
 

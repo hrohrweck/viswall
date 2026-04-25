@@ -2,11 +2,13 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
+import asyncio
 import os
 
 from routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant
 from shared.database import init_db, get_db
 from shared.models import Base
+from metrics_collector import start_metrics_collector
 
 token_auth = HTTPBearer()
 
@@ -15,8 +17,15 @@ token_auth = HTTPBearer()
 async def lifespan(app: FastAPI):
     # Startup
     await init_db()
+    collector_task = start_metrics_collector()
     yield
     # Shutdown
+    if collector_task is not None:
+        collector_task.cancel()
+        try:
+            await collector_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(
