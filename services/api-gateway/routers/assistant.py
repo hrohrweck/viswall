@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
 from shared.security import require_auth, require_admin
+from shared.schemas import LLMConfig
 from shared.llm_assistant import (
     LLMConfigurationAssistant, AssistantContext,
     AssistantIntent
@@ -486,3 +487,44 @@ async def get_assistant_capabilities(
             "Use the simulator to test before applying"
         ]
     }
+
+
+# In-memory store for LLM config (would be database in production)
+_llm_config_store: dict = {
+    "provider": "openai",
+    "model": "gpt-4",
+    "api_key": None,
+    "api_base": None,
+    "temperature": 0.3,
+    "max_tokens": 500,
+    "system_prompt": "You are an email classification assistant.",
+    "auto_classify": False,
+    "confidence_threshold": 0.8,
+    "categories": [
+        "important",
+        "newsletter",
+        "social",
+        "promotional",
+        "spam",
+        "work",
+    ],
+}
+
+
+@router.get("/config", response_model=LLMConfig)
+async def get_llm_config(
+    user_id: int = Depends(require_auth),
+):
+    """Get current LLM configuration"""
+    return LLMConfig(**_llm_config_store)
+
+
+@router.post("/config", response_model=LLMConfig)
+async def update_llm_config(
+    config: LLMConfig,
+    user_id: int = Depends(require_admin),
+):
+    """Update LLM configuration (admin only)"""
+    global _llm_config_store
+    _llm_config_store = config.model_dump()
+    return config
