@@ -46,6 +46,7 @@ import type {
   RoutingRule,
   RoutingRuleCreate,
   RoutingRuleUpdate,
+  LLMConfig,
 } from '../types'
 
 const queryKeys = {
@@ -722,6 +723,31 @@ export function useApplyRouting(instanceId: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.routingRules(instanceId) })
+    },
+  })
+}
+
+// LLM Config hooks
+export function useLLMConfig(options?: Partial<UseQueryOptions<LLMConfig>>) {
+  return useQuery<LLMConfig>({
+    queryKey: ['llm-config'],
+    queryFn: async () => {
+      const { data } = await api.get('/assistant/config')
+      return data
+    },
+    ...options,
+  })
+}
+
+export function useUpdateLLMConfig() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (config: LLMConfig) => {
+      const { data } = await api.post('/assistant/config', config)
+      return data as LLMConfig
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llm-config'] })
     },
   })
 }
