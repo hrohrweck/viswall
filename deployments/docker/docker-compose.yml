@@ -94,7 +94,14 @@ services:
     networks:
       - viswall
 
-  # Mail Service (optional - enable as needed)
+  # ============================================================================
+  # SERVICE AGENTS (optional — uncomment to run agents in docker-compose)
+  # These agents normally run on individual viswall instances.
+  # Enabling them here is useful for local development and integration testing.
+  # WARNING: firewall-agent and vpn-agent require privileged mode and host
+  # networking to manipulate system network settings.
+  # ============================================================================
+
   # mail-service:
   #   build:
   #     context: ../..
@@ -112,8 +119,7 @@ services:
   #   networks:
   #     - viswall
 
-  # Firewall Service Agent (runs on each instance)
-  # firewall-agent:
+  # firewall-service:
   #   build:
   #     context: ../..
   #     dockerfile: services/firewall-service/Dockerfile
@@ -121,9 +127,23 @@ services:
   #   network_mode: host
   #   environment:
   #     GATEWAY_URL: http://api-gateway:8000
-  #     INSTANCE_API_KEY: ${INSTANCE_API_KEY}
-  #   networks:
-  #     - viswall
+  #     INSTANCE_API_KEY: ${INSTANCE_API_KEY:-dev-key}
+  #   ports:
+  #     - "8081:8081"
+  #   depends_on:
+  #     - api-gateway
+
+  # vpn-service:
+  #   build:
+  #     context: ../..
+  #     dockerfile: services/vpn-service/Dockerfile
+  #   privileged: true
+  #   network_mode: host
+  #   environment:
+  #     GATEWAY_URL: http://api-gateway:8000
+  #     INSTANCE_API_KEY: ${INSTANCE_API_KEY:-dev-key}
+  #   depends_on:
+  #     - api-gateway
 
 volumes:
   postgres_data:
