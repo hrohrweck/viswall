@@ -31,6 +31,7 @@ viswall/
 │   ├── api-gateway/          # FastAPI app — central management API
 │   │   ├── main.py           # FastAPI app entrypoint
 │   │   ├── routers/          # API route modules (auth, firewall, vpn, mail, metrics, routing, audit, assistant)
+│   │   ├── metrics_collector.py  # Background task that collects instance metrics
 │   │   ├── tests/            # pytest tests
 │   │   ├── migrations/       # Alembic migrations
 │   │   ├── alembic.ini       # Alembic config
@@ -108,6 +109,20 @@ python -m alembic downgrade -1
 - `migrations/env.py` imports `shared.models.Base` for autogenerate.
 - `shared/database.py:init_db()` runs `alembic upgrade head` on startup.
 - The initial migration `e1580e735101` covers all 18 tables.
+
+### Metrics Collector
+
+A background task (`metrics_collector.py`) runs on startup and periodically inserts `MetricSnapshot` rows for all active instances.
+
+```bash
+# Configurable via environment variables
+export METRICS_COLLECTOR_ENABLED=true   # default: true
+export METRICS_INTERVAL=60              # seconds, default: 60
+```
+
+- Starts automatically with the FastAPI app lifespan.
+- Cancels cleanly on shutdown.
+- Currently simulates realistic metrics (agents are not yet deployed).
 
 ---
 
@@ -199,11 +214,9 @@ These are intentional or known areas needing future work. Agents should be aware
 
 1. **LDAP/AD auth**: Stubbed at `auth.py:41` (returns 501). Only local auth works.
 2. **Service agents**: `firewall-service/`, `mail-service/`, `vpn-service/` agents exist but are NOT wired into docker-compose. They run independently.
-3. **Metrics collector**: No background job writes `MetricSnapshot` rows. Dashboard shows historical data only if something populates the table.
-4. **Settings page**: Placeholder — currently shows a static message.
-5. **Ansible deployment**: No `deployments/ansible/` directory exists.
-6. **Grafana dashboards**: Grafana is deployed but has no provisioned dashboards.
-7. **Legacy code**: `source/` and `files/` contain the old PHP/Perl/C++ codebase. Not used.
+3. **Ansible deployment**: No `deployments/ansible/` directory exists.
+4. **Grafana dashboards**: Grafana is deployed but has no provisioned dashboards.
+5. **Legacy code**: `source/` and `files/` contain the old PHP/Perl/C++ codebase. Not used.
 
 ---
 
