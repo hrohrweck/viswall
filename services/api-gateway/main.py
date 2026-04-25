@@ -1,14 +1,33 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import asyncio
 import os
+import time
 
 from routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant
 from shared.database import init_db, get_db
 from shared.models import Base
 from metrics_collector import start_metrics_collector
+
+# Prometheus metrics
+try:
+    from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+
+    http_requests_total = Counter(
+        "http_requests_total",
+        "Total HTTP requests",
+        ["method", "endpoint", "status"],
+    )
+    http_request_duration_seconds = Histogram(
+        "http_request_duration_seconds",
+        "HTTP request duration",
+        ["method", "endpoint"],
+    )
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
 
 token_auth = HTTPBearer()
 
@@ -43,6 +62,45 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def prometheus_metrics_middleware(request: Request, call_next):
+    if not PROMETHEUS_AVAILABLE:
+        return await call_next(request)
+
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+
+    # Skip metrics endpoint itself to avoid recursion
+    if request.url.path == "/metrics":
+        return response
+
+    method = request.method
+    endpoint = request.url.path
+    status = str(response.status_code)
+
+    http_requests_total.labels(method=method, endpoint=endpoint, status=status).inc()
+    http_request_duration_seconds.labels(method=method, endpoint=endpoint).observe(
+        duration
+    )
+
+    return response
+
+
+@app.get("/metrics", tags=["Monitoring"])
+async def prometheus_metrics():
+    if not PROMETHEUS_AVAILABLE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Prometheus client not installed",
+        )
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+    )
+
 
 # Include routers
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])

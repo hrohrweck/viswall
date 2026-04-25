@@ -215,7 +215,7 @@ These are intentional or known areas needing future work. Agents should be aware
 1. **LDAP/AD auth**: Implemented with auto-provisioning. Configure via Settings page (admin only) or `POST /auth/ldap-config`.
 2. **Service agents**: `firewall-service/`, `mail-service/`, `vpn-service/` agents are now wired into docker-compose (commented out by default). Uncomment in `deployments/docker/docker-compose.yml` to enable for dev/testing. They require `privileged: true` and `network_mode: host`.
 3. **Ansible deployment**: No `deployments/ansible/` directory exists.
-4. **Grafana dashboards**: Grafana is deployed but has no provisioned dashboards.
+4. **Grafana dashboards**: Provisioned with Prometheus datasource and a Viswall Overview dashboard. Add more dashboards to `deployments/docker/grafana/dashboards/`.
 5. **Legacy code**: `source/` and `files/` contain the old PHP/Perl/C++ codebase. Not used.
 
 ---
