@@ -194,6 +194,42 @@ class MailUser(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class MailMessage(Base):
+    """Individual emails received and their LLM classification results"""
+
+    __tablename__ = "mail_messages"
+
+    id = Column(Integer, primary_key=True)
+    domain_id = Column(Integer, ForeignKey("mail_domains.id"), nullable=False, index=True)
+    message_id = Column(String(255), unique=True, nullable=False)
+    sender = Column(String(255), nullable=False)
+    recipients = Column(JSON, default=list)
+    subject = Column(String(500))
+    size_bytes = Column(Integer)
+    body_preview = Column(Text)
+
+    # Spam/virus scanning results
+    spam_score = Column(Float)
+    virus_status = Column(String(20))
+
+    # LLM classification
+    llm_category = Column(String(50), index=True)
+    llm_confidence = Column(Float)
+    llm_reason = Column(Text)
+    llm_provider = Column(String(20))
+    llm_model = Column(String(50))
+    classified_at = Column(DateTime)
+
+    # Action tracking
+    action_taken = Column(String(20), default="pending")
+    action_reason = Column(Text)
+    action_taken_at = Column(DateTime)
+    action_taken_by = Column(Integer, ForeignKey("users.id"))
+
+    status = Column(String(20), default="pending", index=True)
+    received_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 class MetricSnapshot(Base):
     """Time-series metrics from instances"""
 

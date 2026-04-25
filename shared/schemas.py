@@ -339,6 +339,70 @@ class MailUserResponse(MailUserBase):
         from_attributes = True
 
 
+# Category Config Schema
+class CategoryConfig(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+    color: str = Field(..., max_length=20)
+    default_action: str = Field(default="deliver", max_length=20)
+
+
+# Mail Message Schemas
+class MailMessageBase(BaseModel):
+    sender: str = Field(..., max_length=255)
+    recipients: List[str] = Field(default_factory=list)
+    subject: Optional[str] = Field(None, max_length=500)
+    size_bytes: Optional[int] = None
+    body_preview: Optional[str] = None
+
+
+class MailMessageCreate(MailMessageBase):
+    message_id: str = Field(..., max_length=255)
+    domain_id: int
+
+
+class MailMessageResponse(MailMessageBase):
+    id: int
+    domain_id: int
+    message_id: str
+    spam_score: Optional[float] = None
+    virus_status: Optional[str] = None
+    llm_category: Optional[str] = None
+    llm_confidence: Optional[float] = None
+    llm_reason: Optional[str] = None
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
+    classified_at: Optional[datetime] = None
+    action_taken: str = "pending"
+    action_reason: Optional[str] = None
+    action_taken_at: Optional[datetime] = None
+    action_taken_by: Optional[int] = None
+    status: str = "pending"
+    received_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MailClassificationResult(BaseModel):
+    category: str
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    reason: str
+
+
+class MailMessageListParams(BaseModel):
+    category: Optional[str] = None
+    status: Optional[str] = None
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
+    limit: int = Field(default=50, ge=1, le=500)
+    offset: int = Field(default=0, ge=0)
+
+
+class MailMessageActionRequest(BaseModel):
+    action: str = Field(..., max_length=20)
+    reason: Optional[str] = None
+
+
 # Metrics Schemas
 class MetricSnapshotBase(BaseModel):
     cpu_percent: Optional[float] = None
