@@ -263,6 +263,37 @@ export interface MailUserUpdate {
   vacation_message?: string;
 }
 
+export interface CategoryConfig {
+  name: string;
+  color: string;
+  default_action: string;
+}
+
+export interface MailMessage {
+  id: number;
+  domain_id: number;
+  message_id: string;
+  sender: string;
+  recipients: string[];
+  subject: string | null;
+  size_bytes: number | null;
+  body_preview: string | null;
+  spam_score: number | null;
+  virus_status: string | null;
+  llm_category: string | null;
+  llm_confidence: number | null;
+  llm_reason: string | null;
+  llm_provider: string | null;
+  llm_model: string | null;
+  classified_at: string | null;
+  action_taken: string;
+  action_reason: string | null;
+  action_taken_at: string | null;
+  action_taken_by: number | null;
+  status: string;
+  received_at: string;
+}
+
 export interface VPNServer {
   id: number;
   instance_id: number;

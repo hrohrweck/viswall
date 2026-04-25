@@ -48,6 +48,8 @@ import type {
   RoutingRuleUpdate,
   LLMConfig,
   LDAPConfig,
+  MailMessage,
+  CategoryConfig,
 } from '../types'
 
 const queryKeys = {
@@ -60,6 +62,8 @@ const queryKeys = {
   mailDomains: (instanceId: number) => ['mail-domains', instanceId] as const,
   mailDomain: (instanceId: number, domainId: number) => ['mail-domains', instanceId, domainId] as const,
   mailUsers: (instanceId: number, domainId: number) => ['mail-users', instanceId, domainId] as const,
+  mailMessages: (domainId: number, filters?: Record<string, unknown>) => ['mail-messages', domainId, filters] as const,
+  mailMessage: (messageId: number) => ['mail-message', messageId] as const,
   vpnServers: (instanceId: number) => ['vpn-servers', instanceId] as const,
   vpnServer: (instanceId: number, serverId: number) => ['vpn-servers', instanceId, serverId] as const,
   vpnClients: (instanceId: number, serverId: number) => ['vpn-clients', instanceId, serverId] as const,
@@ -353,6 +357,63 @@ export function useDeleteMailDomain(instanceId: number) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.mailDomains(instanceId) })
+    },
+  })
+}
+
+export function useMailMessages(domainId: number, filters?: Record<string, unknown>) {
+  return useQuery<MailMessage[]>({
+    queryKey: queryKeys.mailMessages(domainId, filters),
+    queryFn: async () => {
+      const { data } = await api.get(`/mail/messages/${domainId}`, { params: filters })
+      return data
+    },
+    enabled: !!domainId,
+  })
+}
+
+export function useMailMessage(messageId: number) {
+  return useQuery<MailMessage>({
+    queryKey: queryKeys.mailMessage(messageId),
+    queryFn: async () => {
+      const { data } = await api.get(`/mail/messages/detail/${messageId}`)
+      return data
+    },
+    enabled: !!messageId,
+  })
+}
+
+export function useClassifyEmail(domainId: number) {
+  return useMutation({
+    mutationFn: async (testData: { subject: string; sender: string; body_preview?: string }) => {
+      const { data } = await api.post(`/mail/domains/${domainId}/classify`, testData)
+      return data as { category: string; confidence: number; reason: string; action: string }
+    },
+  })
+}
+
+export function useReclassifyMessage(messageId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/mail/messages/${messageId}/reclassify`)
+      return data as MailMessage
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.mailMessage(messageId) })
+    },
+  })
+}
+
+export function useMessageAction(messageId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ action, reason }: { action: string; reason?: string }) => {
+      const { data } = await api.post(`/mail/messages/${messageId}/action`, { action, reason })
+      return data as MailMessage
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.mailMessage(messageId) })
     },
   })
 }
