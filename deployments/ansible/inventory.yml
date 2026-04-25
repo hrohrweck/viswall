@@ -1,0 +1,30 @@
+---
+# Example Ansible inventory for Viswall deployment
+#
+# Copy this file and customize for your environment.
+
+dev:
+  children:
+    managers:
+      hosts:
+        manager-01:
+          ansible_host: 10.0.0.10
+          viswall_role: manager
+    agents:
+      hosts:
+        edge-01:
+          ansible_host: 10.0.0.20
+          viswall_role: agent
+          viswall_agent_type: firewall
+        edge-02:
+          ansible_host: 10.0.0.21
+          viswall_role: agent
+          viswall_agent_type: mail
+        edge-03:
+          ansible_host: 10.0.0.22
+          viswall_role: agent
+          viswall_agent_type: vpn
+
+  vars:
+    ansible_user: sysop
+    ansible_python_interpreter: /usr/bin/python3

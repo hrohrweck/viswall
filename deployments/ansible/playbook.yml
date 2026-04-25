@@ -1,0 +1,28 @@
+---
+# Viswall Ansible Deployment Playbook
+#
+# This playbook deploys the Viswall security appliance platform.
+# It supports two node types:
+#   - manager: central management stack (API, UI, DB, monitoring)
+#   - agent:   edge service agents (firewall, mail, VPN)
+#
+# Usage:
+#   ansible-playbook -i inventory.yml playbook.yml --tags manager
+#   ansible-playbook -i inventory.yml playbook.yml --tags agent
+
+- name: Deploy Viswall
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: docker
+      tags: [always]
+
+    - role: manager
+      tags: [manager]
+      when: viswall_role == 'manager'
+
+    - role: agent
+      tags: [agent]
+      when: viswall_role == 'agent'

@@ -1,0 +1,28 @@
+---
+# Deploy a Viswall service agent on an edge instance
+
+- name: Create Viswall agent directory
+  ansible.builtin.file:
+    path: "{{ viswall_install_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Clone Viswall repository
+  ansible.builtin.git:
+    repo: "{{ viswall_repo_url }}"
+    version: "{{ viswall_version }}"
+    dest: "{{ viswall_install_dir }}"
+    force: true
+
+- name: Build and start {{ viswall_agent_type }} agent container
+  ansible.builtin.command: >
+    docker run -d --name viswall-{{ viswall_agent_type }}
+    --privileged --network host --restart unless-stopped
+    -e GATEWAY_URL={{ viswall_gateway_url }}
+    -e INSTANCE_API_KEY={{ viswall_instance_api_key }}
+    -v {{ viswall_install_dir }}/services/{{ viswall_agent_type }}-service:/opt/viswall:ro
+    {{ viswall_agent_type }}-agent
+  args:
+    chdir: "{{ viswall_install_dir }}"
+  changed_when: true
+  when: viswall_agent_type is defined

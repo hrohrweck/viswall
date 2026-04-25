@@ -1,0 +1,42 @@
+---
+# Deploy the Viswall central management stack
+
+- name: Create Viswall install directory
+  ansible.builtin.file:
+    path: "{{ viswall_install_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Clone Viswall repository
+  ansible.builtin.git:
+    repo: "{{ viswall_repo_url }}"
+    version: "{{ viswall_version }}"
+    dest: "{{ viswall_install_dir }}"
+    force: true
+
+- name: Create environment file
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ viswall_install_dir }}/deployments/docker/.env"
+    mode: '0600'
+  vars:
+    db_password: "{{ viswall_db_password }}"
+    jwt_secret: "{{ viswall_jwt_secret }}"
+    grafana_password: "{{ viswall_grafana_password }}"
+    cors_origins: "{{ viswall_cors_origins }}"
+
+- name: Start Viswall manager stack
+  ansible.builtin.command: >
+    docker compose up -d --build
+  args:
+    chdir: "{{ viswall_install_dir }}/deployments/docker"
+  changed_when: true
+
+- name: Wait for API gateway to be healthy
+  ansible.builtin.uri:
+    url: "http://localhost:8000/health"
+    status_code: 200
+  register: health_check
+  until: health_check.status == 200
+  retries: 12
+  delay: 5
