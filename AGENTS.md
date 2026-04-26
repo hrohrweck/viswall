@@ -192,7 +192,7 @@ pip install -r requirements.txt
 export DATABASE_URL="postgresql+asyncpg://viswall:viswall@localhost/viswall"
 export REDIS_URL="redis://localhost:6379/0"
 export JWT_SECRET_KEY="dev-secret-key"
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host :: --port 8000
 ```
 
 ### Frontend Only

@@ -280,7 +280,7 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
             value={form.source_network || ''}
             onChange={(e) => setForm({ ...form, source_network: e.target.value || undefined })}
             className={inputClass}
-            placeholder="10.0.0.0/24"
+            placeholder="10.0.0.0/24 or 2001:db8::/64"
           />
         </div>
         <div>
@@ -290,7 +290,7 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
             value={form.dest_network || ''}
             onChange={(e) => setForm({ ...form, dest_network: e.target.value || undefined })}
             className={inputClass}
-            placeholder="0.0.0.0/0"
+            placeholder="0.0.0.0/0 or ::/0"
           />
         </div>
       </div>
@@ -326,7 +326,7 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
             value={form.gateway || ''}
             onChange={(e) => setForm({ ...form, gateway: e.target.value || undefined })}
             className={inputClass}
-            placeholder="192.168.1.1"
+            placeholder="192.168.1.1 or 2001:db8::1"
           />
         </div>
         <div>

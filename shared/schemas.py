@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, IPvAnyNetwork
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -951,9 +951,7 @@ class VPNConnectionResponse(BaseModel):
 
 # VPN Routing
 class VPNRouteBase(BaseModel):
-    destination: str = Field(
-        ..., pattern=r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$"
-    )
+    destination: IPvAnyNetwork
     gateway: Optional[str] = None
     metric: int = 0
     apply_to_all: bool = True
