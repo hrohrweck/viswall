@@ -16,6 +16,8 @@ Viswall provides a centralized management layer for security-critical network se
 
 **Mail Domains and Users.** Host email for multiple domains with per-domain toggles for spam filtering, virus scanning, DKIM signing, DMARC policies, and SPF records. LLM-based email classification categorizes incoming mail using OpenAI, Anthropic Claude, or local Ollama models, with configurable per-domain categories. SOGo groupware provides CalDAV, CardDAV, and ActiveSync for mail users.
 
+**QoS Policies.** Define bandwidth limits and traffic shaping rules per interface with class-based prioritization, DSCP matching, and per-port rate controls. Supports CBQ and TBF algorithms.
+
 **Policy Routing.** Direct traffic across specific gateways based on source or destination criteria, enabling multi-WAN failover and traffic segmentation.
 
 **Metrics and Monitoring.** A background metrics collector gathers CPU, memory, disk, network, and mail activity from every instance. Data is stored in PostgreSQL and visualized through Grafana dashboards backed by Prometheus.
@@ -61,7 +63,7 @@ Viswall separates the control plane (manager) from the data plane (agents). This
 
 ### Component Responsibilities
 
-**API Gateway** (`services/api-gateway/`). The central FastAPI application exposes the REST API used by the web UI, SDKs, and CLI. It owns the database schema, handles authentication, routes requests to domain-specific modules (auth, firewall, VPN, mail, metrics, routing, audit), and runs the background metrics collector. On startup, it applies any pending Alembic database migrations automatically.
+**API Gateway** (`services/api-gateway/`). The central FastAPI application exposes the REST API used by the web UI, SDKs, and CLI. It owns the database schema, handles authentication, routes requests to domain-specific modules (auth, firewall, VPN, mail, metrics, routing, audit, QoS, groupware, LLM admin), and runs the background metrics collector. On startup, it applies any pending Alembic database migrations automatically.
 
 **Web UI** (`web-ui/`). A React 18 single-page application built with TypeScript, Vite, TanStack Query, Zustand, and Tailwind CSS. It provides pages for instance management, firewall rules, VPN configuration, mail domains, routing policies, metrics dashboards, audit logs, settings, and LLM classification review. The UI communicates exclusively with the API Gateway over HTTPS.
 
@@ -69,7 +71,7 @@ Viswall separates the control plane (manager) from the data plane (agents). This
 
 **Agents** (`services/firewall-service/`, `mail-service/`, `vpn-service/`). Lightweight Python services that run on each managed instance. They poll the manager for configuration changes (via heartbeat responses that include a config version) and apply rules locally using iptables/nftables, Postfix/Dovecot, or WireGuard/IPsec tools. Agents are wired into the Docker Compose stack but commented out by default; in production they run on bare-metal or VM instances with `privileged: true` and `network_mode: host`.
 
-**PostgreSQL** (primary database). Stores all persistent state: users, instances, firewall rules, VPN servers and clients, mail domains and users, metrics snapshots, audit logs, and routing policies. SQLAlchemy 2.0 async models live in `shared/models.py`.
+**PostgreSQL** (primary database). Stores all persistent state: users, instances, firewall rules, VPN servers and clients, mail domains and users, metrics snapshots, audit logs, routing policies, QoS policies, and LLM configuration. SQLAlchemy 2.0 async models live in `shared/models.py`.
 
 **Redis** (cache and queues). Caches session data and acts as a lightweight message broker for background tasks.
 
@@ -408,7 +410,3 @@ cd sdk/cli && python -m pytest tests/ -v && python -m ruff check viswall_cli/ &&
 ## License
 
 MIT License
-
----
-
-**Note**: The `source/` and `files/` directories contain the legacy PHP/Perl/C++ codebase from the original appliance. They are preserved for reference but are not used in the modern architecture.
