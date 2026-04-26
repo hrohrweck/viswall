@@ -75,6 +75,22 @@ export enum DNSRecordType {
   DS = 'DS',
 }
 
+export enum DHCPSubnetType {
+  V4 = 'v4',
+  V6 = 'v6',
+}
+
+export enum DHCPLeaseState {
+  ACTIVE = 'active',
+  EXPIRED = 'expired',
+  RELEASED = 'released',
+}
+
+export enum DHCPHAMode {
+  HOT_STANDBY = 'hot-standby',
+  LOAD_BALANCING = 'load-balancing',
+}
+
 export interface Instance {
   id: number;
   name: string;
@@ -625,6 +641,160 @@ export interface DNSRecordCreate {
   flags?: string;
   tag?: string;
   comment?: string;
+}
+
+export interface DHCPServer {
+  id: number;
+  instance_id: number;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  status: string;
+  kea_ctrl_agent_address: string;
+  kea_ctrl_agent_port: number;
+  ha_enabled: boolean;
+  ha_mode: DHCPHAMode;
+  ha_peer_address: string | null;
+  dhcpv4_enabled: boolean;
+  dhcpv6_enabled: boolean;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+  subnets_count: number;
+}
+
+export interface DHCPServerCreate {
+  name: string;
+  description?: string;
+  enabled?: boolean;
+  kea_ctrl_agent_address?: string;
+  kea_ctrl_agent_port?: number;
+  ha_enabled?: boolean;
+  ha_mode?: DHCPHAMode;
+  ha_peer_address?: string;
+  dhcpv4_enabled?: boolean;
+  dhcpv6_enabled?: boolean;
+}
+
+export interface DHCPSubnet {
+  id: number;
+  server_id: number;
+  name: string;
+  description: string | null;
+  subnet: string;
+  type: DHCPSubnetType;
+  interface: string | null;
+  relay_addresses: string[];
+  domain_name: string | null;
+  dns_servers: string[];
+  ntp_servers: string[];
+  routers: string[];
+  lease_time_default: number;
+  lease_time_max: number;
+  lease_time_min: number;
+  delegated_prefix_length: number | null;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+  pools_count: number;
+  reservations_count: number;
+  leases_count: number;
+}
+
+export interface DHCPSubnetCreate {
+  name: string;
+  description?: string;
+  subnet: string;
+  type: DHCPSubnetType;
+  interface?: string;
+  relay_addresses?: string[];
+  domain_name?: string;
+  dns_servers?: string[];
+  ntp_servers?: string[];
+  routers?: string[];
+  lease_time_default?: number;
+  lease_time_max?: number;
+  lease_time_min?: number;
+  delegated_prefix_length?: number;
+  enabled?: boolean;
+}
+
+export interface DHCPPool {
+  id: number;
+  subnet_id: number;
+  start_address: string;
+  end_address: string;
+  type: DHCPSubnetType;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DHCPPoolCreate {
+  start_address: string;
+  end_address: string;
+  type: DHCPSubnetType;
+  enabled?: boolean;
+}
+
+export interface DHCPReservation {
+  id: number;
+  subnet_id: number;
+  hostname: string | null;
+  ip_address: string;
+  hw_address: string;
+  type: DHCPSubnetType;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DHCPReservationCreate {
+  hostname?: string;
+  ip_address: string;
+  hw_address: string;
+  type: DHCPSubnetType;
+  description?: string;
+}
+
+export interface DHCPOption {
+  id: number;
+  subnet_id: number;
+  option_code: number;
+  option_name: string;
+  option_value: string;
+  type: DHCPSubnetType;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DHCPOptionCreate {
+  option_code: number;
+  option_name: string;
+  option_value: string;
+  type: DHCPSubnetType;
+}
+
+export interface DHCPLease {
+  id: number;
+  subnet_id: number;
+  pool_id: number | null;
+  ip_address: string;
+  hw_address: string | null;
+  hostname: string | null;
+  client_id: string | null;
+  lease_start: string | null;
+  lease_end: string | null;
+  released_at: string | null;
+  state: DHCPLeaseState;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DHCPLeaseReleaseResponse {
+  id: number;
+  state: DHCPLeaseState;
+  released_at: string;
 }
 
 export interface AuditLog {
