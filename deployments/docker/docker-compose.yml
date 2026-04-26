@@ -218,6 +218,23 @@ services:
   #   depends_on:
   #     - api-gateway
 
+  # dhcp-service:
+  #   build:
+  #     context: ../..
+  #     dockerfile: services/dhcp-service/Dockerfile
+  #   privileged: true
+  #   network_mode: host
+  #   environment:
+  #     GATEWAY_URL: http://api-gateway:8000
+  #     INSTANCE_API_KEY: ${INSTANCE_API_KEY:-dev-key}
+  #     DHCP_AGENT_ALLOW_COMMANDS: "true"
+  #   ports:
+  #     - "67:67/udp"
+  #     - "547:547/udp"
+  #     - "8083:8083"
+  #   depends_on:
+  #     - api-gateway
+
   # Ollama model pull (runs once on startup)
   ollama-pull:
     image: curlimages/curl:latest
