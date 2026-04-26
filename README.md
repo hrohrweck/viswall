@@ -1,6 +1,6 @@
 # Viswall
 
-Viswall is a modern, distributed security appliance platform for managing firewall, VPN, mail, and routing infrastructure across multiple edge instances from a single control plane. It replaces legacy monolithic security appliances with a containerized microservices architecture built on FastAPI, React, and PostgreSQL.
+Viswall is a modern, distributed security appliance platform for managing firewall, VPN, DNS, DHCP, mail, and routing infrastructure across multiple edge instances from a single control plane. It replaces legacy monolithic security appliances with a containerized microservices architecture built on FastAPI, React, and PostgreSQL.
 
 ## What Viswall Does
 
@@ -13,6 +13,8 @@ Viswall provides a centralized management layer for security-critical network se
 **Firewall Rules and NAT.** Define accept, drop, and reject rules across input, output, and forward chains. Rules support protocol filtering, source and destination IP ranges, and port specifications. NAT rules handle address translation. Rules are authored in the web UI or via API, stored in the manager's database, and applied to instances through a dedicated firewall agent.
 
 **VPN Servers and Clients.** Deploy WireGuard, IPsec, OpenVPN, L2TP, and PPTP servers across instances. Client configurations are generated automatically, including QR codes and downloadable profiles. Site-to-site tunnels bridge networks between instances.
+
+**DNS and DHCP Services.** Manage BIND9 DNS servers and Kea DHCP servers from the same control plane. DNS supports authoritative and recursive modes, forward and reverse zones, DNSSEC lifecycle operations, and TSIG key workflows. DHCP supports dual-stack (DHCPv4 and DHCPv6), subnets, pools, static reservations, custom options, active lease visibility, and lease release actions.
 
 **Mail Domains and Users.** Host email for multiple domains with per-domain toggles for spam filtering, virus scanning, DKIM signing, DMARC policies, and SPF records. LLM-based email classification categorizes incoming mail using OpenAI, Anthropic Claude, or local Ollama models, with configurable per-domain categories. SOGo groupware provides CalDAV, CardDAV, and ActiveSync for mail users.
 
@@ -69,7 +71,7 @@ Viswall separates the control plane (manager) from the data plane (agents). This
 
 **Nginx** (`deployments/docker/nginx/`). Acts as a reverse proxy in front of the API Gateway and Web UI containers. Handles TLS termination using either self-signed certificates or Let's Encrypt. Also proxies `/sogo` to the SOGo groupware container.
 
-**Agents** (`services/firewall-service/`, `mail-service/`, `vpn-service/`). Lightweight Python services that run on each managed instance. They poll the manager for configuration changes (via heartbeat responses that include a config version) and apply rules locally using iptables/nftables, Postfix/Dovecot, or WireGuard/IPsec tools. Agents are wired into the Docker Compose stack but commented out by default; in production they run on bare-metal or VM instances with `privileged: true` and `network_mode: host`.
+**Agents** (`services/firewall-service/`, `mail-service/`, `vpn-service/`, `dns-service/`, `dhcp-service/`). Lightweight Python services that run on each managed instance. They poll the manager for configuration changes (via heartbeat responses that include a config version) and apply rules locally using iptables/nftables, Postfix/Dovecot, WireGuard/IPsec tools, BIND9, or Kea DHCP. Agents are wired into the Docker Compose stack but commented out by default; in production they run on bare-metal or VM instances with `privileged: true` and `network_mode: host`.
 
 **PostgreSQL** (primary database). Stores all persistent state: users, instances, firewall rules, VPN servers and clients, mail domains and users, metrics snapshots, audit logs, routing policies, QoS policies, and LLM configuration. SQLAlchemy 2.0 async models live in `shared/models.py`.
 
@@ -124,6 +126,8 @@ The manager node requires only standard Docker networking. No privileged contain
 - `firewall-service` — applies iptables/nftables rules
 - `mail-service` — manages Postfix/Dovecot configuration
 - `vpn-service` — configures WireGuard/IPsec/OpenVPN
+- `dns-service` — applies BIND9 server, zone, and DNSSEC configuration
+- `dhcp-service` — applies Kea DHCPv4/DHCPv6 configuration and lease operations
 
 Agents need:
 - `privileged: true` (for iptables/netfilter access)
@@ -203,6 +207,20 @@ docker-compose up -d postgres redis api-gateway web-ui nginx vpn-service
 
 > **Note:** The VPN agent creates WireGuard/IPsec interfaces on the host network namespace.
 
+### DNS and DHCP Services
+
+Run the manager plus DNS and/or DHCP agents on a single host. Both agents require `privileged: true` and `network_mode: host` to bind low ports and manage local service daemons.
+
+Uncomment `dns-service` and/or `dhcp-service` blocks in `docker-compose.yml`, then start:
+
+```bash
+docker-compose up -d postgres redis api-gateway web-ui nginx dns-service dhcp-service
+```
+
+Exposed ports include:
+- DNS: `53/tcp`, `53/udp`
+- DHCP: `67/udp` (DHCPv4), `547/udp` (DHCPv6)
+
 ### Full Stack (Single Node)
 
 Run everything on one machine — manager, all agents, monitoring, and LLM inference. This is useful for homelabs and small offices.
@@ -265,6 +283,7 @@ Viswall is designed for dual-stack (IPv4 + IPv6) operation. The Docker Compose s
 | VPN — OpenVPN | IPv6 server directive | `server-ipv6` added when `ipv6_tunnel_network` is set |
 | Mail — Exim | Dual-stack listeners | `local_interfaces = 0.0.0.0 : ::`; IPv6 HELO validation |
 | Mail — SOGo | Dual-stack localhost | Memcached host set to `localhost` (resolves to `::1`) |
+| DHCP — Kea | Dual-stack leases and pools | Supports DHCPv4 and DHCPv6 subnet/pool/reservation models |
 | Monitoring | Hostname-based | Prometheus/Grafana use Docker DNS; works when IPv6 is enabled |
 
 ### Prerequisites
@@ -310,6 +329,8 @@ viswall/
 │   ├── firewall-service/     # Firewall agent (edge node)
 │   ├── mail-service/         # Mail agent (edge node)
 │   ├── vpn-service/          # VPN agent (edge node)
+│   ├── dns-service/          # DNS agent (edge node)
+│   ├── dhcp-service/         # DHCP agent (edge node)
 │   └── sogo-service/         # SOGo groupware
 ├── web-ui/                   # React 18 + TypeScript frontend
 ├── shared/                   # Shared Python modules (models, schemas, auth)
@@ -340,6 +361,7 @@ from viswall import ViswallClient
 client = ViswallClient(base_url="https://viswall.example.com", token="jwt")
 instances = client.instances.list()
 client.firewall.create_rule(instance_id=1, name="Allow HTTPS", action="accept", dst_port=443)
+client.dhcp.list_servers(instance_id=1)
 ```
 
 **TypeScript SDK**
@@ -352,6 +374,7 @@ npm install @viswall/sdk
 import { ViswallClient } from '@viswall/sdk';
 const client = new ViswallClient({ baseURL: 'https://viswall.example.com', token: 'jwt' });
 const rules = await client.firewall.listRules(1);
+const dhcpServers = await client.dhcp.listServers(1);
 ```
 
 **CLI**
@@ -361,6 +384,7 @@ pip install viswall-cli
 viswall login --url https://viswall.example.com --username admin
 viswall instances list
 viswall firewall create --instance-id 1 --name "Allow HTTPS" --action accept --dst-port 443
+viswall dhcp servers --instance-id 1
 ```
 
 ---

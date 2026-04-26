@@ -44,6 +44,20 @@ domain = client.mail.create_domain(
     llm_enabled=True
 )
 
+# List DHCP servers
+dhcp_servers = client.dhcp.list_servers(instance_id=1)
+
+# Create a DHCP subnet
+client.dhcp.create_subnet(
+    server_id=1,
+    name="lan-v4",
+    subnet="192.168.10.0/24",
+    type="v4",
+    lease_time_min=300,
+    lease_time_default=3600,
+    lease_time_max=7200,
+)
+
 # Close connection
 client.close()
 ```
@@ -125,6 +139,16 @@ client.assistant.suggest_firewall_rule("Allow HTTPS traffic")
 ```python
 client.groupware.get_status(domain_id)
 client.groupware.enable(domain_id)
+```
+
+### DHCP
+```python
+client.dhcp.list_servers(instance_id)
+client.dhcp.create_server(instance_id, name="kea-main", dhcpv4_enabled=True)
+client.dhcp.list_subnets(server_id)
+client.dhcp.create_subnet(server_id, name="lan-v4", subnet="192.168.10.0/24", type="v4")
+client.dhcp.list_subnet_leases(subnet_id)
+client.dhcp.release_lease(lease_id)
 ```
 
 ## Error Handling

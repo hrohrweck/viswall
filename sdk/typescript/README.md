@@ -30,6 +30,14 @@ const newInstance = await client.instances.create({
 
 // Firewall
 const rules = await client.firewall.listRules(instance.id);
+
+// DHCP
+const servers = await client.dhcp.listServers(1);
+const subnet = await client.dhcp.createSubnet(1, {
+  name: 'lan-v4',
+  subnet: '192.168.10.0/24',
+  type: 'v4',
+});
 ```
 
 ## Resources
@@ -42,6 +50,7 @@ const rules = await client.firewall.listRules(instance.id);
 - `client.metrics` — Metrics and monitoring
 - `client.audit` — Audit logs
 - `client.vpn` — VPN servers and clients
+- `client.dhcp` — DHCP servers, subnets, pools, reservations, options, and leases
 - `client.assistant` — AI assistant
 - `client.groupware` — SOGo groupware
 
