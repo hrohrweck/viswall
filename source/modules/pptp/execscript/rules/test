@@ -1,5 +1,0 @@
-sbDate=`date +"%Y-%m-%d %H:%M:%S"`
-sbFehler=""
-$sbFehler="$(testjöslkertj 2>&1)"
-echo $sbDate TEST $sbFehler
-

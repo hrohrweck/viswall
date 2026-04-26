@@ -1,2 +1,0 @@
-#!/bin/bash
-/bin/tar cj /viswall/interface >/viswall/backups/ifbackup-current.tar.bz2
