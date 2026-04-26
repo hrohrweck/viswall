@@ -45,6 +45,23 @@ def upgrade() -> None:
     )
 
     op.create_table(
+        "dns_tsig_keys",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("server_id", sa.Integer(), nullable=False),
+        sa.Column("name", sa.String(length=100), nullable=False),
+        sa.Column("algorithm", sa.String(length=50), nullable=True),
+        sa.Column("secret", sa.Text(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=True),
+        sa.Column("rotated_at", sa.DateTime(), nullable=True),
+        sa.Column("created_by", sa.Integer(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=True),
+        sa.Column("updated_at", sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(["created_by"], ["users.id"]),
+        sa.ForeignKeyConstraint(["server_id"], ["dns_servers.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+
+    op.create_table(
         "dns_zones",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("server_id", sa.Integer(), nullable=False),
@@ -66,11 +83,13 @@ def upgrade() -> None:
         sa.Column("dnssec_zsk_size", sa.Integer(), nullable=True),
         sa.Column("dnssec_ds_record", sa.Text(), nullable=True),
         sa.Column("enabled", sa.Boolean(), nullable=True),
+        sa.Column("transfer_tsig_key_id", sa.Integer(), nullable=True),
         sa.Column("created_by", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(["created_by"], ["users.id"]),
         sa.ForeignKeyConstraint(["server_id"], ["dns_servers.id"]),
+        sa.ForeignKeyConstraint(["transfer_tsig_key_id"], ["dns_tsig_keys.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
 
@@ -98,16 +117,39 @@ def upgrade() -> None:
     )
 
     op.create_table(
+        "dnssec_keys",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("zone_id", sa.Integer(), nullable=False),
+        sa.Column("key_type", sa.String(length=10), nullable=False),
+        sa.Column("algorithm", sa.String(length=30), nullable=False),
+        sa.Column("key_size", sa.Integer(), nullable=False),
+        sa.Column("key_tag", sa.Integer(), nullable=True),
+        sa.Column("public_key_path", sa.String(length=500), nullable=True),
+        sa.Column("private_key_path", sa.String(length=500), nullable=True),
+        sa.Column("public_dnskey", sa.Text(), nullable=True),
+        sa.Column("ds_record", sa.Text(), nullable=True),
+        sa.Column("is_active", sa.Boolean(), nullable=True),
+        sa.Column("activated_at", sa.DateTime(), nullable=True),
+        sa.Column("rotated_at", sa.DateTime(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=True),
+        sa.Column("updated_at", sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(["zone_id"], ["dns_zones.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+
+    op.create_table(
         "dns_zone_slaves",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("zone_id", sa.Integer(), nullable=False),
         sa.Column("master_server_address", sa.String(length=255), nullable=False),
+        sa.Column("tsig_key_id", sa.Integer(), nullable=True),
         sa.Column("last_transfer", sa.DateTime(), nullable=True),
         sa.Column("last_serial", sa.Integer(), nullable=True),
         sa.Column("transfer_status", sa.String(length=20), nullable=True),
         sa.Column("transfer_error", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(["tsig_key_id"], ["dns_tsig_keys.id"]),
         sa.ForeignKeyConstraint(["zone_id"], ["dns_zones.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -115,6 +157,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("dns_zone_slaves")
+    op.drop_table("dnssec_keys")
     op.drop_table("dns_records")
     op.drop_table("dns_zones")
+    op.drop_table("dns_tsig_keys")
     op.drop_table("dns_servers")

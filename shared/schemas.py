@@ -1246,6 +1246,7 @@ class DNSZoneUpdate(BaseModel):
     minimum_ttl: Optional[int] = Field(default=None, ge=0)
     enabled: Optional[bool] = None
     dnssec_enabled: Optional[bool] = None
+    transfer_tsig_key_id: Optional[int] = None
 
 
 class DNSZoneResponse(DNSZoneBase):
@@ -1257,6 +1258,7 @@ class DNSZoneResponse(DNSZoneBase):
     dnssec_enabled: bool
     dnssec_algorithm: str
     dnssec_ds_record: Optional[str]
+    transfer_tsig_key_id: Optional[int]
     created_by: Optional[int]
     created_at: datetime
     updated_at: datetime
@@ -1329,6 +1331,7 @@ class DNSZoneSlaveResponse(BaseModel):
     id: int
     zone_id: int
     master_server_address: str
+    tsig_key_id: Optional[int]
     last_transfer: Optional[datetime]
     last_serial: int
     transfer_status: str
@@ -1342,3 +1345,62 @@ class DNSZoneSlaveResponse(BaseModel):
 
 class BulkRecordImport(BaseModel):
     records: List[DNSRecordCreate] = Field(..., max_length=500)
+
+
+class TSIGAlgorithm(str, Enum):
+    HMAC_SHA256 = "hmac-sha256"
+    HMAC_SHA512 = "hmac-sha512"
+
+
+class DNSTSIGKeyBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    algorithm: TSIGAlgorithm = TSIGAlgorithm.HMAC_SHA256
+    is_active: bool = True
+
+
+class DNSTSIGKeyCreate(DNSTSIGKeyBase):
+    secret: Optional[str] = None
+
+
+class DNSTSIGKeyRotate(BaseModel):
+    algorithm: TSIGAlgorithm = TSIGAlgorithm.HMAC_SHA256
+
+
+class DNSTSIGKeyResponse(DNSTSIGKeyBase):
+    id: int
+    server_id: int
+    secret: str
+    rotated_at: Optional[datetime]
+    created_by: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DNSSECRolloverRequest(BaseModel):
+    key_type: str = Field(..., pattern="^(KSK|ZSK)$")
+    algorithm: str = Field(default="ECDSAP256SHA256")
+    key_size: int = Field(default=256, ge=128, le=8192)
+
+
+class DNSSECKeyResponse(BaseModel):
+    id: int
+    zone_id: int
+    key_type: str
+    algorithm: str
+    key_size: int
+    key_tag: Optional[int]
+    public_key_path: Optional[str]
+    private_key_path: Optional[str]
+    public_dnskey: Optional[str]
+    ds_record: Optional[str]
+    is_active: bool
+    activated_at: Optional[datetime]
+    rotated_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -1,4 +1,7 @@
+import base64
+import hashlib
 import ipaddress
+import secrets
 from datetime import datetime
 from typing import List
 
@@ -25,8 +28,15 @@ from shared.schemas import (
     DNSZoneSlaveResponse,
     DNSZoneType,
     DNSZoneUpdate,
+    DNSTSIGKeyCreate,
+    DNSTSIGKeyResponse,
+    DNSTSIGKeyRotate,
+    DNSSECRolloverRequest,
+    DNSSECKeyResponse,
 )
 from shared.security import require_admin, require_auth
+
+from shared.models import DNSTSIGKey, DNSSECKey
 
 router = APIRouter()
 
@@ -37,6 +47,30 @@ def _serial_from_now() -> int:
 
 def _ensure_fqdn(value: str) -> str:
     return value if value.endswith(".") else f"{value}."
+
+
+def _generate_tsig_secret(algorithm: str) -> str:
+    if algorithm == "hmac-sha512":
+        size = 64
+    else:
+        size = 32
+    return base64.b64encode(secrets.token_bytes(size)).decode("ascii")
+
+
+def _dnskey_line(zone_name: str, key_tag: int, algorithm: str) -> str:
+    seed = f"{zone_name}:{key_tag}:{algorithm}:{secrets.token_hex(8)}"
+    blob = base64.b64encode(hashlib.sha256(seed.encode("utf-8")).digest()).decode("ascii")
+    return f"{zone_name}. 3600 IN DNSKEY 257 3 13 {blob}"
+
+
+def _ds_line(zone_name: str, key_tag: int, dnskey: str) -> str:
+    digest = hashlib.sha256(dnskey.encode("utf-8")).hexdigest().upper()
+    return f"{zone_name}. IN DS {key_tag} 13 2 {digest}"
+
+
+def _new_key_tag(zone_name: str, key_type: str, key_size: int) -> int:
+    source = f"{zone_name}:{key_type}:{key_size}:{secrets.token_hex(6)}"
+    return (abs(hash(source)) % 64511) + 1024
 
 
 def _reverse_zone_name(network: str) -> str:
@@ -462,9 +496,57 @@ async def sign_zone(
     if not zone:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
     zone.dnssec_enabled = True
-    zone.dnssec_ds_record = f"DS placeholder for {zone.name}"
+
+    existing_keys_result = await db.execute(
+        select(DNSSECKey).where(DNSSECKey.zone_id == zone.id, DNSSECKey.is_active == True)
+    )
+    for key in existing_keys_result.scalars().all():
+        key.is_active = False
+        key.rotated_at = datetime.utcnow()
+
+    ksk_tag = _new_key_tag(zone.name, "KSK", zone.dnssec_ksk_size)
+    zsk_tag = _new_key_tag(zone.name, "ZSK", zone.dnssec_zsk_size)
+
+    ksk_dnskey = _dnskey_line(zone.name, ksk_tag, zone.dnssec_algorithm)
+    zsk_dnskey = _dnskey_line(zone.name, zsk_tag, zone.dnssec_algorithm)
+    ds = _ds_line(zone.name, ksk_tag, ksk_dnskey)
+
+    ksk = DNSSECKey(
+        zone_id=zone.id,
+        key_type="KSK",
+        algorithm=zone.dnssec_algorithm,
+        key_size=zone.dnssec_ksk_size,
+        key_tag=ksk_tag,
+        public_dnskey=ksk_dnskey,
+        ds_record=ds,
+        is_active=True,
+        activated_at=datetime.utcnow(),
+    )
+    zsk = DNSSECKey(
+        zone_id=zone.id,
+        key_type="ZSK",
+        algorithm=zone.dnssec_algorithm,
+        key_size=zone.dnssec_zsk_size,
+        key_tag=zsk_tag,
+        public_dnskey=zsk_dnskey,
+        is_active=True,
+        activated_at=datetime.utcnow(),
+    )
+    db.add(ksk)
+    db.add(zsk)
+
+    zone.dnssec_ds_record = ds
     zone.serial = _serial_from_now()
     await db.commit()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="deploy",
+        resource_type="dns_zone_dnssec",
+        resource_id=zone.id,
+        instance_id=None,
+        new_value={"dnssec_enabled": True, "ksk_tag": ksk_tag, "zsk_tag": zsk_tag},
+    )
     return {"status": "success", "zone_id": zone_id, "dnssec_enabled": True}
 
 
@@ -480,9 +562,101 @@ async def unsign_zone(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
     zone.dnssec_enabled = False
     zone.dnssec_ds_record = None
+    existing_keys_result = await db.execute(
+        select(DNSSECKey).where(DNSSECKey.zone_id == zone.id, DNSSECKey.is_active == True)
+    )
+    for key in existing_keys_result.scalars().all():
+        key.is_active = False
+        key.rotated_at = datetime.utcnow()
     zone.serial = _serial_from_now()
     await db.commit()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="deploy",
+        resource_type="dns_zone_dnssec",
+        resource_id=zone.id,
+        instance_id=None,
+        new_value={"dnssec_enabled": False},
+    )
     return {"status": "success", "zone_id": zone_id, "dnssec_enabled": False}
+
+
+@router.get("/zones/{zone_id}/dnssec-keys", response_model=List[DNSSECKeyResponse])
+async def list_dnssec_keys(
+    zone_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = user_id
+    result = await db.execute(
+        select(DNSSECKey).where(DNSSECKey.zone_id == zone_id).order_by(DNSSECKey.id.desc())
+    )
+    return [DNSSECKeyResponse.model_validate(item) for item in result.scalars().all()]
+
+
+@router.post("/zones/{zone_id}/dnssec-rollover", response_model=DNSSECKeyResponse)
+async def dnssec_rollover(
+    zone_id: int,
+    data: DNSSECRolloverRequest,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    zone_result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = zone_result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+
+    key_type = data.key_type.upper()
+    if key_type not in {"KSK", "ZSK"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid key type")
+
+    current_active = await db.execute(
+        select(DNSSECKey).where(
+            DNSSECKey.zone_id == zone_id,
+            DNSSECKey.key_type == key_type,
+            DNSSECKey.is_active == True,
+        )
+    )
+    for item in current_active.scalars().all():
+        item.is_active = False
+        item.rotated_at = datetime.utcnow()
+
+    key_tag = _new_key_tag(zone.name, key_type, data.key_size)
+    dnskey = _dnskey_line(zone.name, key_tag, data.algorithm)
+    ds = _ds_line(zone.name, key_tag, dnskey) if key_type == "KSK" else None
+
+    key = DNSSECKey(
+        zone_id=zone.id,
+        key_type=key_type,
+        algorithm=data.algorithm,
+        key_size=data.key_size,
+        key_tag=key_tag,
+        public_dnskey=dnskey,
+        ds_record=ds,
+        is_active=True,
+        activated_at=datetime.utcnow(),
+    )
+    db.add(key)
+
+    if key_type == "KSK":
+        zone.dnssec_ds_record = ds
+
+    zone.dnssec_enabled = True
+    zone.serial = _serial_from_now()
+    await db.commit()
+    await db.refresh(key)
+
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="update",
+        resource_type="dns_zone_dnssec_rollover",
+        resource_id=zone.id,
+        instance_id=None,
+        new_value={"key_type": key_type, "key_tag": key_tag},
+    )
+    return DNSSECKeyResponse.model_validate(key)
 
 
 @router.get("/zones/{zone_id}/records", response_model=List[DNSRecordResponse])
@@ -677,3 +851,115 @@ async def list_zone_slaves(
         select(DNSZoneSlave).where(DNSZoneSlave.zone_id == zone_id).order_by(DNSZoneSlave.id)
     )
     return [DNSZoneSlaveResponse.model_validate(item) for item in result.scalars().all()]
+
+
+@router.get("/servers/{server_id}/tsig-keys", response_model=List[DNSTSIGKeyResponse])
+async def list_tsig_keys(
+    server_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = user_id
+    result = await db.execute(
+        select(DNSTSIGKey).where(DNSTSIGKey.server_id == server_id).order_by(DNSTSIGKey.id)
+    )
+    return [DNSTSIGKeyResponse.model_validate(item) for item in result.scalars().all()]
+
+
+@router.post(
+    "/servers/{server_id}/tsig-keys",
+    response_model=DNSTSIGKeyResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_tsig_key(
+    server_id: int,
+    data: DNSTSIGKeyCreate,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    server_result = await db.execute(select(DNSServer).where(DNSServer.id == server_id))
+    server = server_result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS server not found")
+
+    key = DNSTSIGKey(
+        server_id=server_id,
+        name=data.name,
+        algorithm=data.algorithm.value,
+        secret=data.secret or _generate_tsig_secret(data.algorithm.value),
+        is_active=data.is_active,
+        created_by=user_id,
+    )
+    db.add(key)
+    await db.commit()
+    await db.refresh(key)
+
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="create",
+        resource_type="dns_tsig_key",
+        resource_id=key.id,
+        instance_id=server.instance_id,
+    )
+    return DNSTSIGKeyResponse.model_validate(key)
+
+
+@router.post("/tsig-keys/{key_id}/rotate", response_model=DNSTSIGKeyResponse)
+async def rotate_tsig_key(
+    key_id: int,
+    data: DNSTSIGKeyRotate,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    key_result = await db.execute(select(DNSTSIGKey).where(DNSTSIGKey.id == key_id))
+    key = key_result.scalar_one_or_none()
+    if not key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="TSIG key not found")
+
+    key.algorithm = data.algorithm.value
+    key.secret = _generate_tsig_secret(data.algorithm.value)
+    key.rotated_at = datetime.utcnow()
+    key.is_active = True
+    await db.commit()
+    await db.refresh(key)
+
+    server_result = await db.execute(select(DNSServer).where(DNSServer.id == key.server_id))
+    server = server_result.scalar_one_or_none()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="update",
+        resource_type="dns_tsig_key",
+        resource_id=key.id,
+        instance_id=server.instance_id if server else None,
+        new_value={"rotated": True, "algorithm": key.algorithm},
+    )
+    return DNSTSIGKeyResponse.model_validate(key)
+
+
+@router.delete("/tsig-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_tsig_key(
+    key_id: int,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    key_result = await db.execute(select(DNSTSIGKey).where(DNSTSIGKey.id == key_id))
+    key = key_result.scalar_one_or_none()
+    if not key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="TSIG key not found")
+
+    key.is_active = False
+    key.rotated_at = datetime.utcnow()
+    await db.commit()
+
+    server_result = await db.execute(select(DNSServer).where(DNSServer.id == key.server_id))
+    server = server_result.scalar_one_or_none()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="delete",
+        resource_type="dns_tsig_key",
+        resource_id=key.id,
+        instance_id=server.instance_id if server else None,
+    )
