@@ -39,6 +39,18 @@ import type {
   DNSZoneCreate,
   DNSRecord,
   DNSRecordCreate,
+  DHCPServer,
+  DHCPServerCreate,
+  DHCPSubnet,
+  DHCPSubnetCreate,
+  DHCPPool,
+  DHCPPoolCreate,
+  DHCPReservation,
+  DHCPReservationCreate,
+  DHCPOption,
+  DHCPOptionCreate,
+  DHCPLease,
+  DHCPLeaseReleaseResponse,
   SimulationRequest,
   SimulationResult,
   TestSuiteRequest,
@@ -93,6 +105,13 @@ const queryKeys = {
   dnsServers: (instanceId: number) => ['dns-servers', instanceId] as const,
   dnsZones: (serverId: number) => ['dns-zones', serverId] as const,
   dnsRecords: (zoneId: number) => ['dns-records', zoneId] as const,
+  dhcpServers: (instanceId: number) => ['dhcp-servers', instanceId] as const,
+  dhcpSubnets: (serverId: number) => ['dhcp-subnets', serverId] as const,
+  dhcpPools: (subnetId: number) => ['dhcp-pools', subnetId] as const,
+  dhcpReservations: (subnetId: number) => ['dhcp-reservations', subnetId] as const,
+  dhcpOptions: (subnetId: number) => ['dhcp-options', subnetId] as const,
+  dhcpLeases: (subnetId: number) => ['dhcp-leases', subnetId] as const,
+  dhcpLeasesActive: ['dhcp-leases', 'active'] as const,
   llmProviders: ['llm-providers'] as const,
   llmProvider: (id: number) => ['llm-providers', id] as const,
   llmModels: (providerId?: number) => ['llm-models', providerId] as const,
@@ -943,6 +962,243 @@ export function useDeleteDNSRecord(zoneId: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.dnsRecords(zoneId) })
+    },
+  })
+}
+
+// DHCP hooks
+export function useDHCPServers(instanceId: number) {
+  return useQuery<DHCPServer[]>({
+    queryKey: queryKeys.dhcpServers(instanceId),
+    queryFn: async () => {
+      const { data } = await api.get(`/dhcp/servers/${instanceId}`)
+      return data
+    },
+    enabled: instanceId > 0,
+  })
+}
+
+export function useCreateDHCPServer(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: DHCPServerCreate) => {
+      const { data } = await api.post(`/dhcp/servers/${instanceId}`, payload)
+      return data as DHCPServer
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpServers(instanceId) })
+    },
+  })
+}
+
+export function useDeleteDHCPServer(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (serverId: number) => {
+      await api.delete(`/dhcp/servers/${serverId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpServers(instanceId) })
+    },
+  })
+}
+
+export function useDHCPServerAction(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ serverId, action }: { serverId: number; action: 'start' | 'stop' | 'reload' }) => {
+      const { data } = await api.post(`/dhcp/servers/${serverId}/actions/${action}`)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpServers(instanceId) })
+    },
+  })
+}
+
+export function useDHCPSubnets(serverId: number) {
+  return useQuery<DHCPSubnet[]>({
+    queryKey: queryKeys.dhcpSubnets(serverId),
+    queryFn: async () => {
+      const { data } = await api.get(`/dhcp/servers/${serverId}/subnets`)
+      return data
+    },
+    enabled: serverId > 0,
+  })
+}
+
+export function useCreateDHCPSubnet(serverId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: DHCPSubnetCreate) => {
+      const { data } = await api.post(`/dhcp/servers/${serverId}/subnets`, payload)
+      return data as DHCPSubnet
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpSubnets(serverId) })
+    },
+  })
+}
+
+export function useDeleteDHCPSubnet(serverId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (subnetId: number) => {
+      await api.delete(`/dhcp/subnets/${subnetId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpSubnets(serverId) })
+    },
+  })
+}
+
+export function useDHCPPools(subnetId: number) {
+  return useQuery<DHCPPool[]>({
+    queryKey: queryKeys.dhcpPools(subnetId),
+    queryFn: async () => {
+      const { data } = await api.get(`/dhcp/subnets/${subnetId}/pools`)
+      return data
+    },
+    enabled: subnetId > 0,
+  })
+}
+
+export function useCreateDHCPPool(subnetId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: DHCPPoolCreate) => {
+      const { data } = await api.post(`/dhcp/subnets/${subnetId}/pools`, payload)
+      return data as DHCPPool
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpPools(subnetId) })
+      queryClient.invalidateQueries({ queryKey: ['dhcp-subnets'] })
+    },
+  })
+}
+
+export function useDeleteDHCPPool(subnetId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (poolId: number) => {
+      await api.delete(`/dhcp/pools/${poolId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpPools(subnetId) })
+      queryClient.invalidateQueries({ queryKey: ['dhcp-subnets'] })
+    },
+  })
+}
+
+export function useDHCPReservations(subnetId: number) {
+  return useQuery<DHCPReservation[]>({
+    queryKey: queryKeys.dhcpReservations(subnetId),
+    queryFn: async () => {
+      const { data } = await api.get(`/dhcp/subnets/${subnetId}/reservations`)
+      return data
+    },
+    enabled: subnetId > 0,
+  })
+}
+
+export function useCreateDHCPReservation(subnetId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: DHCPReservationCreate) => {
+      const { data } = await api.post(`/dhcp/subnets/${subnetId}/reservations`, payload)
+      return data as DHCPReservation
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpReservations(subnetId) })
+      queryClient.invalidateQueries({ queryKey: ['dhcp-subnets'] })
+    },
+  })
+}
+
+export function useDeleteDHCPReservation(subnetId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (reservationId: number) => {
+      await api.delete(`/dhcp/reservations/${reservationId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpReservations(subnetId) })
+      queryClient.invalidateQueries({ queryKey: ['dhcp-subnets'] })
+    },
+  })
+}
+
+export function useDHCPOptions(subnetId: number) {
+  return useQuery<DHCPOption[]>({
+    queryKey: queryKeys.dhcpOptions(subnetId),
+    queryFn: async () => {
+      const { data } = await api.get(`/dhcp/subnets/${subnetId}/options`)
+      return data
+    },
+    enabled: subnetId > 0,
+  })
+}
+
+export function useCreateDHCPOption(subnetId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: DHCPOptionCreate) => {
+      const { data } = await api.post(`/dhcp/subnets/${subnetId}/options`, payload)
+      return data as DHCPOption
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpOptions(subnetId) })
+    },
+  })
+}
+
+export function useDeleteDHCPOption(subnetId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (optionId: number) => {
+      await api.delete(`/dhcp/options/${optionId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpOptions(subnetId) })
+    },
+  })
+}
+
+export function useDHCPLeases(subnetId: number) {
+  return useQuery<DHCPLease[]>({
+    queryKey: queryKeys.dhcpLeases(subnetId),
+    queryFn: async () => {
+      const { data } = await api.get(`/dhcp/subnets/${subnetId}/leases`)
+      return data
+    },
+    enabled: subnetId > 0,
+    refetchInterval: 15000,
+  })
+}
+
+export function useDHCPActiveLeases(enabled = true) {
+  return useQuery<DHCPLease[]>({
+    queryKey: queryKeys.dhcpLeasesActive,
+    queryFn: async () => {
+      const { data } = await api.get('/dhcp/leases/active')
+      return data
+    },
+    enabled,
+    refetchInterval: 20000,
+  })
+}
+
+export function useReleaseDHCPLease(subnetId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (leaseId: number) => {
+      const { data } = await api.delete(`/dhcp/leases/${leaseId}`)
+      return data as DHCPLeaseReleaseResponse
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpLeases(subnetId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dhcpLeasesActive })
+      queryClient.invalidateQueries({ queryKey: ['dhcp-subnets'] })
     },
   })
 }
