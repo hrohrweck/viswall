@@ -57,6 +57,17 @@ viswall metrics latest <instance-id>                  # Latest metrics
 viswall metrics overview                              # Global overview
 ```
 
+### DHCP
+```bash
+viswall dhcp servers --instance-id <id>               # List DHCP servers
+viswall dhcp server-create --instance-id <id> --name kea-main --dhcpv4
+viswall dhcp subnets --server-id <id>                 # List subnets
+viswall dhcp subnet-create --server-id <id> --name lan-v4 --subnet 192.168.10.0/24 --type v4
+viswall dhcp leases --subnet-id <id>                  # List subnet leases
+viswall dhcp leases-active                            # List active leases globally
+viswall dhcp lease-release <lease-id> --yes           # Release lease
+```
+
 ## Global Options
 
 All commands support:
