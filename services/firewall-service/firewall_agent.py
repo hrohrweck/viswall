@@ -131,15 +131,33 @@ table inet viswall {
         flags timeout
         timeout 1h
     }
-    
-    set port_scanners {
+
+    set blacklist_v6 {
+        type ipv6_addr
+        flags timeout
+        timeout 1h
+    }
+
+    set port_scanners_v4 {
         type ipv4_addr
         flags timeout
         timeout 1d
     }
-    
-    set bruteforce_attempts {
+
+    set port_scanners_v6 {
+        type ipv6_addr
+        flags timeout
+        timeout 1d
+    }
+
+    set bruteforce_attempts_v4 {
         type ipv4_addr . inet_service
+        flags timeout
+        timeout 15m
+    }
+
+    set bruteforce_attempts_v6 {
+        type ipv6_addr . inet_service
         flags timeout
         timeout 15m
     }
@@ -150,28 +168,31 @@ table inet viswall {
     # Input chain - traffic to firewall itself
     chain input {
         type filter hook input priority 0; policy drop;
-        
+
         # Connection tracking
         ct state established,related accept
         ct state invalid drop
-        
+
         # Loopback
         iif "lo" accept
-        
-        # Blacklist check
+
+        # Blacklist check (dual-stack)
         ip saddr @blacklist_v4 drop
-        
+        ip6 saddr @blacklist_v6 drop
+
         # Rate limiting for new connections
         tcp flags syn limit rate 25/second burst 50 packets accept
         tcp flags syn drop
-        
+
         # ICMP (ping) rate limiting
         ip protocol icmp limit rate 5/second accept
         ip6 nexthdr icmpv6 limit rate 5/second accept
-        
-        # SSH brute force protection
-        tcp dport 22 add @bruteforce_attempts { ip saddr . tcp dport }
-        tcp dport 22 @bruteforce_attempts size gt 5 drop
+
+        # SSH brute force protection (dual-stack)
+        tcp dport 22 add @bruteforce_attempts_v4 { ip saddr . tcp dport }
+        tcp dport 22 add @bruteforce_attempts_v6 { ip6 saddr . tcp dport }
+        tcp dport 22 @bruteforce_attempts_v4 size gt 5 drop
+        tcp dport 22 @bruteforce_attempts_v6 size gt 5 drop
 """
 
         # Add custom rules
@@ -194,21 +215,25 @@ table inet viswall {
     # Forward chain - traffic passing through
     chain forward {
         type filter hook forward priority 0; policy drop;
-        
+
         # Connection tracking
         ct state established,related accept
         ct state invalid drop
-        
-        # Blacklist check
+
+        # Blacklist check (dual-stack)
         ip saddr @blacklist_v4 drop
         ip daddr @blacklist_v4 drop
-        
+        ip6 saddr @blacklist_v6 drop
+        ip6 daddr @blacklist_v6 drop
+
         # Inter-VLAN routing (if configured)
         # iif @lan_interfaces oif @lan_interfaces accept
-        
-        # Port scanning detection
-        tcp flags syn,tcp flags syn,ack add @port_scanners { ip saddr }
-        ip saddr @port_scanners drop
+
+        # Port scanning detection (dual-stack)
+        tcp flags syn,tcp flags syn,ack add @port_scanners_v4 { ip saddr }
+        tcp flags syn,tcp flags syn,ack add @port_scanners_v6 { ip6 saddr }
+        ip saddr @port_scanners_v4 drop
+        ip6 saddr @port_scanners_v6 drop
 """
 
         # Add forward rules
@@ -273,8 +298,22 @@ table inet viswall {
 
         return ruleset
 
+    def _ip_family(self, addr: Optional[str]) -> str:
+        """Return 'ip' or 'ip6' for an address or CIDR."""
+        if not addr or addr == "any":
+            return "ip"
+        try:
+            if "/" in addr:
+                net = ipaddress.ip_network(addr, strict=False)
+                return "ip6" if isinstance(net, ipaddress.IPv6Network) else "ip"
+            else:
+                ip = ipaddress.ip_address(addr)
+                return "ip6" if isinstance(ip, ipaddress.IPv6Address) else "ip"
+        except ValueError:
+            return "ip"
+
     def _convert_rule_to_nft(self, rule: FirewallRule) -> str:
-        """Convert a FirewallRule to nftables syntax"""
+        """Convert a FirewallRule to nftables syntax (dual-stack aware)"""
         nft_rule = "        "
 
         # Match criteria
@@ -285,20 +324,22 @@ table inet viswall {
         if rule.interface_out:
             conditions.append(f'oif "{rule.interface_out}"')
 
+        src_family = self._ip_family(rule.source)
+        dst_family = self._ip_family(rule.destination)
+
         if rule.source and rule.source != "any":
-            if "/" in rule.source:  # CIDR
-                conditions.append(f"ip saddr {rule.source}")
-            else:
-                conditions.append(f"ip saddr {rule.source}")
+            conditions.append(f"{src_family} saddr {rule.source}")
 
         if rule.destination and rule.destination != "any":
-            if "/" in rule.destination:
-                conditions.append(f"ip daddr {rule.destination}")
-            else:
-                conditions.append(f"ip daddr {rule.destination}")
+            conditions.append(f"{dst_family} daddr {rule.destination}")
 
         if rule.protocol and rule.protocol != "any":
-            conditions.append(f"ip protocol {rule.protocol}")
+            # If both src and dst are IPv6, use ip6 nexthdr; otherwise default to ip protocol
+            family = "ip6" if (src_family == "ip6" or dst_family == "ip6") else "ip"
+            if family == "ip6":
+                conditions.append(f"ip6 nexthdr {rule.protocol}")
+            else:
+                conditions.append(f"ip protocol {rule.protocol}")
 
             if rule.source_port:
                 conditions.append(f"{rule.protocol} sport {rule.source_port}")
@@ -328,20 +369,27 @@ table inet viswall {
         return nft_rule
 
     def _convert_nat_rule_to_nft(self, rule: NATRule) -> str:
-        """Convert a NATRule to nftables syntax"""
+        """Convert a NATRule to nftables syntax (dual-stack aware)"""
         nft_rule = "        "
         conditions = []
 
         if rule.interface:
             conditions.append(f'iif "{rule.interface}"')
 
+        src_family = self._ip_family(rule.source)
+        dst_family = self._ip_family(rule.destination)
+
         if rule.source:
-            conditions.append(f"ip saddr {rule.source}")
+            conditions.append(f"{src_family} saddr {rule.source}")
         if rule.destination:
-            conditions.append(f"ip daddr {rule.destination}")
+            conditions.append(f"{dst_family} daddr {rule.destination}")
 
         if rule.protocol:
-            conditions.append(f"ip protocol {rule.protocol}")
+            family = "ip6" if (src_family == "ip6" or dst_family == "ip6") else "ip"
+            if family == "ip6":
+                conditions.append(f"ip6 nexthdr {rule.protocol}")
+            else:
+                conditions.append(f"ip protocol {rule.protocol}")
             if rule.port:
                 conditions.append(f"{rule.protocol} dport {rule.port}")
 
@@ -416,15 +464,16 @@ table inet viswall {
             return {}
 
     async def add_to_blacklist(self, ip: str, timeout: str = "1h") -> bool:
-        """Dynamically add IP to blacklist"""
+        """Dynamically add IP to blacklist (dual-stack aware)"""
         try:
+            set_name = "blacklist_v6" if self._ip_family(ip) == "ip6" else "blacklist_v4"
             proc = await asyncio.create_subprocess_exec(
                 "nft",
                 "add",
                 "element",
                 "inet",
                 "viswall",
-                "blacklist_v4",
+                set_name,
                 "{",
                 ip,
                 "timeout",
@@ -439,15 +488,16 @@ table inet viswall {
             return False
 
     async def remove_from_blacklist(self, ip: str) -> bool:
-        """Remove IP from blacklist"""
+        """Remove IP from blacklist (dual-stack aware)"""
         try:
+            set_name = "blacklist_v6" if self._ip_family(ip) == "ip6" else "blacklist_v4"
             proc = await asyncio.create_subprocess_exec(
                 "nft",
                 "delete",
                 "element",
                 "inet",
                 "viswall",
-                "blacklist_v4",
+                set_name,
                 "{",
                 ip,
                 "}",
@@ -599,18 +649,21 @@ class TrafficControlManager:
                 ["qdisc", "add", "dev", interface, "parent", classid, "fq_codel"]
             )
 
-        # Filters to classify traffic
+        # Filters to classify traffic (dual-stack)
         # VoIP (SIP)
         await self._add_filter(interface, "1:10", "udp", "5060")
+        await self._add_filter_ipv6(interface, "1:10", "udp", "5060")
         # DNS
         await self._add_filter(interface, "1:10", "udp", "53")
+        await self._add_filter_ipv6(interface, "1:10", "udp", "53")
         # SSH
         await self._add_filter(interface, "1:10", "tcp", "22")
+        await self._add_filter_ipv6(interface, "1:10", "tcp", "22")
 
     async def _add_filter(
         self, interface: str, classid: str, protocol: str, port: str
     ) -> None:
-        """Add traffic filter"""
+        """Add traffic filter (IPv4)"""
         await self._run_tc(
             [
                 "filter",
@@ -634,6 +687,32 @@ class TrafficControlManager:
                 "dport",
                 port,
                 "0xffff",
+                "flowid",
+                classid,
+            ]
+        )
+
+    async def _add_filter_ipv6(
+        self, interface: str, classid: str, protocol: str, port: str
+    ) -> None:
+        """Add traffic filter (IPv6) using flower classifier"""
+        await self._run_tc(
+            [
+                "filter",
+                "add",
+                "dev",
+                interface,
+                "protocol",
+                "ipv6",
+                "parent",
+                "1:0",
+                "prio",
+                "1",
+                "flower",
+                "ip_proto",
+                protocol,
+                "dst_port",
+                port,
                 "flowid",
                 classid,
             ]
@@ -712,26 +791,27 @@ class TrafficControlManager:
                 ]
             )
 
-            # Add filter that creates classes dynamically per source IP
-            await self._run_tc(
-                [
-                    "filter",
-                    "add",
-                    "dev",
-                    interface,
-                    "protocol",
-                    "ip",
-                    "parent",
-                    "1:0",
-                    "prio",
-                    "1",
-                    "handle",
-                    "1:",
-                    "fw",
-                    "classid",
-                    "1:1",
-                ]
-            )
+            # Add filter that creates classes dynamically per source IP (dual-stack)
+            for proto in ("ip", "ipv6"):
+                await self._run_tc(
+                    [
+                        "filter",
+                        "add",
+                        "dev",
+                        interface,
+                        "protocol",
+                        proto,
+                        "parent",
+                        "1:0",
+                        "prio",
+                        "1",
+                        "handle",
+                        "1:",
+                        "fw",
+                        "classid",
+                        "1:1",
+                    ]
+                )
 
             return True
         except:
@@ -947,6 +1027,9 @@ access_log daemon:/var/log/squid/access.log squid
 acl localnet src 10.0.0.0/8
 acl localnet src 172.16.0.0/12
 acl localnet src 192.168.0.0/16
+acl localnet src fc00::/7
+acl localnet src fe80::/10
+acl localnet src ::1/128
 acl SSL_ports port 443
 acl Safe_ports port 80
 acl Safe_ports port 443
@@ -1196,7 +1279,7 @@ if FASTAPI_AVAILABLE:
             raise HTTPException(status_code=500, detail="Failed to unblock IP")
         return {"success": True, "ip": ip}
 
-    def run_server(host: str = "0.0.0.0", port: int = 8081):
+    def run_server(host: str = "::", port: int = 8081):
         import uvicorn
 
         uvicorn.run(app, host=host, port=port)
