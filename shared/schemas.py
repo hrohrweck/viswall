@@ -1151,6 +1151,236 @@ class QoSApplyResponse(BaseModel):
 
 
 # ============================================================================
+# DHCP SCHEMAS - Kea DHCPv4/DHCPv6 Management
+# ============================================================================
+
+
+class DHCPSubnetType(str, Enum):
+    V4 = "v4"
+    V6 = "v6"
+
+
+class DHCPServerStatus(str, Enum):
+    RUNNING = "running"
+    STOPPED = "stopped"
+    ERROR = "error"
+
+
+class DHCPLeaseState(str, Enum):
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    RELEASED = "released"
+
+
+class DHCPHAType(str, Enum):
+    HOT_STANDBY = "hot-standby"
+    LOAD_BALANCING = "load-balancing"
+
+
+class DHCPServerBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    enabled: bool = True
+    kea_ctrl_agent_address: str = Field(default="127.0.0.1", max_length=255)
+    kea_ctrl_agent_port: int = Field(default=8000, ge=1, le=65535)
+    ha_enabled: bool = False
+    ha_mode: DHCPHAType = DHCPHAType.HOT_STANDBY
+    ha_peer_address: Optional[str] = Field(default=None, max_length=255)
+    dhcpv4_enabled: bool = True
+    dhcpv6_enabled: bool = False
+
+
+class DHCPServerCreate(DHCPServerBase):
+    pass
+
+
+class DHCPServerUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    enabled: Optional[bool] = None
+    kea_ctrl_agent_address: Optional[str] = None
+    kea_ctrl_agent_port: Optional[int] = Field(default=None, ge=1, le=65535)
+    ha_enabled: Optional[bool] = None
+    ha_mode: Optional[DHCPHAType] = None
+    ha_peer_address: Optional[str] = None
+    dhcpv4_enabled: Optional[bool] = None
+    dhcpv6_enabled: Optional[bool] = None
+
+
+class DHCPServerResponse(DHCPServerBase):
+    id: int
+    instance_id: int
+    status: DHCPServerStatus
+    created_by: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+    subnets_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class DHCPSubnetBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    subnet: str = Field(..., min_length=3, max_length=100)
+    type: DHCPSubnetType
+    interface: Optional[str] = Field(default=None, max_length=50)
+    relay_addresses: List[str] = Field(default_factory=list)
+    domain_name: Optional[str] = Field(default=None, max_length=255)
+    dns_servers: List[str] = Field(default_factory=list)
+    ntp_servers: List[str] = Field(default_factory=list)
+    routers: List[str] = Field(default_factory=list)
+    lease_time_default: int = Field(default=3600, ge=60)
+    lease_time_max: int = Field(default=7200, ge=60)
+    lease_time_min: int = Field(default=300, ge=60)
+    delegated_prefix_length: Optional[int] = Field(default=None, ge=1, le=128)
+    enabled: bool = True
+
+
+class DHCPSubnetCreate(DHCPSubnetBase):
+    pass
+
+
+class DHCPSubnetUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    subnet: Optional[str] = None
+    interface: Optional[str] = None
+    relay_addresses: Optional[List[str]] = None
+    domain_name: Optional[str] = None
+    dns_servers: Optional[List[str]] = None
+    ntp_servers: Optional[List[str]] = None
+    routers: Optional[List[str]] = None
+    lease_time_default: Optional[int] = Field(default=None, ge=60)
+    lease_time_max: Optional[int] = Field(default=None, ge=60)
+    lease_time_min: Optional[int] = Field(default=None, ge=60)
+    delegated_prefix_length: Optional[int] = Field(default=None, ge=1, le=128)
+    enabled: Optional[bool] = None
+
+
+class DHCPSubnetResponse(DHCPSubnetBase):
+    id: int
+    server_id: int
+    created_at: datetime
+    updated_at: datetime
+    pools_count: int = 0
+    reservations_count: int = 0
+    leases_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class DHCPPoolBase(BaseModel):
+    start_address: str = Field(..., min_length=2, max_length=45)
+    end_address: str = Field(..., min_length=2, max_length=45)
+    type: DHCPSubnetType
+    enabled: bool = True
+
+
+class DHCPPoolCreate(DHCPPoolBase):
+    pass
+
+
+class DHCPPoolUpdate(BaseModel):
+    start_address: Optional[str] = None
+    end_address: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+class DHCPPoolResponse(DHCPPoolBase):
+    id: int
+    subnet_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DHCPReservationBase(BaseModel):
+    hostname: Optional[str] = Field(default=None, max_length=255)
+    ip_address: str = Field(..., min_length=2, max_length=45)
+    hw_address: str = Field(..., min_length=2, max_length=255)
+    type: DHCPSubnetType
+    description: Optional[str] = None
+
+
+class DHCPReservationCreate(DHCPReservationBase):
+    pass
+
+
+class DHCPReservationUpdate(BaseModel):
+    hostname: Optional[str] = None
+    ip_address: Optional[str] = None
+    hw_address: Optional[str] = None
+    description: Optional[str] = None
+
+
+class DHCPReservationResponse(DHCPReservationBase):
+    id: int
+    subnet_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DHCPOptionBase(BaseModel):
+    option_code: int = Field(..., ge=1, le=65535)
+    option_name: str = Field(..., min_length=1, max_length=100)
+    option_value: str = Field(..., min_length=1)
+    type: DHCPSubnetType
+
+
+class DHCPOptionCreate(DHCPOptionBase):
+    pass
+
+
+class DHCPOptionUpdate(BaseModel):
+    option_code: Optional[int] = Field(default=None, ge=1, le=65535)
+    option_name: Optional[str] = None
+    option_value: Optional[str] = None
+
+
+class DHCPOptionResponse(DHCPOptionBase):
+    id: int
+    subnet_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DHCPLeaseResponse(BaseModel):
+    id: int
+    subnet_id: int
+    pool_id: Optional[int]
+    ip_address: str
+    hw_address: Optional[str]
+    hostname: Optional[str]
+    client_id: Optional[str]
+    lease_start: Optional[datetime]
+    lease_end: Optional[datetime]
+    released_at: Optional[datetime]
+    state: DHCPLeaseState
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DHCPLeaseReleaseResponse(BaseModel):
+    id: int
+    state: DHCPLeaseState
+    released_at: datetime
+
+
+# ============================================================================
 # DNS SCHEMAS - BIND9 Management
 # ============================================================================
 
