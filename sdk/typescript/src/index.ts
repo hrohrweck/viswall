@@ -19,4 +19,5 @@ export {
   VPNResource,
   AssistantResource,
   GroupwareResource,
+  DHCPResource,
 } from './resources';

@@ -19,6 +19,7 @@ import {
   VPNResource,
   AssistantResource,
   GroupwareResource,
+  DHCPResource,
 } from './resources';
 
 export interface ViswallClientConfig {
@@ -41,6 +42,7 @@ export class ViswallClient {
   public readonly vpn: VPNResource;
   public readonly assistant: AssistantResource;
   public readonly groupware: GroupwareResource;
+  public readonly dhcp: DHCPResource;
 
   constructor(config: ViswallClientConfig) {
     const baseURL = config.baseURL.replace(/\/$/, '') + '/api/v1';
@@ -79,6 +81,7 @@ export class ViswallClient {
     this.vpn = new VPNResource(this);
     this.assistant = new AssistantResource(this);
     this.groupware = new GroupwareResource(this);
+    this.dhcp = new DHCPResource(this);
   }
 
   async request<T = unknown>(

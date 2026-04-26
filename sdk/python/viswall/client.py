@@ -23,6 +23,7 @@ from viswall.resources import (
     VPNResource,
     AssistantResource,
     GroupwareResource,
+    DHCPResource,
 )
 
 T = TypeVar("T")
@@ -88,6 +89,7 @@ class ViswallClient:
         self.vpn = VPNResource(self)
         self.assistant = AssistantResource(self)
         self.groupware = GroupwareResource(self)
+        self.dhcp = DHCPResource(self)
 
     def _request(
         self,

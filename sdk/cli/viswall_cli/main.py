@@ -11,7 +11,7 @@ from viswall.exceptions import AuthenticationError, ViswallAPIError
 
 from viswall_cli.config import Config, DEFAULT_CONFIG_FILE
 from viswall_cli.output import print_error, print_success
-from viswall_cli.commands import instances_app, firewall_app, users_app, metrics_app
+from viswall_cli.commands import instances_app, firewall_app, users_app, metrics_app, dhcp_app
 
 app = typer.Typer(
     name="viswall",
@@ -74,6 +74,7 @@ app.add_typer(instances_app, name="instances")
 app.add_typer(firewall_app, name="firewall")
 app.add_typer(users_app, name="users")
 app.add_typer(metrics_app, name="metrics")
+app.add_typer(dhcp_app, name="dhcp")
 
 
 @app.callback()

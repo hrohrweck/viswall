@@ -9,3 +9,4 @@ export { AuditResource } from './audit';
 export { VPNResource } from './vpn';
 export { AssistantResource } from './assistant';
 export { GroupwareResource } from './groupware';
+export { DHCPResource } from './dhcp';

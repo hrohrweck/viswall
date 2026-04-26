@@ -218,3 +218,60 @@ class TestMetrics:
         result = runner.invoke(app, ["metrics", "overview"])
         assert result.exit_code == 0
         assert "total_instances" in result.output
+
+
+class TestDHCP:
+    def test_list_dhcp_servers(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/dhcp/servers/1",
+            json=[{"id": 1, "name": "kea-main", "status": "running", "subnets_count": 2}],
+        )
+
+        result = runner.invoke(app, ["dhcp", "servers", "--instance-id", "1"])
+        assert result.exit_code == 0
+        assert "kea-main" in result.output
+
+    def test_create_dhcp_subnet(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/dhcp/servers/2/subnets",
+            method="POST",
+            json={"id": 10, "name": "lan-v4", "subnet": "192.168.10.0/24", "type": "v4"},
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "dhcp",
+                "subnet-create",
+                "--server-id",
+                "2",
+                "--name",
+                "lan-v4",
+                "--subnet",
+                "192.168.10.0/24",
+                "--type",
+                "v4",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "lan-v4" in result.output
+
+    def test_release_dhcp_lease(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/dhcp/leases/55",
+            method="DELETE",
+            json={"id": 55, "state": "released"},
+        )
+
+        result = runner.invoke(app, ["dhcp", "lease-release", "55", "--yes"])
+        assert result.exit_code == 0
+        assert "released" in result.output
