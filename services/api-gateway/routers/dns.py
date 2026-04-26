@@ -1,0 +1,679 @@
+import ipaddress
+from datetime import datetime
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from shared.audit_logger import log_audit
+from shared.database import get_db
+from shared.models import DNSRecord, DNSServer, DNSZone, DNSZoneSlave, Instance
+from shared.schemas import (
+    BulkRecordImport,
+    CreatePTRRequest,
+    CreateReverseZoneRequest,
+    DNSRecordCreate,
+    DNSRecordResponse,
+    DNSRecordType,
+    DNSRecordUpdate,
+    DNSServerCreate,
+    DNSServerResponse,
+    DNSServerUpdate,
+    DNSZoneCreate,
+    DNSZoneResponse,
+    DNSZoneSlaveResponse,
+    DNSZoneType,
+    DNSZoneUpdate,
+)
+from shared.security import require_admin, require_auth
+
+router = APIRouter()
+
+
+def _serial_from_now() -> int:
+    return int(datetime.utcnow().strftime("%Y%m%d%H"))
+
+
+def _ensure_fqdn(value: str) -> str:
+    return value if value.endswith(".") else f"{value}."
+
+
+def _reverse_zone_name(network: str) -> str:
+    net = ipaddress.ip_network(network, strict=False)
+
+    if isinstance(net, ipaddress.IPv4Network):
+        if net.prefixlen % 8 != 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="IPv4 reverse zones must use /8, /16, /24 or /32 boundaries",
+            )
+        octets = str(net.network_address).split(".")[: net.prefixlen // 8]
+        return f"{'.'.join(reversed(octets))}.in-addr.arpa"
+
+    if net.prefixlen % 4 != 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="IPv6 reverse zones must use nibble (/4) boundaries",
+        )
+    expanded = net.network_address.exploded.replace(":", "")
+    nibbles = list(expanded[: net.prefixlen // 4])
+    return f"{'.'.join(reversed(nibbles))}.ip6.arpa"
+
+
+def _ptr_name_for_zone(ip_address: str, zone_name: str) -> str:
+    pointer = ipaddress.ip_address(ip_address).reverse_pointer
+    suffix = zone_name.rstrip(".")
+    if not pointer.endswith(suffix):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="IP address does not belong to this reverse zone",
+        )
+    relative = pointer[: -len(suffix)].rstrip(".")
+    return relative or "@"
+
+
+@router.get("/servers/{instance_id}", response_model=List[DNSServerResponse])
+async def list_servers(
+    instance_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = user_id
+    result = await db.execute(
+        select(DNSServer).where(DNSServer.instance_id == instance_id).order_by(DNSServer.id)
+    )
+    servers = result.scalars().all()
+
+    responses: List[DNSServerResponse] = []
+    for server in servers:
+        count_result = await db.execute(
+            select(func.count(DNSZone.id)).where(DNSZone.server_id == server.id)
+        )
+        item = DNSServerResponse.model_validate(server)
+        item.zones_count = int(count_result.scalar() or 0)
+        responses.append(item)
+    return responses
+
+
+@router.post(
+    "/servers/{instance_id}",
+    response_model=DNSServerResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_server(
+    instance_id: int,
+    data: DNSServerCreate,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    instance = await db.execute(select(Instance).where(Instance.id == instance_id))
+    if not instance.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instance not found")
+
+    server = DNSServer(
+        instance_id=instance_id,
+        name=data.name,
+        description=data.description,
+        enabled=data.enabled,
+        listening_addresses=data.listening_addresses,
+        port=data.port,
+        is_recursive=data.is_recursive,
+        is_authoritative=data.is_authoritative,
+        forwarders=data.forwarders,
+        allow_query=data.allow_query,
+        allow_transfer=data.allow_transfer,
+        also_notify=data.also_notify,
+        dnssec_enabled=data.dnssec_enabled,
+        created_by=user_id,
+        status="stopped",
+    )
+    db.add(server)
+    await db.commit()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="create",
+        resource_type="dns_server",
+        resource_id=server.id,
+        instance_id=instance_id,
+    )
+    await db.refresh(server)
+    return DNSServerResponse.model_validate(server)
+
+
+@router.get("/servers/detail/{server_id}", response_model=DNSServerResponse)
+async def get_server(
+    server_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = user_id
+    result = await db.execute(select(DNSServer).where(DNSServer.id == server_id))
+    server = result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS server not found")
+    count_result = await db.execute(
+        select(func.count(DNSZone.id)).where(DNSZone.server_id == server.id)
+    )
+    response = DNSServerResponse.model_validate(server)
+    response.zones_count = int(count_result.scalar() or 0)
+    return response
+
+
+@router.patch("/servers/{server_id}", response_model=DNSServerResponse)
+async def update_server(
+    server_id: int,
+    data: DNSServerUpdate,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(DNSServer).where(DNSServer.id == server_id))
+    server = result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS server not found")
+
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(server, field, value)
+
+    await db.commit()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="update",
+        resource_type="dns_server",
+        resource_id=server.id,
+        instance_id=server.instance_id,
+    )
+    await db.refresh(server)
+    return DNSServerResponse.model_validate(server)
+
+
+@router.delete("/servers/{server_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_server(
+    server_id: int,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(DNSServer).where(DNSServer.id == server_id))
+    server = result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS server not found")
+    instance_id = server.instance_id
+    await db.delete(server)
+    await db.commit()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="delete",
+        resource_type="dns_server",
+        resource_id=server_id,
+        instance_id=instance_id,
+    )
+
+
+@router.post("/servers/{server_id}/actions/{action}")
+async def server_action(
+    server_id: int,
+    action: str,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(DNSServer).where(DNSServer.id == server_id))
+    server = result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS server not found")
+
+    allowed = {"start", "stop", "reload"}
+    if action not in allowed:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action")
+
+    if action == "start":
+        server.status = "running"
+    elif action == "stop":
+        server.status = "stopped"
+
+    await db.commit()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="deploy",
+        resource_type="dns_server",
+        resource_id=server.id,
+        instance_id=server.instance_id,
+        new_value={"operation": action},
+    )
+    return {"status": "success", "action": action, "server_id": server_id}
+
+
+@router.get("/servers/{server_id}/zones", response_model=List[DNSZoneResponse])
+async def list_zones(
+    server_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = user_id
+    result = await db.execute(
+        select(DNSZone).where(DNSZone.server_id == server_id).order_by(DNSZone.id)
+    )
+    zones = result.scalars().all()
+
+    responses: List[DNSZoneResponse] = []
+    for zone in zones:
+        count_result = await db.execute(
+            select(func.count(DNSRecord.id)).where(DNSRecord.zone_id == zone.id)
+        )
+        item = DNSZoneResponse.model_validate(zone)
+        item.records_count = int(count_result.scalar() or 0)
+        responses.append(item)
+    return responses
+
+
+@router.post(
+    "/servers/{server_id}/zones",
+    response_model=DNSZoneResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_zone(
+    server_id: int,
+    data: DNSZoneCreate,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    server_result = await db.execute(select(DNSServer).where(DNSServer.id == server_id))
+    server = server_result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS server not found")
+
+    zone = DNSZone(
+        server_id=server_id,
+        name=data.name.rstrip("."),
+        description=data.description,
+        zone_type=data.zone_type.value,
+        is_reverse=data.is_reverse,
+        reverse_network=data.reverse_network,
+        serial=_serial_from_now(),
+        refresh=data.refresh,
+        retry=data.retry,
+        expire=data.expire,
+        minimum_ttl=data.minimum_ttl,
+        dnssec_enabled=data.dnssec_enabled,
+        enabled=data.enabled,
+        created_by=user_id,
+    )
+    db.add(zone)
+    await db.flush()
+
+    if zone.zone_type in {DNSZoneType.MASTER.value, DNSZoneType.SLAVE.value}:
+        ns_record = DNSRecord(
+            zone_id=zone.id,
+            name="@",
+            record_type=DNSRecordType.NS.value,
+            content=_ensure_fqdn(server.name),
+            ttl=zone.minimum_ttl,
+            is_system=True,
+            created_by=user_id,
+        )
+        db.add(ns_record)
+
+    await db.commit()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="create",
+        resource_type="dns_zone",
+        resource_id=zone.id,
+        instance_id=server.instance_id,
+    )
+    await db.refresh(zone)
+    response = DNSZoneResponse.model_validate(zone)
+    response.records_count = 1 if zone.zone_type in {DNSZoneType.MASTER.value, DNSZoneType.SLAVE.value} else 0
+    return response
+
+
+@router.post(
+    "/servers/{server_id}/zones/reverse",
+    response_model=DNSZoneResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_reverse_zone(
+    server_id: int,
+    data: CreateReverseZoneRequest,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    zone_name = _reverse_zone_name(data.network)
+    payload = DNSZoneCreate(
+        name=zone_name,
+        zone_type=DNSZoneType.MASTER,
+        is_reverse=True,
+        reverse_network=data.network,
+        enabled=True,
+    )
+    created = await create_zone(server_id, payload, user_id, db)
+
+    zone_result = await db.execute(select(DNSZone).where(DNSZone.id == created.id))
+    zone = zone_result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reverse zone not found")
+
+    soa = DNSRecord(
+        zone_id=zone.id,
+        name="@",
+        record_type=DNSRecordType.SOA.value,
+        content=(
+            f"{_ensure_fqdn(data.nameserver)} "
+            f"{_ensure_fqdn(data.admin_email.replace('@', '.'))} "
+            f"{zone.serial} {zone.refresh} {zone.retry} {zone.expire} {zone.minimum_ttl}"
+        ),
+        ttl=zone.minimum_ttl,
+        is_system=True,
+        created_by=user_id,
+    )
+    db.add(soa)
+    await db.commit()
+
+    count_result = await db.execute(
+        select(func.count(DNSRecord.id)).where(DNSRecord.zone_id == zone.id)
+    )
+    response = DNSZoneResponse.model_validate(zone)
+    response.records_count = int(count_result.scalar() or 0)
+    return response
+
+
+@router.get("/zones/detail/{zone_id}", response_model=DNSZoneResponse)
+async def get_zone(
+    zone_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = user_id
+    result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+    count_result = await db.execute(
+        select(func.count(DNSRecord.id)).where(DNSRecord.zone_id == zone.id)
+    )
+    response = DNSZoneResponse.model_validate(zone)
+    response.records_count = int(count_result.scalar() or 0)
+    return response
+
+
+@router.patch("/zones/{zone_id}", response_model=DNSZoneResponse)
+async def update_zone(
+    zone_id: int,
+    data: DNSZoneUpdate,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(zone, field, value)
+    zone.serial = _serial_from_now()
+
+    await db.commit()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="update",
+        resource_type="dns_zone",
+        resource_id=zone.id,
+        instance_id=None,
+    )
+    await db.refresh(zone)
+    return DNSZoneResponse.model_validate(zone)
+
+
+@router.delete("/zones/{zone_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_zone(
+    zone_id: int,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+    await db.delete(zone)
+    await db.commit()
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="delete",
+        resource_type="dns_zone",
+        resource_id=zone_id,
+        instance_id=None,
+    )
+
+
+@router.post("/zones/{zone_id}/sign")
+async def sign_zone(
+    zone_id: int,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+    zone.dnssec_enabled = True
+    zone.dnssec_ds_record = f"DS placeholder for {zone.name}"
+    zone.serial = _serial_from_now()
+    await db.commit()
+    return {"status": "success", "zone_id": zone_id, "dnssec_enabled": True}
+
+
+@router.post("/zones/{zone_id}/unsign")
+async def unsign_zone(
+    zone_id: int,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+    zone.dnssec_enabled = False
+    zone.dnssec_ds_record = None
+    zone.serial = _serial_from_now()
+    await db.commit()
+    return {"status": "success", "zone_id": zone_id, "dnssec_enabled": False}
+
+
+@router.get("/zones/{zone_id}/records", response_model=List[DNSRecordResponse])
+async def list_records(
+    zone_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = user_id
+    result = await db.execute(
+        select(DNSRecord).where(DNSRecord.zone_id == zone_id).order_by(DNSRecord.id)
+    )
+    return [DNSRecordResponse.model_validate(record) for record in result.scalars().all()]
+
+
+@router.post("/zones/{zone_id}/records", response_model=DNSRecordResponse, status_code=status.HTTP_201_CREATED)
+async def create_record(
+    zone_id: int,
+    data: DNSRecordCreate,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    zone_result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = zone_result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+
+    record = DNSRecord(
+        zone_id=zone_id,
+        name=data.name,
+        record_type=data.record_type.value,
+        content=data.content,
+        ttl=data.ttl,
+        priority=data.priority,
+        weight=data.weight,
+        port=data.port,
+        flags=data.flags,
+        tag=data.tag,
+        comment=data.comment,
+        created_by=user_id,
+    )
+    db.add(record)
+    zone.serial = _serial_from_now()
+    await db.commit()
+    await db.refresh(record)
+    return DNSRecordResponse.model_validate(record)
+
+
+@router.post("/zones/{zone_id}/records/bulk", response_model=List[DNSRecordResponse])
+async def bulk_import_records(
+    zone_id: int,
+    data: BulkRecordImport,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    zone_result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = zone_result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+
+    records: List[DNSRecord] = []
+    for item in data.records:
+        record = DNSRecord(
+            zone_id=zone_id,
+            name=item.name,
+            record_type=item.record_type.value,
+            content=item.content,
+            ttl=item.ttl,
+            priority=item.priority,
+            weight=item.weight,
+            port=item.port,
+            flags=item.flags,
+            tag=item.tag,
+            comment=item.comment,
+            created_by=user_id,
+        )
+        db.add(record)
+        records.append(record)
+
+    zone.serial = _serial_from_now()
+    await db.commit()
+    for record in records:
+        await db.refresh(record)
+    return [DNSRecordResponse.model_validate(record) for record in records]
+
+
+@router.post("/zones/{zone_id}/records/ptr", response_model=DNSRecordResponse)
+async def create_ptr_record(
+    zone_id: int,
+    data: CreatePTRRequest,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    zone_result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = zone_result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+    if not zone.is_reverse:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PTR records can only be created in reverse zones",
+        )
+
+    if zone.reverse_network:
+        if ipaddress.ip_address(data.ip_address) not in ipaddress.ip_network(
+            zone.reverse_network, strict=False
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="IP address is outside reverse zone network",
+            )
+
+    record = DNSRecord(
+        zone_id=zone_id,
+        name=_ptr_name_for_zone(data.ip_address, zone.name),
+        record_type=DNSRecordType.PTR.value,
+        content=_ensure_fqdn(data.hostname),
+        ttl=data.ttl,
+        created_by=user_id,
+    )
+    db.add(record)
+    zone.serial = _serial_from_now()
+    await db.commit()
+    await db.refresh(record)
+    return DNSRecordResponse.model_validate(record)
+
+
+@router.patch("/records/{record_id}", response_model=DNSRecordResponse)
+async def update_record(
+    record_id: int,
+    data: DNSRecordUpdate,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    record_result = await db.execute(select(DNSRecord).where(DNSRecord.id == record_id))
+    record = record_result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS record not found")
+    if record.is_system:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="System DNS records cannot be modified",
+        )
+
+    for field, value in data.model_dump(exclude_unset=True).items():
+        if field == "record_type" and value is not None:
+            setattr(record, field, value.value)
+        else:
+            setattr(record, field, value)
+
+    zone_result = await db.execute(select(DNSZone).where(DNSZone.id == record.zone_id))
+    zone = zone_result.scalar_one_or_none()
+    if zone:
+        zone.serial = _serial_from_now()
+    await db.commit()
+    await db.refresh(record)
+    return DNSRecordResponse.model_validate(record)
+
+
+@router.delete("/records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_record(
+    record_id: int,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    record_result = await db.execute(select(DNSRecord).where(DNSRecord.id == record_id))
+    record = record_result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS record not found")
+    if record.is_system:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="System DNS records cannot be deleted",
+        )
+
+    zone_result = await db.execute(select(DNSZone).where(DNSZone.id == record.zone_id))
+    zone = zone_result.scalar_one_or_none()
+    await db.delete(record)
+    if zone:
+        zone.serial = _serial_from_now()
+    await db.commit()
+
+
+@router.get("/zones/{zone_id}/slaves", response_model=List[DNSZoneSlaveResponse])
+async def list_zone_slaves(
+    zone_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = user_id
+    result = await db.execute(
+        select(DNSZoneSlave).where(DNSZoneSlave.zone_id == zone_id).order_by(DNSZoneSlave.id)
+    )
+    return [DNSZoneSlaveResponse.model_validate(item) for item in result.scalars().all()]
