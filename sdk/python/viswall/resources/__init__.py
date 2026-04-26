@@ -11,6 +11,7 @@ from viswall.resources.audit import AuditResource
 from viswall.resources.vpn import VPNResource
 from viswall.resources.assistant import AssistantResource
 from viswall.resources.groupware import GroupwareResource
+from viswall.resources.dhcp import DHCPResource
 
 __all__ = [
     "AuthResource",
@@ -24,4 +25,5 @@ __all__ = [
     "VPNResource",
     "AssistantResource",
     "GroupwareResource",
+    "DHCPResource",
 ]

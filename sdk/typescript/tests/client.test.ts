@@ -26,6 +26,7 @@ describe('ViswallClient', () => {
     expect(client.auth).toBeDefined();
     expect(client.instances).toBeDefined();
     expect(client.firewall).toBeDefined();
+    expect(client.dhcp).toBeDefined();
   });
 
   it('should set and clear token', () => {
@@ -115,6 +116,46 @@ describe('ViswallClient', () => {
         action: 'accept',
       });
       expect(result).toHaveProperty('name', 'allow-https');
+    });
+  });
+
+  describe('DHCPResource', () => {
+    it('should list DHCP servers', async () => {
+      server.use(
+        http.get('https://viswall.example.com/api/v1/dhcp/servers/1', () => {
+          return HttpResponse.json([{ id: 1, name: 'kea-main' }]);
+        }),
+      );
+
+      const result = await client.dhcp.listServers(1);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(1);
+    });
+
+    it('should create DHCP subnet', async () => {
+      server.use(
+        http.post('https://viswall.example.com/api/v1/dhcp/servers/1/subnets', () => {
+          return HttpResponse.json({ id: 10, name: 'lan-v4', type: 'v4' });
+        }),
+      );
+
+      const result = await client.dhcp.createSubnet(1, {
+        name: 'lan-v4',
+        subnet: '192.168.10.0/24',
+        type: 'v4',
+      });
+      expect(result).toHaveProperty('id', 10);
+    });
+
+    it('should release DHCP lease', async () => {
+      server.use(
+        http.delete('https://viswall.example.com/api/v1/dhcp/leases/44', () => {
+          return HttpResponse.json({ id: 44, state: 'released' });
+        }),
+      );
+
+      const result = await client.dhcp.releaseLease(44);
+      expect(result).toHaveProperty('state', 'released');
     });
   });
 

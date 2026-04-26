@@ -184,3 +184,56 @@ class TestMailResource:
         result = client.mail.list_users(domain_id=5)
         assert len(result) == 1
         client.close()
+
+
+class TestDHCPResource:
+    """Test DHCPResource."""
+
+    def test_list_servers(self, httpx_mock):
+        """Test list DHCP servers."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/dhcp/servers/1",
+            method="GET",
+            json=[{"id": 1, "name": "kea-main"}],
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.dhcp.list_servers(instance_id=1)
+        assert len(result) == 1
+        assert result[0]["name"] == "kea-main"
+        client.close()
+
+    def test_create_subnet(self, httpx_mock):
+        """Test create DHCP subnet."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/dhcp/servers/1/subnets",
+            method="POST",
+            status_code=201,
+            json={"id": 11, "name": "lan-v4", "subnet": "192.168.10.0/24", "type": "v4"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.dhcp.create_subnet(
+            server_id=1,
+            name="lan-v4",
+            subnet="192.168.10.0/24",
+            type="v4",
+            lease_time_min=300,
+            lease_time_default=3600,
+            lease_time_max=7200,
+        )
+        assert result["id"] == 11
+        client.close()
+
+    def test_release_lease(self, httpx_mock):
+        """Test release DHCP lease."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/dhcp/leases/99",
+            method="DELETE",
+            json={"id": 99, "state": "released", "released_at": "2026-01-01T00:00:00Z"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.dhcp.release_lease(lease_id=99)
+        assert result["state"] == "released"
+        client.close()
