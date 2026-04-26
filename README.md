@@ -1,6 +1,6 @@
 # Viswall
 
-Viswall is a modern, distributed security appliance platform for managing firewall, VPN, DNS, DHCP, mail, and routing infrastructure across multiple edge instances from a single control plane. It replaces legacy monolithic security appliances with a containerized microservices architecture built on FastAPI, React, and PostgreSQL.
+Viswall is a modern, distributed security appliance platform for managing firewall, traffic shaping (QoS), VPN, DNS, DHCP, mail, and routing infrastructure across multiple edge instances from a single control plane. It replaces legacy monolithic security appliances with a containerized microservices architecture built on FastAPI, React, and PostgreSQL.
 
 ## What Viswall Does
 
@@ -10,7 +10,7 @@ Viswall provides a centralized management layer for security-critical network se
 
 **Multi-Instance Management.** A single Viswall manager can control dozens of edge instances. Each instance represents a physical or virtual appliance running firewall, VPN, or mail services. The manager tracks instance health through periodic heartbeats, collects metrics, and maintains a configuration version for each node so agents know when to pull updated rules.
 
-**Firewall Rules and NAT.** Define accept, drop, and reject rules across input, output, and forward chains. Rules support protocol filtering, source and destination IP ranges, and port specifications. NAT rules handle address translation. Rules are authored in the web UI or via API, stored in the manager's database, and applied to instances through a dedicated firewall agent.
+**Firewall Rules, NAT, and Traffic Shaping.** Define accept, drop, and reject rules across input, output, and forward chains. Rules support protocol filtering, source and destination IP ranges, and port specifications. NAT rules handle address translation. Traffic shaping policies define per-interface bandwidth controls and class-based QoS. Policies are authored in the web UI or via API, stored in the manager's database, and applied to instances through the firewall agent.
 
 **VPN Servers and Clients.** Deploy WireGuard, IPsec, OpenVPN, L2TP, and PPTP servers across instances. Client configurations are generated automatically, including QR codes and downloadable profiles. Site-to-site tunnels bridge networks between instances.
 
