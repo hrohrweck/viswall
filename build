@@ -1,9 +1,0 @@
-#!/bin/bash
-if [ ! -e files/certs/exim.key ] || [ ! -e files/certs/exim.csr ] || [ ! -e files/certs/exim.crt ]
-then
-    openssl genrsa -out files/certs/exim.key 2048
-    openssl req -key files/certs/exim.key -new -out files/certs/exim.csr
-    openssl x509 -signkey files/certs/exim.key -in files/certs/exim.csr -req -days 3650 -out files/certs/exim.crt
-fi
-
-docker build --tag exim4:latest .
