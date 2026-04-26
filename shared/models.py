@@ -699,6 +699,173 @@ class LLMUseCaseConfig(Base):
 
 
 # ============================================================================
+# DHCP MODELS - Kea DHCPv4/DHCPv6 Management
+# ============================================================================
+
+
+class DHCPServer(Base):
+    """DHCP server configuration (Kea instance on a managed instance)."""
+
+    __tablename__ = "dhcp_servers"
+
+    id = Column(Integer, primary_key=True)
+    instance_id = Column(Integer, ForeignKey("instances.id"), nullable=False)
+
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+
+    enabled = Column(Boolean, default=True)
+    status = Column(String(20), default="stopped")  # running, stopped, error
+
+    kea_ctrl_agent_address = Column(String(255), default="127.0.0.1")
+    kea_ctrl_agent_port = Column(Integer, default=8000)
+
+    ha_enabled = Column(Boolean, default=False)
+    ha_mode = Column(String(20), default="hot-standby")  # hot-standby, load-balancing
+    ha_peer_address = Column(String(255))
+
+    dhcpv4_enabled = Column(Boolean, default=True)
+    dhcpv6_enabled = Column(Boolean, default=False)
+
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    subnets = relationship(
+        "DHCPSubnet", back_populates="server", cascade="all, delete-orphan"
+    )
+
+
+class DHCPSubnet(Base):
+    """DHCP subnet definition for IPv4 or IPv6."""
+
+    __tablename__ = "dhcp_subnets"
+
+    id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey("dhcp_servers.id"), nullable=False)
+
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    subnet = Column(String(100), nullable=False)
+    type = Column(String(10), nullable=False)  # v4, v6
+
+    interface = Column(String(50))
+    relay_addresses = Column(JSON, default=list)
+
+    domain_name = Column(String(255))
+    dns_servers = Column(JSON, default=list)
+    ntp_servers = Column(JSON, default=list)
+    routers = Column(JSON, default=list)
+
+    lease_time_default = Column(Integer, default=3600)
+    lease_time_max = Column(Integer, default=7200)
+    lease_time_min = Column(Integer, default=300)
+
+    delegated_prefix_length = Column(Integer)
+
+    enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    server = relationship("DHCPServer", back_populates="subnets")
+    pools = relationship(
+        "DHCPPool", back_populates="subnet_ref", cascade="all, delete-orphan"
+    )
+    reservations = relationship(
+        "DHCPReservation", back_populates="subnet_ref", cascade="all, delete-orphan"
+    )
+    options = relationship(
+        "DHCPOption", back_populates="subnet_ref", cascade="all, delete-orphan"
+    )
+    leases = relationship(
+        "DHCPLease", back_populates="subnet_ref", cascade="all, delete-orphan"
+    )
+
+
+class DHCPPool(Base):
+    """Dynamic allocation pool inside a DHCP subnet."""
+
+    __tablename__ = "dhcp_pools"
+
+    id = Column(Integer, primary_key=True)
+    subnet_id = Column(Integer, ForeignKey("dhcp_subnets.id"), nullable=False)
+
+    start_address = Column(String(45), nullable=False)
+    end_address = Column(String(45), nullable=False)
+    type = Column(String(10), nullable=False)  # v4, v6
+
+    enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    subnet_ref = relationship("DHCPSubnet", back_populates="pools")
+
+
+class DHCPReservation(Base):
+    """Static DHCP reservation."""
+
+    __tablename__ = "dhcp_reservations"
+
+    id = Column(Integer, primary_key=True)
+    subnet_id = Column(Integer, ForeignKey("dhcp_subnets.id"), nullable=False)
+
+    hostname = Column(String(255))
+    ip_address = Column(String(45), nullable=False)
+    hw_address = Column(String(255), nullable=False)  # MAC for v4, DUID for v6
+    type = Column(String(10), nullable=False)  # v4, v6
+    description = Column(Text)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    subnet_ref = relationship("DHCPSubnet", back_populates="reservations")
+
+
+class DHCPOption(Base):
+    """Custom DHCP option attached to a subnet."""
+
+    __tablename__ = "dhcp_options"
+
+    id = Column(Integer, primary_key=True)
+    subnet_id = Column(Integer, ForeignKey("dhcp_subnets.id"), nullable=False)
+
+    option_code = Column(Integer, nullable=False)
+    option_name = Column(String(100), nullable=False)
+    option_value = Column(Text, nullable=False)
+    type = Column(String(10), nullable=False)  # v4, v6
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    subnet_ref = relationship("DHCPSubnet", back_populates="options")
+
+
+class DHCPLease(Base):
+    """Lease state cache synchronized from Kea."""
+
+    __tablename__ = "dhcp_leases"
+
+    id = Column(Integer, primary_key=True)
+    subnet_id = Column(Integer, ForeignKey("dhcp_subnets.id"), nullable=False)
+    pool_id = Column(Integer, ForeignKey("dhcp_pools.id"))
+
+    ip_address = Column(String(45), nullable=False)
+    hw_address = Column(String(255))
+    hostname = Column(String(255))
+    client_id = Column(String(255))
+
+    lease_start = Column(DateTime)
+    lease_end = Column(DateTime)
+    released_at = Column(DateTime)
+    state = Column(String(20), default="active")  # active, expired, released
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    subnet_ref = relationship("DHCPSubnet", back_populates="leases")
+
+
+# ============================================================================
 # DNS MODELS - BIND9 Server Management
 # ============================================================================
 
