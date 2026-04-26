@@ -220,6 +220,18 @@ GitHub Actions runs on every push to `main`, `develop`, or `feature/*` branches:
 
 All checks must pass before merging.
 
+### PR Test Observation Rule
+
+When a PR is filed, the agent **must** monitor CI check results until completion. If any checks are failing:
+
+1. **Investigate immediately** — fetch logs, reproduce locally, identify root cause.
+2. **Fix automatically** — commit corrections directly to the PR branch and re-push.
+3. **Never leave a PR with failing checks** unless the failure is from an upstream/main branch issue outside the PR's scope (document the exception in a PR comment).
+4. **Common CI pitfalls to watch for**:
+   - Docker Compose IPv6 subnets must use valid hex-only ULA addresses (e.g., `fd00:42::/64`, not `fd00:viswall::/64`).
+   - `docker compose up` in GitHub Actions requires the runner's Docker daemon to support the network options used.
+   - Backend pytest and frontend vitest must both pass locally before pushing.
+
 ---
 
 ## Known Gaps / TODO

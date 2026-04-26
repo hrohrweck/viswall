@@ -8,20 +8,21 @@ dev:
     managers:
       hosts:
         manager-01:
-          ansible_host: 10.0.0.10
+          # Use hostnames (resolve via DNS) or IPv4/IPv6 addresses
+          ansible_host: manager-01.local
           viswall_role: manager
     agents:
       hosts:
         edge-01:
-          ansible_host: 10.0.0.20
+          ansible_host: edge-01.local
           viswall_role: agent
           viswall_agent_type: firewall
         edge-02:
-          ansible_host: 10.0.0.21
+          ansible_host: edge-02.local
           viswall_role: agent
           viswall_agent_type: mail
         edge-03:
-          ansible_host: 10.0.0.22
+          ansible_host: edge-03.local
           viswall_role: agent
           viswall_agent_type: vpn
 
