@@ -32,6 +32,13 @@ import type {
   VPNClientCreate,
   VPNClientUpdate,
   VPNProtocolRecommendation,
+  DNSServer,
+  DNSServerCreate,
+  DNSServerUpdate,
+  DNSZone,
+  DNSZoneCreate,
+  DNSRecord,
+  DNSRecordCreate,
   SimulationRequest,
   SimulationResult,
   TestSuiteRequest,
@@ -83,6 +90,9 @@ const queryKeys = {
   dashboardData: (instanceId: number) => ['dashboard', instanceId] as const,
   metricsOverview: ['metrics', 'overview'] as const,
   routingRules: (instanceId: number) => ['routing-rules', instanceId] as const,
+  dnsServers: (instanceId: number) => ['dns-servers', instanceId] as const,
+  dnsZones: (serverId: number) => ['dns-zones', serverId] as const,
+  dnsRecords: (zoneId: number) => ['dns-records', zoneId] as const,
   llmProviders: ['llm-providers'] as const,
   llmProvider: (id: number) => ['llm-providers', id] as const,
   llmModels: (providerId?: number) => ['llm-models', providerId] as const,
@@ -798,6 +808,141 @@ export function useApplyRouting(instanceId: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.routingRules(instanceId) })
+    },
+  })
+}
+
+// DNS hooks
+export function useDNSServers(instanceId: number) {
+  return useQuery<DNSServer[]>({
+    queryKey: queryKeys.dnsServers(instanceId),
+    queryFn: async () => {
+      const { data } = await api.get(`/dns/servers/${instanceId}`)
+      return data
+    },
+    enabled: instanceId > 0,
+  })
+}
+
+export function useCreateDNSServer(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: DNSServerCreate) => {
+      const { data } = await api.post(`/dns/servers/${instanceId}`, payload)
+      return data as DNSServer
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsServers(instanceId) })
+    },
+  })
+}
+
+export function useUpdateDNSServer(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: DNSServerUpdate & { id: number }) => {
+      const { data } = await api.patch(`/dns/servers/${id}`, payload)
+      return data as DNSServer
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsServers(instanceId) })
+    },
+  })
+}
+
+export function useDeleteDNSServer(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (serverId: number) => {
+      await api.delete(`/dns/servers/${serverId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsServers(instanceId) })
+    },
+  })
+}
+
+export function useDNSServerAction(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ serverId, action }: { serverId: number; action: 'start' | 'stop' | 'reload' }) => {
+      const { data } = await api.post(`/dns/servers/${serverId}/actions/${action}`)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsServers(instanceId) })
+    },
+  })
+}
+
+export function useDNSZones(serverId: number) {
+  return useQuery<DNSZone[]>({
+    queryKey: queryKeys.dnsZones(serverId),
+    queryFn: async () => {
+      const { data } = await api.get(`/dns/servers/${serverId}/zones`)
+      return data
+    },
+    enabled: serverId > 0,
+  })
+}
+
+export function useCreateDNSZone(serverId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: DNSZoneCreate) => {
+      const { data } = await api.post(`/dns/servers/${serverId}/zones`, payload)
+      return data as DNSZone
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsZones(serverId) })
+    },
+  })
+}
+
+export function useDeleteDNSZone(serverId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (zoneId: number) => {
+      await api.delete(`/dns/zones/${zoneId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsZones(serverId) })
+    },
+  })
+}
+
+export function useDNSRecords(zoneId: number) {
+  return useQuery<DNSRecord[]>({
+    queryKey: queryKeys.dnsRecords(zoneId),
+    queryFn: async () => {
+      const { data } = await api.get(`/dns/zones/${zoneId}/records`)
+      return data
+    },
+    enabled: zoneId > 0,
+  })
+}
+
+export function useCreateDNSRecord(zoneId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: DNSRecordCreate) => {
+      const { data } = await api.post(`/dns/zones/${zoneId}/records`, payload)
+      return data as DNSRecord
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsRecords(zoneId) })
+    },
+  })
+}
+
+export function useDeleteDNSRecord(zoneId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (recordId: number) => {
+      await api.delete(`/dns/records/${recordId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsRecords(zoneId) })
     },
   })
 }

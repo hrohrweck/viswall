@@ -53,6 +53,28 @@ export enum VPNAuthType {
   PUBLIC_KEY = 'public_key',
 }
 
+export enum DNSZoneType {
+  MASTER = 'master',
+  SLAVE = 'slave',
+  FORWARD = 'forward',
+  STUB = 'stub',
+}
+
+export enum DNSRecordType {
+  A = 'A',
+  AAAA = 'AAAA',
+  CNAME = 'CNAME',
+  MX = 'MX',
+  NS = 'NS',
+  PTR = 'PTR',
+  TXT = 'TXT',
+  SRV = 'SRV',
+  CAA = 'CAA',
+  SOA = 'SOA',
+  DNSKEY = 'DNSKEY',
+  DS = 'DS',
+}
+
 export interface Instance {
   id: number;
   name: string;
@@ -480,6 +502,129 @@ export interface VPNProtocolRecommendation {
   compatibility_score: number;
   description: string;
   use_cases: string[];
+}
+
+export interface DNSServer {
+  id: number;
+  instance_id: number;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  status: string;
+  listening_addresses: string[];
+  port: number;
+  is_recursive: boolean;
+  is_authoritative: boolean;
+  forwarders: string[];
+  allow_query: string[];
+  allow_transfer: string[];
+  also_notify: string[];
+  dnssec_enabled: boolean;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+  zones_count: number;
+}
+
+export interface DNSServerCreate {
+  name: string;
+  description?: string;
+  enabled?: boolean;
+  listening_addresses?: string[];
+  port?: number;
+  is_recursive?: boolean;
+  is_authoritative?: boolean;
+  forwarders?: string[];
+  allow_query?: string[];
+  allow_transfer?: string[];
+  also_notify?: string[];
+  dnssec_enabled?: boolean;
+}
+
+export interface DNSServerUpdate {
+  name?: string;
+  description?: string;
+  enabled?: boolean;
+  listening_addresses?: string[];
+  port?: number;
+  is_recursive?: boolean;
+  is_authoritative?: boolean;
+  forwarders?: string[];
+  allow_query?: string[];
+  allow_transfer?: string[];
+  also_notify?: string[];
+  dnssec_enabled?: boolean;
+}
+
+export interface DNSZone {
+  id: number;
+  server_id: number;
+  name: string;
+  description: string | null;
+  zone_type: DNSZoneType;
+  is_reverse: boolean;
+  reverse_network: string | null;
+  serial: number;
+  refresh: number;
+  retry: number;
+  expire: number;
+  minimum_ttl: number;
+  enabled: boolean;
+  master_server_address: string | null;
+  forwarders: string[];
+  dnssec_enabled: boolean;
+  dnssec_algorithm: string;
+  dnssec_ds_record: string | null;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+  records_count: number;
+}
+
+export interface DNSZoneCreate {
+  name: string;
+  description?: string;
+  zone_type: DNSZoneType;
+  is_reverse?: boolean;
+  reverse_network?: string;
+  refresh?: number;
+  retry?: number;
+  expire?: number;
+  minimum_ttl?: number;
+  enabled?: boolean;
+  dnssec_enabled?: boolean;
+}
+
+export interface DNSRecord {
+  id: number;
+  zone_id: number;
+  name: string;
+  record_type: DNSRecordType;
+  content: string;
+  ttl: number;
+  priority: number;
+  weight: number;
+  port: number;
+  flags: string;
+  tag: string | null;
+  comment: string | null;
+  is_system: boolean;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DNSRecordCreate {
+  name: string;
+  record_type: DNSRecordType;
+  content: string;
+  ttl?: number;
+  priority?: number;
+  weight?: number;
+  port?: number;
+  flags?: string;
+  tag?: string;
+  comment?: string;
 }
 
 export interface AuditLog {

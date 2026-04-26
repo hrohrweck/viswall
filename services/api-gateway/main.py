@@ -6,7 +6,7 @@ import asyncio
 import os
 import time
 
-from routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant, groupware, llm_admin
+from routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant, groupware, llm_admin, dns
 from shared.database import init_db, get_db
 from shared.models import Base
 from metrics_collector import start_metrics_collector
@@ -112,6 +112,7 @@ app.include_router(mail.router, prefix="/api/v1/mail", tags=["Mail"])
 app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["Metrics"])
 app.include_router(audit.router, prefix="/api/v1/audit", tags=["Audit"])
 app.include_router(vpn.router, prefix="/api/v1/vpn", tags=["VPN"])
+app.include_router(dns.router, prefix="/api/v1/dns", tags=["DNS"])
 app.include_router(
     firewall_simulation.router,
     prefix="/api/v1/simulation",
@@ -148,5 +149,8 @@ async def api_info():
             "vpn-management-wireguard-ipsec-openvpn-l2tp-pptp",
             "site-to-site-vpn",
             "split-tunneling",
+            "dns-zones-and-records",
+            "dnssec",
+            "forward-and-reverse-dns",
         ],
     }

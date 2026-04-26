@@ -1148,3 +1148,259 @@ class QoSApplyResponse(BaseModel):
     success: bool
     message: str
     applied_at: Optional[datetime] = None
+
+
+# ============================================================================
+# DNS SCHEMAS - BIND9 Management
+# ============================================================================
+
+
+class DNSRecordType(str, Enum):
+    A = "A"
+    AAAA = "AAAA"
+    CNAME = "CNAME"
+    MX = "MX"
+    NS = "NS"
+    PTR = "PTR"
+    TXT = "TXT"
+    SRV = "SRV"
+    CAA = "CAA"
+    SOA = "SOA"
+    DNSKEY = "DNSKEY"
+    DS = "DS"
+
+
+class DNSZoneType(str, Enum):
+    MASTER = "master"
+    SLAVE = "slave"
+    FORWARD = "forward"
+    STUB = "stub"
+
+
+class DNSRecordBase(BaseModel):
+    name: str = Field(..., max_length=255)
+    record_type: DNSRecordType
+    content: str = Field(..., max_length=2000)
+    ttl: int = Field(default=3600, ge=0, le=2147483647)
+    priority: int = Field(default=0, ge=0)
+    weight: int = Field(default=0, ge=0)
+    port: int = Field(default=0, ge=0)
+    flags: str = Field(default="0", max_length=10)
+    tag: Optional[str] = Field(default=None, max_length=50)
+    comment: Optional[str] = None
+
+
+class DNSRecordCreate(DNSRecordBase):
+    pass
+
+
+class DNSRecordUpdate(BaseModel):
+    name: Optional[str] = None
+    record_type: Optional[DNSRecordType] = None
+    content: Optional[str] = None
+    ttl: Optional[int] = Field(default=None, ge=0)
+    priority: Optional[int] = Field(default=None, ge=0)
+    weight: Optional[int] = Field(default=None, ge=0)
+    port: Optional[int] = Field(default=None, ge=0)
+    flags: Optional[str] = None
+    tag: Optional[str] = None
+    comment: Optional[str] = None
+
+
+class DNSRecordResponse(DNSRecordBase):
+    id: int
+    zone_id: int
+    is_system: bool
+    created_by: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DNSZoneBase(BaseModel):
+    name: str = Field(..., max_length=255)
+    description: Optional[str] = None
+    zone_type: DNSZoneType
+    is_reverse: bool = False
+    reverse_network: Optional[str] = None
+    refresh: int = Field(default=3600, ge=60)
+    retry: int = Field(default=1800, ge=60)
+    expire: int = Field(default=604800, ge=60)
+    minimum_ttl: int = Field(default=86400, ge=0)
+    enabled: bool = True
+
+
+class DNSZoneCreate(DNSZoneBase):
+    dnssec_enabled: bool = False
+
+
+class DNSZoneUpdate(BaseModel):
+    description: Optional[str] = None
+    is_reverse: Optional[bool] = None
+    reverse_network: Optional[str] = None
+    refresh: Optional[int] = Field(default=None, ge=60)
+    retry: Optional[int] = Field(default=None, ge=60)
+    expire: Optional[int] = Field(default=None, ge=60)
+    minimum_ttl: Optional[int] = Field(default=None, ge=0)
+    enabled: Optional[bool] = None
+    dnssec_enabled: Optional[bool] = None
+    transfer_tsig_key_id: Optional[int] = None
+
+
+class DNSZoneResponse(DNSZoneBase):
+    id: int
+    server_id: int
+    serial: int
+    master_server_address: Optional[str]
+    forwarders: List[str]
+    dnssec_enabled: bool
+    dnssec_algorithm: str
+    dnssec_ds_record: Optional[str]
+    transfer_tsig_key_id: Optional[int]
+    created_by: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+    records_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class CreateReverseZoneRequest(BaseModel):
+    network: str = Field(..., description="CIDR network, e.g. 192.168.0.0/24 or 2001:db8::/64")
+    nameserver: str = Field(..., description="Authoritative nameserver, e.g. ns1.example.com")
+    admin_email: str = Field(..., description="Admin contact, e.g. admin@example.com")
+
+
+class CreatePTRRequest(BaseModel):
+    ip_address: str = Field(..., description="IP address, e.g. 192.168.0.10")
+    hostname: str = Field(..., description="Target hostname, e.g. server1.example.com")
+    ttl: int = Field(default=3600, ge=0)
+
+
+class DNSServerBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    enabled: bool = True
+    listening_addresses: List[str] = Field(default_factory=lambda: ["0.0.0.0", "::"])
+    port: int = Field(default=53, ge=1, le=65535)
+    is_recursive: bool = True
+    is_authoritative: bool = True
+    forwarders: List[str] = Field(default_factory=list)
+    allow_query: List[str] = Field(default_factory=lambda: ["0.0.0.0/0", "::/0"])
+    allow_transfer: List[str] = Field(default_factory=lambda: ["::1", "127.0.0.1"])
+    also_notify: List[str] = Field(default_factory=list)
+    dnssec_enabled: bool = False
+
+
+class DNSServerCreate(DNSServerBase):
+    pass
+
+
+class DNSServerUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    enabled: Optional[bool] = None
+    listening_addresses: Optional[List[str]] = None
+    port: Optional[int] = Field(default=None, ge=1, le=65535)
+    is_recursive: Optional[bool] = None
+    is_authoritative: Optional[bool] = None
+    forwarders: Optional[List[str]] = None
+    allow_query: Optional[List[str]] = None
+    allow_transfer: Optional[List[str]] = None
+    also_notify: Optional[List[str]] = None
+    dnssec_enabled: Optional[bool] = None
+
+
+class DNSServerResponse(DNSServerBase):
+    id: int
+    instance_id: int
+    status: str
+    created_by: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+    zones_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class DNSZoneSlaveResponse(BaseModel):
+    id: int
+    zone_id: int
+    master_server_address: str
+    tsig_key_id: Optional[int]
+    last_transfer: Optional[datetime]
+    last_serial: int
+    transfer_status: str
+    transfer_error: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BulkRecordImport(BaseModel):
+    records: List[DNSRecordCreate] = Field(..., max_length=500)
+
+
+class TSIGAlgorithm(str, Enum):
+    HMAC_SHA256 = "hmac-sha256"
+    HMAC_SHA512 = "hmac-sha512"
+
+
+class DNSTSIGKeyBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    algorithm: TSIGAlgorithm = TSIGAlgorithm.HMAC_SHA256
+    is_active: bool = True
+
+
+class DNSTSIGKeyCreate(DNSTSIGKeyBase):
+    secret: Optional[str] = None
+
+
+class DNSTSIGKeyRotate(BaseModel):
+    algorithm: TSIGAlgorithm = TSIGAlgorithm.HMAC_SHA256
+
+
+class DNSTSIGKeyResponse(DNSTSIGKeyBase):
+    id: int
+    server_id: int
+    secret: str
+    rotated_at: Optional[datetime]
+    created_by: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DNSSECRolloverRequest(BaseModel):
+    key_type: str = Field(..., pattern="^(KSK|ZSK)$")
+    algorithm: str = Field(default="ECDSAP256SHA256")
+    key_size: int = Field(default=256, ge=128, le=8192)
+
+
+class DNSSECKeyResponse(BaseModel):
+    id: int
+    zone_id: int
+    key_type: str
+    algorithm: str
+    key_size: int
+    key_tag: Optional[int]
+    public_key_path: Optional[str]
+    private_key_path: Optional[str]
+    public_dnskey: Optional[str]
+    ds_record: Optional[str]
+    is_active: bool
+    activated_at: Optional[datetime]
+    rotated_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

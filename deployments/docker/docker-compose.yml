@@ -201,6 +201,23 @@ services:
   #   depends_on:
   #     - api-gateway
 
+  # dns-service:
+  #   build:
+  #     context: ../..
+  #     dockerfile: services/dns-service/Dockerfile
+  #   privileged: true
+  #   network_mode: host
+  #   environment:
+  #     GATEWAY_URL: http://api-gateway:8000
+  #     INSTANCE_API_KEY: ${INSTANCE_API_KEY:-dev-key}
+  #     DNS_AGENT_ALLOW_COMMANDS: "true"
+  #   ports:
+  #     - "53:53/udp"
+  #     - "53:53/tcp"
+  #     - "8082:8082"
+  #   depends_on:
+  #     - api-gateway
+
   # Ollama model pull (runs once on startup)
   ollama-pull:
     image: curlimages/curl:latest

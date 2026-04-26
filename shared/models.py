@@ -696,3 +696,190 @@ class LLMUseCaseConfig(Base):
     # Relationships
     provider = relationship("LLMProvider", back_populates="use_case_configs")
     model = relationship("LLMModel", back_populates="use_case_configs")
+
+
+# ============================================================================
+# DNS MODELS - BIND9 Server Management
+# ============================================================================
+
+
+class DNSServer(Base):
+    """DNS server configuration (BIND9 instance on a managed instance)."""
+
+    __tablename__ = "dns_servers"
+
+    id = Column(Integer, primary_key=True)
+    instance_id = Column(Integer, ForeignKey("instances.id"), nullable=False)
+
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+
+    enabled = Column(Boolean, default=True)
+    status = Column(String(20), default="stopped")  # running, stopped, error
+
+    listening_addresses = Column(JSON, default=list)
+    port = Column(Integer, default=53)
+
+    is_recursive = Column(Boolean, default=True)
+    is_authoritative = Column(Boolean, default=True)
+
+    forwarders = Column(JSON, default=list)
+
+    allow_query = Column(JSON, default=lambda: ["0.0.0.0/0", "::/0"])
+    allow_transfer = Column(JSON, default=lambda: ["::1", "127.0.0.1"])
+    also_notify = Column(JSON, default=list)
+
+    dnssec_enabled = Column(Boolean, default=False)
+
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    zones = relationship(
+        "DNSZone", back_populates="server", cascade="all, delete-orphan"
+    )
+    tsig_keys = relationship(
+        "DNSTSIGKey", back_populates="server", cascade="all, delete-orphan"
+    )
+
+
+class DNSZone(Base):
+    """DNS zone configuration."""
+
+    __tablename__ = "dns_zones"
+
+    id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey("dns_servers.id"), nullable=False)
+
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+
+    zone_type = Column(String(20), nullable=False)  # master, slave, forward, stub
+    is_reverse = Column(Boolean, default=False)
+    reverse_network = Column(String(50))
+
+    serial = Column(Integer, default=1)
+    refresh = Column(Integer, default=3600)
+    retry = Column(Integer, default=1800)
+    expire = Column(Integer, default=604800)
+    minimum_ttl = Column(Integer, default=86400)
+
+    master_server_address = Column(String(255))
+    forwarders = Column(JSON, default=list)
+
+    dnssec_enabled = Column(Boolean, default=False)
+    dnssec_algorithm = Column(String(20), default="ECDSAP256SHA256")
+    dnssec_ksk_size = Column(Integer, default=256)
+    dnssec_zsk_size = Column(Integer, default=256)
+    dnssec_ds_record = Column(Text)
+
+    enabled = Column(Boolean, default=True)
+    transfer_tsig_key_id = Column(Integer, ForeignKey("dns_tsig_keys.id"))
+
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    records = relationship(
+        "DNSRecord", back_populates="zone", cascade="all, delete-orphan"
+    )
+    dnssec_keys = relationship(
+        "DNSSECKey", back_populates="zone", cascade="all, delete-orphan"
+    )
+    server = relationship("DNSServer", back_populates="zones")
+    transfer_tsig_key = relationship("DNSTSIGKey", foreign_keys=[transfer_tsig_key_id])
+
+
+class DNSRecord(Base):
+    """DNS resource records within a zone."""
+
+    __tablename__ = "dns_records"
+
+    id = Column(Integer, primary_key=True)
+    zone_id = Column(Integer, ForeignKey("dns_zones.id"), nullable=False)
+
+    name = Column(String(255), nullable=False)
+    record_type = Column(String(10), nullable=False)  # A, AAAA, CNAME, MX, NS, TXT, SRV, PTR, CAA, DNSKEY, DS, SOA
+    content = Column(Text, nullable=False)
+
+    ttl = Column(Integer, default=3600)
+    priority = Column(Integer, default=0)
+    weight = Column(Integer, default=0)
+    port = Column(Integer, default=0)
+    flags = Column(String(10), default="0")
+    tag = Column(String(50))
+
+    is_system = Column(Boolean, default=False)
+    comment = Column(Text)
+
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    zone = relationship("DNSZone", back_populates="records")
+
+
+class DNSZoneSlave(Base):
+    """Tracks zone transfer status for slave zones."""
+
+    __tablename__ = "dns_zone_slaves"
+
+    id = Column(Integer, primary_key=True)
+    zone_id = Column(Integer, ForeignKey("dns_zones.id"), nullable=False)
+    master_server_address = Column(String(255), nullable=False)
+    tsig_key_id = Column(Integer, ForeignKey("dns_tsig_keys.id"))
+
+    last_transfer = Column(DateTime)
+    last_serial = Column(Integer, default=0)
+    transfer_status = Column(String(20), default="idle")  # idle, transferring, success, failed
+    transfer_error = Column(Text)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DNSTSIGKey(Base):
+    """TSIG keys used for secure AXFR/IXFR zone transfers."""
+
+    __tablename__ = "dns_tsig_keys"
+
+    id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey("dns_servers.id"), nullable=False)
+
+    name = Column(String(100), nullable=False)
+    algorithm = Column(String(50), default="hmac-sha256")
+    secret = Column(Text, nullable=False)
+    is_active = Column(Boolean, default=True)
+    rotated_at = Column(DateTime)
+
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    server = relationship("DNSServer", back_populates="tsig_keys")
+
+
+class DNSSECKey(Base):
+    """DNSSEC key material metadata for KSK/ZSK lifecycle tracking."""
+
+    __tablename__ = "dnssec_keys"
+
+    id = Column(Integer, primary_key=True)
+    zone_id = Column(Integer, ForeignKey("dns_zones.id"), nullable=False)
+
+    key_type = Column(String(10), nullable=False)  # KSK, ZSK
+    algorithm = Column(String(30), nullable=False)
+    key_size = Column(Integer, nullable=False)
+    key_tag = Column(Integer)
+    public_key_path = Column(String(500))
+    private_key_path = Column(String(500))
+    public_dnskey = Column(Text)
+    ds_record = Column(Text)
+    is_active = Column(Boolean, default=True)
+    activated_at = Column(DateTime, default=datetime.utcnow)
+    rotated_at = Column(DateTime)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    zone = relationship("DNSZone", back_populates="dnssec_keys")

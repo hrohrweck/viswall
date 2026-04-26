@@ -21,6 +21,7 @@ import { MailDomains } from './pages/Mail/MailDomains'
 import { MailDomainCreate } from './pages/Mail/MailDomainCreate'
 import { MailDomainDetail } from './pages/Mail/MailDomainDetail'
 import { LLMConfiguration } from './pages/admin/LLMConfiguration'
+import { DNSServers } from './pages/DNS/DNSServers'
 
 export const router = createBrowserRouter([
   {
@@ -70,6 +71,10 @@ export const router = createBrowserRouter([
       {
         path: 'vpn',
         element: <VPNServers />,
+      },
+      {
+        path: 'dns',
+        element: <DNSServers />,
       },
       {
         path: 'vpn/create',
