@@ -304,6 +304,7 @@ export interface VPNServer {
   listen_address: string;
   listen_port: number | null;
   network_cidr: string;
+  ipv6_tunnel_network?: string;
   dns_servers: string[];
   push_routes: string[];
   internet_redirect: boolean;
@@ -325,6 +326,7 @@ export interface VPNServerCreate {
   listen_address?: string;
   listen_port?: number;
   network_cidr?: string;
+  ipv6_tunnel_network?: string;
   dns_servers?: string[];
   push_routes?: string[];
   internet_redirect?: boolean;
@@ -342,6 +344,7 @@ export interface VPNServerUpdate {
   listen_address?: string;
   listen_port?: number;
   network_cidr?: string;
+  ipv6_tunnel_network?: string;
   dns_servers?: string[];
   push_routes?: string[];
   internet_redirect?: boolean;
@@ -353,6 +356,8 @@ export interface WireGuardConfig {
   public_key?: string;
   listen_port?: number;
   network_cidr?: string;
+  ipv6_tunnel_network?: string;
+  ipv6_nat_enabled?: boolean;
   post_up?: string;
   post_down?: string;
   mtu?: number;

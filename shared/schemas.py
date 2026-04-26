@@ -699,6 +699,8 @@ class WireGuardConfig(BaseModel):
     public_key: Optional[str] = None
     listen_port: int = Field(default=51820, ge=1, le=65535)
     network_cidr: str = "10.200.0.0/24"
+    ipv6_tunnel_network: Optional[str] = None
+    ipv6_nat_enabled: bool = False
     post_up: Optional[str] = None
     post_down: Optional[str] = None
 
@@ -809,6 +811,7 @@ class VPNServerBase(BaseModel):
     listen_address: str = "0.0.0.0"
     listen_port: Optional[int] = None
     network_cidr: str = "10.200.0.0/24"
+    ipv6_tunnel_network: Optional[str] = None
 
     # Client settings
     dns_servers: List[str] = Field(default_factory=lambda: ["1.1.1.1", "1.0.0.1"])
