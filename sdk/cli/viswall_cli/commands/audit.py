@@ -5,7 +5,7 @@ from typing import Optional
 import typer
 
 from viswall_cli.utils import get_client
-from viswall_cli.output import print_result, print_success, print_error
+from viswall_cli.output import print_result, print_error
 from viswall.exceptions import ViswallAPIError
 
 app = typer.Typer(help="Query audit logs")

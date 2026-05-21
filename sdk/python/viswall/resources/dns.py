@@ -1,6 +1,6 @@
 """DNS resource."""
 
-from typing import TYPE_CHECKING, Dict, Any, List, Optional
+from typing import TYPE_CHECKING, Dict, Any, List
 
 if TYPE_CHECKING:
     from viswall.client import ViswallClient
