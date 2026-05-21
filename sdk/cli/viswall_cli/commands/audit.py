@@ -1,6 +1,6 @@
 """Audit commands."""
 
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 
@@ -24,7 +24,7 @@ def list_logs(
     """List audit logs."""
     client = get_client(url=url, token=token)
     try:
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if resource_type:
             params["resource_type"] = resource_type
         if action:
