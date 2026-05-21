@@ -24,6 +24,12 @@ export enum FirewallAction {
   REJECT = 'reject',
 }
 
+export enum NATType {
+  SNAT = 'snat',
+  DNAT = 'dnat',
+  MASQUERADE = 'masquerade',
+}
+
 export enum VPNProtocol {
   WIREGUARD = 'wireguard',
   IPSEC = 'ipsec',
@@ -214,6 +220,40 @@ export interface FirewallRuleUpdate {
   log_enabled?: boolean;
 }
 
+export interface NATRule {
+  id: number
+  instance_id: number
+  name: string
+  description: string | null
+  enabled: boolean
+  type: NATType
+  interface: string | null
+  source_network: string | null
+  dest_network: string | null
+  to_source: string | null
+  to_destination: string | null
+  service_protocol: string | null
+  service_ports: string | null
+  order_index: number
+  created_by: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface NATRuleCreate {
+  name: string
+  description?: string
+  enabled?: boolean
+  type?: NATType
+  interface?: string
+  source_network?: string
+  dest_network?: string
+  to_source?: string
+  to_destination?: string
+  service_protocol?: string
+  service_ports?: string
+}
+
 export interface NetworkInterface {
   id: number;
   instance_id: number;
@@ -241,6 +281,7 @@ export interface MailDomain {
   spf_enabled: boolean;
   llm_enabled: boolean;
   llm_config: Record<string, unknown>;
+  groupware_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -255,6 +296,7 @@ export interface MailDomainCreate {
   spf_enabled?: boolean;
   llm_enabled?: boolean;
   llm_config?: Record<string, unknown>;
+  groupware_enabled?: boolean;
 }
 
 export interface MailDomainUpdate {
@@ -266,6 +308,7 @@ export interface MailDomainUpdate {
   spf_enabled?: boolean;
   llm_enabled?: boolean;
   llm_config?: Record<string, unknown>;
+  groupware_enabled?: boolean;
 }
 
 export interface MailUser {
@@ -1026,6 +1069,90 @@ export interface RoutingRuleUpdate {
   outbound_interface?: string;
   mark?: number;
   order_index?: number;
+}
+
+export interface QoSClass {
+  id: number
+  policy_id: number
+  name: string
+  priority: number
+  min_rate_kbps: number
+  max_rate_kbps: number
+  match_ports: number[]
+  match_dscp: string | null
+  match_protocol: string
+  created_at: string
+  updated_at: string
+}
+
+export interface QoSPolicy {
+  id: number
+  instance_id: number
+  name: string
+  description: string | null
+  enabled: boolean
+  interface_name: string
+  interface_id: number | null
+  algorithm: 'cake' | 'fq_codel' | 'htb'
+  download_kbps: number
+  upload_kbps: number
+  applied: boolean
+  last_applied_at: string | null
+  apply_error: string | null
+  classes: QoSClass[]
+  created_by: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface QoSQueueStats {
+  qdisc: string
+  sent_bytes: number
+  sent_pkts: number
+  dropped_pkts: number
+  overlimits: number
+  backlog_bytes: number
+  backlog_pkts: number
+}
+
+export interface QoSStats {
+  policy_id: number
+  interface: string
+  algorithm: string
+  download_kbps: number
+  upload_kbps: number
+  queues: QoSQueueStats[]
+  raw: Record<string, any> | null
+  collected_at: string
+}
+
+export interface QoSPolicyCreate {
+  name: string
+  description?: string
+  enabled?: boolean
+  interface_name: string
+  interface_id?: number | null
+  algorithm: 'cake' | 'fq_codel' | 'htb'
+  download_kbps: number
+  upload_kbps: number
+  classes?: {
+    name: string
+    priority: number
+    min_rate_kbps: number
+    max_rate_kbps: number
+    match_ports?: number[]
+    match_dscp?: string | null
+    match_protocol?: string
+  }[]
+}
+
+export interface QoSPolicyUpdate {
+  name?: string
+  description?: string
+  enabled?: boolean
+  algorithm?: 'cake' | 'fq_codel' | 'htb'
+  download_kbps?: number
+  upload_kbps?: number
 }
 
 // Metrics Types

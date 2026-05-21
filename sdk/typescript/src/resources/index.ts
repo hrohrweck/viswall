@@ -10,3 +10,6 @@ export { VPNResource } from './vpn';
 export { AssistantResource } from './assistant';
 export { GroupwareResource } from './groupware';
 export { DHCPResource } from './dhcp';
+export { DNSResource } from './dns';
+export { FirewallSimulationResource } from './firewall_simulation';
+export { LLMAdminResource } from './llm_admin';

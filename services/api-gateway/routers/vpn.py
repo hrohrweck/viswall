@@ -36,6 +36,7 @@ from shared.schemas import (
 )
 from shared.security import require_auth, require_admin
 from shared.audit_logger import log_audit
+from utils.agent_client import agent_request, AgentClientError
 
 router = APIRouter()
 
@@ -273,10 +274,19 @@ async def start_server(
             detail="VPN server not found"
         )
 
-    server.status = VPNStatus.RUNNING.value
-    await db.commit()
-
-    return {"status": "success", "action": "start", "server_id": server_id}
+    try:
+        await agent_request(
+            db=db,
+            instance_id=server.instance_id,
+            method="POST",
+            path="/start",
+            json_data={"protocol": server.protocol},
+        )
+        server.status = VPNStatus.RUNNING.value
+        await db.commit()
+        return {"status": "success", "action": "start", "server_id": server_id}
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
 
 @router.post("/servers/{server_id}/stop")
@@ -297,10 +307,19 @@ async def stop_server(
             detail="VPN server not found"
         )
 
-    server.status = VPNStatus.STOPPED.value
-    await db.commit()
-
-    return {"status": "success", "action": "stop", "server_id": server_id}
+    try:
+        await agent_request(
+            db=db,
+            instance_id=server.instance_id,
+            method="POST",
+            path="/stop",
+            json_data={"protocol": server.protocol},
+        )
+        server.status = VPNStatus.STOPPED.value
+        await db.commit()
+        return {"status": "success", "action": "stop", "server_id": server_id}
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
 
 @router.post("/servers/{server_id}/restart")
@@ -324,7 +343,26 @@ async def restart_server(
     server.status = VPNStatus.RESTARTING.value
     await db.commit()
 
-    return {"status": "success", "action": "restart", "server_id": server_id}
+    try:
+        await agent_request(
+            db=db,
+            instance_id=server.instance_id,
+            method="POST",
+            path="/stop",
+            json_data={"protocol": server.protocol},
+        )
+        await agent_request(
+            db=db,
+            instance_id=server.instance_id,
+            method="POST",
+            path="/start",
+            json_data={"protocol": server.protocol},
+        )
+        server.status = VPNStatus.RUNNING.value
+        await db.commit()
+        return {"status": "success", "action": "restart", "server_id": server_id}
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
 
 @router.get("/servers/{server_id}/stats", response_model=VPNServerStats)

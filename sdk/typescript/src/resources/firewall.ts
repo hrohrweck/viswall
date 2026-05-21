@@ -32,4 +32,37 @@ export class FirewallResource {
   async applyRules(instanceId: number): Promise<Record<string, unknown>> {
     return this.client.request('POST', `/firewall/apply/${instanceId}`);
   }
+
+  async listInterfaces(instanceId: number): Promise<unknown[]> {
+    return this.client.request('GET', `/firewall/interfaces/${instanceId}`);
+  }
+
+  async listNatRules(instanceId: number): Promise<unknown[]> {
+    return this.client.request('GET', `/firewall/nat/${instanceId}`);
+  }
+
+  async createNatRule(
+    instanceId: number,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/firewall/nat/${instanceId}`, { data });
+  }
+
+  async blockIp(
+    instanceId: number,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/firewall/block/${instanceId}`, { data });
+  }
+
+  async unblockIp(
+    instanceId: number,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/firewall/unblock/${instanceId}`, { data });
+  }
+
+  async getStats(instanceId: number): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/firewall/stats/${instanceId}`);
+  }
 }

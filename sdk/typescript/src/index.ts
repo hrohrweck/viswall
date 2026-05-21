@@ -20,4 +20,7 @@ export {
   AssistantResource,
   GroupwareResource,
   DHCPResource,
+  DNSResource,
+  FirewallSimulationResource,
+  LLMAdminResource,
 } from './resources';

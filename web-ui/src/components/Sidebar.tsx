@@ -14,6 +14,7 @@ import {
   Route,
   ClipboardList,
   Bot,
+  Globe,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/auth'
 
@@ -21,6 +22,7 @@ const baseNavItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/instances', label: 'Instances', icon: Server },
   { path: '/firewall', label: 'Firewall', icon: Shield },
+  { path: '/firewall/nat', label: 'NAT Rules', icon: Globe },
   { path: '/routing', label: 'Routing', icon: Route },
   { path: '/traffic', label: 'Traffic Shaping', icon: Gauge },
   { path: '/vpn', label: 'VPN', icon: Network },

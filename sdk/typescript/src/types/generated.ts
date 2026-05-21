@@ -3,8487 +3,9596 @@
  * Do not make direct changes to the file.
  */
 
+
 export interface paths {
-    "/metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Prometheus Metrics */
-        get: operations["prometheus_metrics_metrics_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Login */
-        post: operations["login_api_v1_auth_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Current User Info */
-        get: operations["get_current_user_info_api_v1_auth_me_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/ldap-config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Ldap Config
-         * @description Get current LDAP configuration (admin only)
-         */
-        get: operations["get_ldap_config_api_v1_auth_ldap_config_get"];
-        put?: never;
-        /**
-         * Set Ldap Config
-         * @description Save LDAP configuration (admin only)
-         */
-        post: operations["set_ldap_config_api_v1_auth_ldap_config_post"];
-        /**
-         * Delete Ldap Config
-         * @description Clear LDAP configuration (admin only)
-         */
-        delete: operations["delete_ldap_config_api_v1_auth_ldap_config_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/test-ldap": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test Ldap Connection
-         * @description Test LDAP connection without saving
-         */
-        post: operations["test_ldap_connection_api_v1_auth_test_ldap_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/instances": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Instances
-         * @description List all instances accessible to the current user
-         */
-        get: operations["list_instances_api_v1_instances_get"];
-        put?: never;
-        /**
-         * Create Instance
-         * @description Register a new viswall instance
-         */
-        post: operations["create_instance_api_v1_instances_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/instances/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Instance
-         * @description Get instance details
-         */
-        get: operations["get_instance_api_v1_instances__instance_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Instance
-         * @description Remove an instance from management
-         */
-        delete: operations["delete_instance_api_v1_instances__instance_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Instance
-         * @description Update instance configuration
-         */
-        patch: operations["update_instance_api_v1_instances__instance_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/instances/{instance_id}/heartbeat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Instance Heartbeat
-         * @description Receive heartbeat from an instance (called by instances)
-         */
-        post: operations["instance_heartbeat_api_v1_instances__instance_id__heartbeat_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Users
-         * @description List all users (admin only)
-         */
-        get: operations["list_users_api_v1_users_get"];
-        put?: never;
-        /**
-         * Create User
-         * @description Create a new user
-         */
-        post: operations["create_user_api_v1_users_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/{target_user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get User
-         * @description Get user details
-         */
-        get: operations["get_user_api_v1_users__target_user_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete User
-         * @description Delete user
-         */
-        delete: operations["delete_user_api_v1_users__target_user_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update User
-         * @description Update user
-         */
-        patch: operations["update_user_api_v1_users__target_user_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/users/{target_user_id}/change-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Change Password
-         * @description Change user password (self or admin)
-         */
-        post: operations["change_password_api_v1_users__target_user_id__change_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/rules/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Firewall Rules
-         * @description List firewall rules for an instance
-         */
-        get: operations["list_firewall_rules_api_v1_firewall_rules__instance_id__get"];
-        put?: never;
-        /**
-         * Create Firewall Rule
-         * @description Create a new firewall rule
-         */
-        post: operations["create_firewall_rule_api_v1_firewall_rules__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/rules/detail/{rule_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Firewall Rule
-         * @description Get firewall rule details
-         */
-        get: operations["get_firewall_rule_api_v1_firewall_rules_detail__rule_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/rules/{rule_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Firewall Rule
-         * @description Delete a firewall rule
-         */
-        delete: operations["delete_firewall_rule_api_v1_firewall_rules__rule_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update Firewall Rule */
-        patch: operations["update_firewall_rule_api_v1_firewall_rules__rule_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/firewall/rules/{rule_id}/move": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Move Rule
-         * @description Move a rule in the order
-         */
-        post: operations["move_rule_api_v1_firewall_rules__rule_id__move_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/apply/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Apply Firewall
-         * @description Apply firewall configuration to instance
-         */
-        post: operations["apply_firewall_api_v1_firewall_apply__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/interfaces/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Network Interfaces
-         * @description List network interfaces for an instance
-         */
-        get: operations["list_network_interfaces_api_v1_firewall_interfaces__instance_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/nat/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Nat Rules
-         * @description List NAT rules for an instance
-         */
-        get: operations["list_nat_rules_api_v1_firewall_nat__instance_id__get"];
-        put?: never;
-        /**
-         * Create Nat Rule
-         * @description Create a NAT rule
-         */
-        post: operations["create_nat_rule_api_v1_firewall_nat__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/routing/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Routing Rules
-         * @description List policy routing rules
-         */
-        get: operations["list_routing_rules_api_v1_firewall_routing__instance_id__get"];
-        put?: never;
-        /**
-         * Create Routing Rule
-         * @description Create a policy routing rule
-         */
-        post: operations["create_routing_rule_api_v1_firewall_routing__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/qos/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Qos Policies */
-        get: operations["list_qos_policies_api_v1_firewall_qos__instance_id__get"];
-        put?: never;
-        /** Create Qos Policy */
-        post: operations["create_qos_policy_api_v1_firewall_qos__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/qos/{instance_id}/{policy_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Qos Policy */
-        get: operations["get_qos_policy_api_v1_firewall_qos__instance_id___policy_id__get"];
-        put?: never;
-        post?: never;
-        /** Delete Qos Policy */
-        delete: operations["delete_qos_policy_api_v1_firewall_qos__instance_id___policy_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update Qos Policy */
-        patch: operations["update_qos_policy_api_v1_firewall_qos__instance_id___policy_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/firewall/qos/{instance_id}/{policy_id}/apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Apply Qos Now */
-        post: operations["apply_qos_now_api_v1_firewall_qos__instance_id___policy_id__apply_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/qos/{instance_id}/{policy_id}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Qos Stats */
-        get: operations["get_qos_stats_api_v1_firewall_qos__instance_id___policy_id__stats_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/qos/{instance_id}/{policy_id}/classes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Qos Class */
-        post: operations["create_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/qos/{instance_id}/{policy_id}/classes/{class_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete Qos Class */
-        delete: operations["delete_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes__class_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update Qos Class */
-        patch: operations["update_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes__class_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/firewall/block/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Block Ip
-         * @description Block an IP address
-         */
-        post: operations["block_ip_api_v1_firewall_block__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/unblock/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Unblock Ip
-         * @description Unblock an IP address
-         */
-        post: operations["unblock_ip_api_v1_firewall_unblock__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/firewall/stats/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Firewall Stats
-         * @description Get firewall statistics
-         */
-        get: operations["get_firewall_stats_api_v1_firewall_stats__instance_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routing/rules/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Routing Rules
-         * @description Get routing rules for an instance
-         */
-        get: operations["get_routing_rules_api_v1_routing_rules__instance_id__get"];
-        put?: never;
-        /**
-         * Create Routing Rule
-         * @description Create a new routing rule
-         */
-        post: operations["create_routing_rule_api_v1_routing_rules__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routing/rules/detail/{rule_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Routing Rule
-         * @description Get a single routing rule
-         */
-        get: operations["get_routing_rule_api_v1_routing_rules_detail__rule_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routing/rules/{rule_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Routing Rule
-         * @description Delete a routing rule
-         */
-        delete: operations["delete_routing_rule_api_v1_routing_rules__rule_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Routing Rule
-         * @description Update a routing rule
-         */
-        patch: operations["update_routing_rule_api_v1_routing_rules__rule_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/routing/apply/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Apply Routing
-         * @description Apply routing rules to an instance
-         */
-        post: operations["apply_routing_api_v1_routing_apply__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/domains/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Domains
-         * @description Get all mail domains for an instance
-         */
-        get: operations["get_domains_api_v1_mail_domains__instance_id__get"];
-        put?: never;
-        /**
-         * Create Domain
-         * @description Create a new mail domain with optional DKIM generation
-         */
-        post: operations["create_domain_api_v1_mail_domains__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/domains/detail/{domain_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Domain
-         * @description Get mail domain details
-         */
-        get: operations["get_domain_api_v1_mail_domains_detail__domain_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/domains/{domain_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Domain
-         * @description Delete a mail domain and all its users
-         */
-        delete: operations["delete_domain_api_v1_mail_domains__domain_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Domain
-         * @description Update mail domain settings
-         */
-        patch: operations["update_domain_api_v1_mail_domains__domain_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/mail/domains/{domain_id}/dkim/regenerate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Regenerate Dkim
-         * @description Regenerate DKIM keys for a domain
-         */
-        post: operations["regenerate_dkim_api_v1_mail_domains__domain_id__dkim_regenerate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/domains/{domain_id}/dns-records": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Dns Records
-         * @description Get DNS records needed for mail domain (SPF, DKIM, DMARC)
-         */
-        get: operations["get_dns_records_api_v1_mail_domains__domain_id__dns_records_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/users/{domain_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Users
-         * @description Get all mail users for a domain
-         */
-        get: operations["get_users_api_v1_mail_users__domain_id__get"];
-        put?: never;
-        /**
-         * Create User
-         * @description Create a new mail user
-         */
-        post: operations["create_user_api_v1_mail_users__domain_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/users/detail/{user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get User
-         * @description Get mail user details
-         */
-        get: operations["get_user_api_v1_mail_users_detail__user_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/users/{user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete User
-         * @description Delete a mail user
-         */
-        delete: operations["delete_user_api_v1_mail_users__user_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update User
-         * @description Update mail user settings
-         */
-        patch: operations["update_user_api_v1_mail_users__user_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/mail/queue/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Mail Queue
-         * @description Get current mail queue status for an instance
-         */
-        get: operations["get_mail_queue_api_v1_mail_queue__instance_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/queue/{instance_id}/flush": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Flush Mail Queue
-         * @description Force immediate delivery attempt for queued messages
-         */
-        post: operations["flush_mail_queue_api_v1_mail_queue__instance_id__flush_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/stats/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Mail Stats
-         * @description Get comprehensive mail statistics
-         */
-        get: operations["get_mail_stats_api_v1_mail_stats__instance_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/domains/{domain_id}/classify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test Classify Email
-         * @description Test LLM classification on a sample email
-         */
-        post: operations["test_classify_email_api_v1_mail_domains__domain_id__classify_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/classify-inbound": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Classify Inbound Email
-         * @description Internal endpoint for mail agent to classify incoming email
-         */
-        post: operations["classify_inbound_email_api_v1_mail_classify_inbound_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/messages/{domain_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Mail Messages
-         * @description List classified emails for a domain with optional filters
-         */
-        get: operations["list_mail_messages_api_v1_mail_messages__domain_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/messages/detail/{message_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Mail Message
-         * @description Get detailed information about a classified email
-         */
-        get: operations["get_mail_message_api_v1_mail_messages_detail__message_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/messages/{message_id}/reclassify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reclassify Message
-         * @description Retry LLM classification for an existing message
-         */
-        post: operations["reclassify_message_api_v1_mail_messages__message_id__reclassify_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/mail/messages/{message_id}/action": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Message Action
-         * @description Take admin action on a classified message (deliver, quarantine, reject)
-         */
-        post: operations["message_action_api_v1_mail_messages__message_id__action_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/metrics/latest/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Latest Metrics
-         * @description Get latest metrics snapshot for an instance
-         */
-        get: operations["get_latest_metrics_api_v1_metrics_latest__instance_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/metrics/query": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Query Metrics
-         * @description Query historical metrics snapshots
-         */
-        post: operations["query_metrics_api_v1_metrics_query_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/metrics/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Get Metrics Summary
-         * @description Get aggregated metrics summary per instance
-         */
-        post: operations["get_metrics_summary_api_v1_metrics_summary_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/metrics/dashboard/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Dashboard Data
-         * @description Get all metrics needed for the dashboard
-         */
-        get: operations["get_dashboard_data_api_v1_metrics_dashboard__instance_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/metrics/overview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Global Overview
-         * @description Get global overview counts for the main dashboard
-         */
-        get: operations["get_global_overview_api_v1_metrics_overview_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Audit Logs
-         * @description List audit logs with filtering (admin only)
-         */
-        get: operations["list_audit_logs_api_v1_audit_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audit/instance/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Instance Logs
-         * @description Get audit logs for a specific instance
-         */
-        get: operations["get_instance_logs_api_v1_audit_instance__instance_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audit/resource/{resource_type}/{resource_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Resource Logs
-         * @description Get audit logs for a specific resource
-         */
-        get: operations["get_resource_logs_api_v1_audit_resource__resource_type___resource_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audit/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Audit Summary
-         * @description Get audit log summary statistics
-         */
-        get: operations["get_audit_summary_api_v1_audit_summary_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/protocols/recommendations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Protocol Recommendations
-         * @description Get VPN protocol recommendations with security/performance scores
-         */
-        get: operations["get_protocol_recommendations_api_v1_vpn_protocols_recommendations_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{instance_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Servers
-         * @description List all VPN servers for an instance
-         */
-        get: operations["list_servers_api_v1_vpn_servers__instance_id__get"];
-        put?: never;
-        /**
-         * Create Server
-         * @description Create a new VPN server
-         */
-        post: operations["create_server_api_v1_vpn_servers__instance_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/detail/{server_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Server
-         * @description Get VPN server details
-         */
-        get: operations["get_server_api_v1_vpn_servers_detail__server_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{server_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Server
-         * @description Delete a VPN server and all its clients
-         */
-        delete: operations["delete_server_api_v1_vpn_servers__server_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Server
-         * @description Update VPN server configuration
-         */
-        patch: operations["update_server_api_v1_vpn_servers__server_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{server_id}/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start Server
-         * @description Start the VPN server
-         */
-        post: operations["start_server_api_v1_vpn_servers__server_id__start_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{server_id}/stop": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Stop Server
-         * @description Stop the VPN server
-         */
-        post: operations["stop_server_api_v1_vpn_servers__server_id__stop_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{server_id}/restart": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Restart Server
-         * @description Restart the VPN server
-         */
-        post: operations["restart_server_api_v1_vpn_servers__server_id__restart_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{server_id}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Server Stats
-         * @description Get real-time VPN server statistics
-         */
-        get: operations["get_server_stats_api_v1_vpn_servers__server_id__stats_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{server_id}/clients": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Clients
-         * @description List all clients for a VPN server
-         */
-        get: operations["list_clients_api_v1_vpn_servers__server_id__clients_get"];
-        put?: never;
-        /**
-         * Create Client
-         * @description Create a new VPN client
-         */
-        post: operations["create_client_api_v1_vpn_servers__server_id__clients_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{server_id}/clients/bulk": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Bulk Create Clients
-         * @description Bulk generate VPN clients (e.g., for an office)
-         */
-        post: operations["bulk_create_clients_api_v1_vpn_servers__server_id__clients_bulk_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/clients/{client_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Client
-         * @description Get client details
-         */
-        get: operations["get_client_api_v1_vpn_clients__client_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Client
-         * @description Revoke and delete a client
-         */
-        delete: operations["delete_client_api_v1_vpn_clients__client_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Client
-         * @description Update client configuration
-         */
-        patch: operations["update_client_api_v1_vpn_clients__client_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/vpn/clients/{client_id}/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Download Client Config
-         * @description Download client configuration file
-         */
-        get: operations["download_client_config_api_v1_vpn_clients__client_id__config_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/clients/{client_id}/regenerate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Regenerate Client Credentials
-         * @description Regenerate client keys/credentials (if compromised)
-         */
-        post: operations["regenerate_client_credentials_api_v1_vpn_clients__client_id__regenerate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{server_id}/connections": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Connections
-         * @description List active connections for a server
-         */
-        get: operations["list_connections_api_v1_vpn_servers__server_id__connections_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{server_id}/connections/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Connection History
-         * @description List historical connections
-         */
-        get: operations["list_connection_history_api_v1_vpn_servers__server_id__connections_history_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/connections/{connection_id}/disconnect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Disconnect Client
-         * @description Force disconnect a client
-         */
-        post: operations["disconnect_client_api_v1_vpn_connections__connection_id__disconnect_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/servers/{server_id}/routes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Routes
-         * @description List VPN-specific routes (for split tunneling)
-         */
-        get: operations["list_routes_api_v1_vpn_servers__server_id__routes_get"];
-        put?: never;
-        /**
-         * Create Route
-         * @description Add a route to the VPN configuration
-         */
-        post: operations["create_route_api_v1_vpn_servers__server_id__routes_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/routes/{route_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Route
-         * @description Delete a VPN route
-         */
-        delete: operations["delete_route_api_v1_vpn_routes__route_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/site-to-site/initialize": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Initialize Site To Site
-         * @description Initialize a site-to-site VPN tunnel
-         */
-        post: operations["initialize_site_to_site_api_v1_vpn_site_to_site_initialize_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/vpn/site-to-site/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Site To Site Status
-         * @description Get status of all site-to-site connections
-         */
-        get: operations["get_site_to_site_status_api_v1_vpn_site_to_site_status_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulation/simulate/single": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Simulate Single Firewall
-         * @description Simulate a single packet through a firewall configuration.
-         *
-         *     Returns detailed information about which rules matched and the final action.
-         */
-        post: operations["simulate_single_firewall_api_v1_simulation_simulate_single_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulation/simulate/test-suite": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Run Test Suite
-         * @description Run a comprehensive test suite against a firewall configuration.
-         *
-         *     Tests can be marked as 'critical' - if any critical test fails,
-         *     deployment should be blocked.
-         */
-        post: operations["run_test_suite_api_v1_simulation_simulate_test_suite_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulation/simulate/multi-firewall": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Simulate Multi Firewall
-         * @description Simulate packet traversal across multiple firewalls.
-         *
-         *     Useful for testing site-to-site VPNs, multi-hop routing,
-         *     and distributed firewall policies.
-         */
-        post: operations["simulate_multi_firewall_api_v1_simulation_simulate_multi_firewall_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulation/simulate/multi-firewall/tests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Run Multi Firewall Tests
-         * @description Run tests across multiple firewalls.
-         */
-        post: operations["run_multi_firewall_tests_api_v1_simulation_simulate_multi_firewall_tests_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulation/test-suites/basic": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Basic Test Suite
-         * @description Get the basic connectivity test suite
-         */
-        get: operations["get_basic_test_suite_api_v1_simulation_test_suites_basic_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulation/test-suites/security": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Security Test Suite
-         * @description Get the security-focused test suite
-         */
-        get: operations["get_security_test_suite_api_v1_simulation_test_suites_security_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulation/test-suites/application": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Application Test Suite
-         * @description Get application-specific test suite
-         */
-        get: operations["get_application_test_suite_api_v1_simulation_test_suites_application_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulation/test-suites/all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get All Test Suites
-         * @description Get all predefined test suites
-         */
-        get: operations["get_all_test_suites_api_v1_simulation_test_suites_all_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulation/simulate/visual": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Get Visual Simulation Data
-         * @description Get data for visual packet flow simulation.
-         *
-         *     Returns step-by-step data for animating packet flow through rules.
-         */
-        post: operations["get_visual_simulation_data_api_v1_simulation_simulate_visual_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assistant/chat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Chat With Assistant
-         * @description Main chat endpoint for the LLM assistant.
-         *
-         *     Handles natural language requests for:
-         *     - Creating firewall rules
-         *     - Generating test cases
-         *     - Setting up VPN
-         *     - Configuring mail domains
-         *     - Explaining configurations
-         *     - Troubleshooting issues
-         */
-        post: operations["chat_with_assistant_api_v1_assistant_chat_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assistant/suggest-firewall-rule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Suggest Firewall Rule
-         * @description Get a firewall rule suggestion from a natural language description.
-         *
-         *     Example: "Allow web server access from anywhere"
-         */
-        post: operations["suggest_firewall_rule_api_v1_assistant_suggest_firewall_rule_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assistant/generate-tests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Generate Tests
-         * @description Generate test cases based on a description.
-         *
-         *     Example: "Test that web traffic works but SSH is blocked from outside"
-         */
-        post: operations["generate_tests_api_v1_assistant_generate_tests_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assistant/explain-configuration": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Explain Configuration
-         * @description Get a natural language explanation of a configuration.
-         */
-        post: operations["explain_configuration_api_v1_assistant_explain_configuration_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assistant/security-audit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Perform Security Audit
-         * @description Perform a security audit on firewall rules.
-         *
-         *     Analyzes rules for security issues and compliance with standards.
-         */
-        post: operations["perform_security_audit_api_v1_assistant_security_audit_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assistant/troubleshoot": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Troubleshoot Issue
-         * @description Get troubleshooting assistance for a network/firewall issue.
-         */
-        post: operations["troubleshoot_issue_api_v1_assistant_troubleshoot_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assistant/conversations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Conversations
-         * @description List user's past conversations with the assistant
-         */
-        get: operations["list_conversations_api_v1_assistant_conversations_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assistant/conversations/{conversation_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Conversation
-         * @description Get a specific conversation history
-         */
-        get: operations["get_conversation_api_v1_assistant_conversations__conversation_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Conversation
-         * @description Delete a conversation
-         */
-        delete: operations["delete_conversation_api_v1_assistant_conversations__conversation_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assistant/capabilities": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Assistant Capabilities
-         * @description Get list of things the assistant can help with
-         */
-        get: operations["get_assistant_capabilities_api_v1_assistant_capabilities_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/assistant/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Llm Config
-         * @description Get current LLM configuration
-         */
-        get: operations["get_llm_config_api_v1_assistant_config_get"];
-        put?: never;
-        /**
-         * Update Llm Config
-         * @description Update LLM configuration (admin only)
-         */
-        post: operations["update_llm_config_api_v1_assistant_config_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/groupware/status/{domain_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Groupware Status
-         * @description Get groupware status for a mail domain
-         */
-        get: operations["get_groupware_status_api_v1_groupware_status__domain_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/groupware/enable/{domain_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Enable Groupware
-         * @description Enable groupware (SOGo) for a mail domain
-         */
-        post: operations["enable_groupware_api_v1_groupware_enable__domain_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/groupware/disable/{domain_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Disable Groupware
-         * @description Disable groupware (SOGo) for a mail domain
-         */
-        post: operations["disable_groupware_api_v1_groupware_disable__domain_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/groupware/stats/{domain_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Groupware Stats
-         * @description Get groupware usage statistics for a domain
-         *
-         *     Note: In a full implementation, this would query SOGo's database tables.
-         *     For now, returns basic domain status.
-         */
-        get: operations["get_groupware_stats_api_v1_groupware_stats__domain_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Health Check */
-        get: operations["health_check_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Api Info */
-        get: operations["api_info_api_v1__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+  "/metrics": {
+    /** Prometheus Metrics */
+    get: operations["prometheus_metrics_metrics_get"];
+  };
+  "/api/v1/auth/login": {
+    /** Login */
+    post: operations["login_api_v1_auth_login_post"];
+  };
+  "/api/v1/auth/me": {
+    /** Get Current User Info */
+    get: operations["get_current_user_info_api_v1_auth_me_get"];
+  };
+  "/api/v1/auth/ldap-config": {
+    /**
+     * Get Ldap Config
+     * @description Get current LDAP configuration (admin only)
+     */
+    get: operations["get_ldap_config_api_v1_auth_ldap_config_get"];
+    /**
+     * Set Ldap Config
+     * @description Save LDAP configuration (admin only)
+     */
+    post: operations["set_ldap_config_api_v1_auth_ldap_config_post"];
+    /**
+     * Delete Ldap Config
+     * @description Clear LDAP configuration (admin only)
+     */
+    delete: operations["delete_ldap_config_api_v1_auth_ldap_config_delete"];
+  };
+  "/api/v1/auth/test-ldap": {
+    /**
+     * Test Ldap Connection
+     * @description Test LDAP connection without saving
+     */
+    post: operations["test_ldap_connection_api_v1_auth_test_ldap_post"];
+  };
+  "/api/v1/instances": {
+    /**
+     * List Instances
+     * @description List all instances accessible to the current user
+     */
+    get: operations["list_instances_api_v1_instances_get"];
+    /**
+     * Create Instance
+     * @description Register a new viswall instance
+     */
+    post: operations["create_instance_api_v1_instances_post"];
+  };
+  "/api/v1/instances/{instance_id}": {
+    /**
+     * Get Instance
+     * @description Get instance details
+     */
+    get: operations["get_instance_api_v1_instances__instance_id__get"];
+    /**
+     * Delete Instance
+     * @description Remove an instance from management
+     */
+    delete: operations["delete_instance_api_v1_instances__instance_id__delete"];
+    /**
+     * Update Instance
+     * @description Update instance configuration
+     */
+    patch: operations["update_instance_api_v1_instances__instance_id__patch"];
+  };
+  "/api/v1/instances/{instance_id}/heartbeat": {
+    /**
+     * Instance Heartbeat
+     * @description Receive heartbeat from an instance (called by instances)
+     */
+    post: operations["instance_heartbeat_api_v1_instances__instance_id__heartbeat_post"];
+  };
+  "/api/v1/users": {
+    /**
+     * List Users
+     * @description List all users (admin only)
+     */
+    get: operations["list_users_api_v1_users_get"];
+    /**
+     * Create User
+     * @description Create a new user
+     */
+    post: operations["create_user_api_v1_users_post"];
+  };
+  "/api/v1/users/{target_user_id}": {
+    /**
+     * Get User
+     * @description Get user details
+     */
+    get: operations["get_user_api_v1_users__target_user_id__get"];
+    /**
+     * Delete User
+     * @description Delete user
+     */
+    delete: operations["delete_user_api_v1_users__target_user_id__delete"];
+    /**
+     * Update User
+     * @description Update user
+     */
+    patch: operations["update_user_api_v1_users__target_user_id__patch"];
+  };
+  "/api/v1/users/{target_user_id}/change-password": {
+    /**
+     * Change Password
+     * @description Change user password (self or admin)
+     */
+    post: operations["change_password_api_v1_users__target_user_id__change_password_post"];
+  };
+  "/api/v1/firewall/rules/{instance_id}": {
+    /**
+     * List Firewall Rules
+     * @description List firewall rules for an instance
+     */
+    get: operations["list_firewall_rules_api_v1_firewall_rules__instance_id__get"];
+    /**
+     * Create Firewall Rule
+     * @description Create a new firewall rule
+     */
+    post: operations["create_firewall_rule_api_v1_firewall_rules__instance_id__post"];
+  };
+  "/api/v1/firewall/rules/detail/{rule_id}": {
+    /**
+     * Get Firewall Rule
+     * @description Get firewall rule details
+     */
+    get: operations["get_firewall_rule_api_v1_firewall_rules_detail__rule_id__get"];
+  };
+  "/api/v1/firewall/rules/{rule_id}": {
+    /**
+     * Delete Firewall Rule
+     * @description Delete a firewall rule
+     */
+    delete: operations["delete_firewall_rule_api_v1_firewall_rules__rule_id__delete"];
+    /** Update Firewall Rule */
+    patch: operations["update_firewall_rule_api_v1_firewall_rules__rule_id__patch"];
+  };
+  "/api/v1/firewall/rules/{rule_id}/move": {
+    /**
+     * Move Rule
+     * @description Move a rule in the order
+     */
+    post: operations["move_rule_api_v1_firewall_rules__rule_id__move_post"];
+  };
+  "/api/v1/firewall/apply/{instance_id}": {
+    /**
+     * Apply Firewall
+     * @description Apply firewall configuration to instance
+     */
+    post: operations["apply_firewall_api_v1_firewall_apply__instance_id__post"];
+  };
+  "/api/v1/firewall/interfaces/{instance_id}": {
+    /**
+     * List Network Interfaces
+     * @description List network interfaces for an instance
+     */
+    get: operations["list_network_interfaces_api_v1_firewall_interfaces__instance_id__get"];
+  };
+  "/api/v1/firewall/nat/{instance_id}": {
+    /**
+     * List Nat Rules
+     * @description List NAT rules for an instance
+     */
+    get: operations["list_nat_rules_api_v1_firewall_nat__instance_id__get"];
+    /**
+     * Create Nat Rule
+     * @description Create a NAT rule
+     */
+    post: operations["create_nat_rule_api_v1_firewall_nat__instance_id__post"];
+  };
+  "/api/v1/firewall/routing/{instance_id}": {
+    /**
+     * List Routing Rules
+     * @description List policy routing rules
+     */
+    get: operations["list_routing_rules_api_v1_firewall_routing__instance_id__get"];
+    /**
+     * Create Routing Rule
+     * @description Create a policy routing rule
+     */
+    post: operations["create_routing_rule_api_v1_firewall_routing__instance_id__post"];
+  };
+  "/api/v1/firewall/qos/{instance_id}": {
+    /** List Qos Policies */
+    get: operations["list_qos_policies_api_v1_firewall_qos__instance_id__get"];
+    /** Create Qos Policy */
+    post: operations["create_qos_policy_api_v1_firewall_qos__instance_id__post"];
+  };
+  "/api/v1/firewall/qos/{instance_id}/{policy_id}": {
+    /** Get Qos Policy */
+    get: operations["get_qos_policy_api_v1_firewall_qos__instance_id___policy_id__get"];
+    /** Delete Qos Policy */
+    delete: operations["delete_qos_policy_api_v1_firewall_qos__instance_id___policy_id__delete"];
+    /** Update Qos Policy */
+    patch: operations["update_qos_policy_api_v1_firewall_qos__instance_id___policy_id__patch"];
+  };
+  "/api/v1/firewall/qos/{instance_id}/{policy_id}/apply": {
+    /** Apply Qos Now */
+    post: operations["apply_qos_now_api_v1_firewall_qos__instance_id___policy_id__apply_post"];
+  };
+  "/api/v1/firewall/qos/{instance_id}/{policy_id}/stats": {
+    /** Get Qos Stats */
+    get: operations["get_qos_stats_api_v1_firewall_qos__instance_id___policy_id__stats_get"];
+  };
+  "/api/v1/firewall/qos/{instance_id}/{policy_id}/classes": {
+    /** Create Qos Class */
+    post: operations["create_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes_post"];
+  };
+  "/api/v1/firewall/qos/{instance_id}/{policy_id}/classes/{class_id}": {
+    /** Delete Qos Class */
+    delete: operations["delete_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes__class_id__delete"];
+    /** Update Qos Class */
+    patch: operations["update_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes__class_id__patch"];
+  };
+  "/api/v1/firewall/block/{instance_id}": {
+    /**
+     * Block Ip
+     * @description Block an IP address
+     */
+    post: operations["block_ip_api_v1_firewall_block__instance_id__post"];
+  };
+  "/api/v1/firewall/unblock/{instance_id}": {
+    /**
+     * Unblock Ip
+     * @description Unblock an IP address
+     */
+    post: operations["unblock_ip_api_v1_firewall_unblock__instance_id__post"];
+  };
+  "/api/v1/firewall/stats/{instance_id}": {
+    /**
+     * Get Firewall Stats
+     * @description Get firewall statistics
+     */
+    get: operations["get_firewall_stats_api_v1_firewall_stats__instance_id__get"];
+  };
+  "/api/v1/routing/rules/{instance_id}": {
+    /**
+     * Get Routing Rules
+     * @description Get routing rules for an instance
+     */
+    get: operations["get_routing_rules_api_v1_routing_rules__instance_id__get"];
+    /**
+     * Create Routing Rule
+     * @description Create a new routing rule
+     */
+    post: operations["create_routing_rule_api_v1_routing_rules__instance_id__post"];
+  };
+  "/api/v1/routing/rules/detail/{rule_id}": {
+    /**
+     * Get Routing Rule
+     * @description Get a single routing rule
+     */
+    get: operations["get_routing_rule_api_v1_routing_rules_detail__rule_id__get"];
+  };
+  "/api/v1/routing/rules/{rule_id}": {
+    /**
+     * Delete Routing Rule
+     * @description Delete a routing rule
+     */
+    delete: operations["delete_routing_rule_api_v1_routing_rules__rule_id__delete"];
+    /**
+     * Update Routing Rule
+     * @description Update a routing rule
+     */
+    patch: operations["update_routing_rule_api_v1_routing_rules__rule_id__patch"];
+  };
+  "/api/v1/routing/apply/{instance_id}": {
+    /**
+     * Apply Routing
+     * @description Apply routing rules to an instance
+     */
+    post: operations["apply_routing_api_v1_routing_apply__instance_id__post"];
+  };
+  "/api/v1/mail/domains/{instance_id}": {
+    /**
+     * Get Domains
+     * @description Get all mail domains for an instance
+     */
+    get: operations["get_domains_api_v1_mail_domains__instance_id__get"];
+    /**
+     * Create Domain
+     * @description Create a new mail domain with optional DKIM generation
+     */
+    post: operations["create_domain_api_v1_mail_domains__instance_id__post"];
+  };
+  "/api/v1/mail/domains/detail/{domain_id}": {
+    /**
+     * Get Domain
+     * @description Get mail domain details
+     */
+    get: operations["get_domain_api_v1_mail_domains_detail__domain_id__get"];
+  };
+  "/api/v1/mail/domains/{domain_id}": {
+    /**
+     * Delete Domain
+     * @description Delete a mail domain and all its users
+     */
+    delete: operations["delete_domain_api_v1_mail_domains__domain_id__delete"];
+    /**
+     * Update Domain
+     * @description Update mail domain settings
+     */
+    patch: operations["update_domain_api_v1_mail_domains__domain_id__patch"];
+  };
+  "/api/v1/mail/domains/{domain_id}/dkim/regenerate": {
+    /**
+     * Regenerate Dkim
+     * @description Regenerate DKIM keys for a domain
+     */
+    post: operations["regenerate_dkim_api_v1_mail_domains__domain_id__dkim_regenerate_post"];
+  };
+  "/api/v1/mail/domains/{domain_id}/dns-records": {
+    /**
+     * Get Dns Records
+     * @description Get DNS records needed for mail domain (SPF, DKIM, DMARC)
+     */
+    get: operations["get_dns_records_api_v1_mail_domains__domain_id__dns_records_get"];
+  };
+  "/api/v1/mail/users/{domain_id}": {
+    /**
+     * Get Users
+     * @description Get all mail users for a domain
+     */
+    get: operations["get_users_api_v1_mail_users__domain_id__get"];
+    /**
+     * Create User
+     * @description Create a new mail user
+     */
+    post: operations["create_user_api_v1_mail_users__domain_id__post"];
+  };
+  "/api/v1/mail/users/detail/{user_id}": {
+    /**
+     * Get User
+     * @description Get mail user details
+     */
+    get: operations["get_user_api_v1_mail_users_detail__user_id__get"];
+  };
+  "/api/v1/mail/users/{user_id}": {
+    /**
+     * Delete User
+     * @description Delete a mail user
+     */
+    delete: operations["delete_user_api_v1_mail_users__user_id__delete"];
+    /**
+     * Update User
+     * @description Update mail user settings
+     */
+    patch: operations["update_user_api_v1_mail_users__user_id__patch"];
+  };
+  "/api/v1/mail/queue/{instance_id}": {
+    /**
+     * Get Mail Queue
+     * @description Get current mail queue status for an instance
+     */
+    get: operations["get_mail_queue_api_v1_mail_queue__instance_id__get"];
+  };
+  "/api/v1/mail/queue/{instance_id}/flush": {
+    /**
+     * Flush Mail Queue
+     * @description Force immediate delivery attempt for queued messages
+     */
+    post: operations["flush_mail_queue_api_v1_mail_queue__instance_id__flush_post"];
+  };
+  "/api/v1/mail/stats/{instance_id}": {
+    /**
+     * Get Mail Stats
+     * @description Get comprehensive mail statistics
+     */
+    get: operations["get_mail_stats_api_v1_mail_stats__instance_id__get"];
+  };
+  "/api/v1/mail/domains/{domain_id}/classify": {
+    /**
+     * Test Classify Email
+     * @description Test LLM classification on a sample email
+     */
+    post: operations["test_classify_email_api_v1_mail_domains__domain_id__classify_post"];
+  };
+  "/api/v1/mail/classify-inbound": {
+    /**
+     * Classify Inbound Email
+     * @description Internal endpoint for mail agent to classify incoming email
+     */
+    post: operations["classify_inbound_email_api_v1_mail_classify_inbound_post"];
+  };
+  "/api/v1/mail/messages/{domain_id}": {
+    /**
+     * List Mail Messages
+     * @description List classified emails for a domain with optional filters
+     */
+    get: operations["list_mail_messages_api_v1_mail_messages__domain_id__get"];
+  };
+  "/api/v1/mail/messages/detail/{message_id}": {
+    /**
+     * Get Mail Message
+     * @description Get detailed information about a classified email
+     */
+    get: operations["get_mail_message_api_v1_mail_messages_detail__message_id__get"];
+  };
+  "/api/v1/mail/messages/{message_id}/reclassify": {
+    /**
+     * Reclassify Message
+     * @description Retry LLM classification for an existing message
+     */
+    post: operations["reclassify_message_api_v1_mail_messages__message_id__reclassify_post"];
+  };
+  "/api/v1/mail/messages/{message_id}/action": {
+    /**
+     * Message Action
+     * @description Take admin action on a classified message (deliver, quarantine, reject)
+     */
+    post: operations["message_action_api_v1_mail_messages__message_id__action_post"];
+  };
+  "/api/v1/metrics/latest/{instance_id}": {
+    /**
+     * Get Latest Metrics
+     * @description Get latest metrics snapshot for an instance
+     */
+    get: operations["get_latest_metrics_api_v1_metrics_latest__instance_id__get"];
+  };
+  "/api/v1/metrics/query": {
+    /**
+     * Query Metrics
+     * @description Query historical metrics snapshots
+     */
+    post: operations["query_metrics_api_v1_metrics_query_post"];
+  };
+  "/api/v1/metrics/summary": {
+    /**
+     * Get Metrics Summary
+     * @description Get aggregated metrics summary per instance
+     */
+    post: operations["get_metrics_summary_api_v1_metrics_summary_post"];
+  };
+  "/api/v1/metrics/dashboard/{instance_id}": {
+    /**
+     * Get Dashboard Data
+     * @description Get all metrics needed for the dashboard
+     */
+    get: operations["get_dashboard_data_api_v1_metrics_dashboard__instance_id__get"];
+  };
+  "/api/v1/metrics/overview": {
+    /**
+     * Get Global Overview
+     * @description Get global overview counts for the main dashboard
+     */
+    get: operations["get_global_overview_api_v1_metrics_overview_get"];
+  };
+  "/api/v1/audit": {
+    /**
+     * List Audit Logs
+     * @description List audit logs with filtering (admin only)
+     */
+    get: operations["list_audit_logs_api_v1_audit_get"];
+  };
+  "/api/v1/audit/instance/{instance_id}": {
+    /**
+     * Get Instance Logs
+     * @description Get audit logs for a specific instance
+     */
+    get: operations["get_instance_logs_api_v1_audit_instance__instance_id__get"];
+  };
+  "/api/v1/audit/resource/{resource_type}/{resource_id}": {
+    /**
+     * Get Resource Logs
+     * @description Get audit logs for a specific resource
+     */
+    get: operations["get_resource_logs_api_v1_audit_resource__resource_type___resource_id__get"];
+  };
+  "/api/v1/audit/summary": {
+    /**
+     * Get Audit Summary
+     * @description Get audit log summary statistics
+     */
+    get: operations["get_audit_summary_api_v1_audit_summary_get"];
+  };
+  "/api/v1/vpn/protocols/recommendations": {
+    /**
+     * Get Protocol Recommendations
+     * @description Get VPN protocol recommendations with security/performance scores
+     */
+    get: operations["get_protocol_recommendations_api_v1_vpn_protocols_recommendations_get"];
+  };
+  "/api/v1/vpn/servers/{instance_id}": {
+    /**
+     * List Servers
+     * @description List all VPN servers for an instance
+     */
+    get: operations["list_servers_api_v1_vpn_servers__instance_id__get"];
+    /**
+     * Create Server
+     * @description Create a new VPN server
+     */
+    post: operations["create_server_api_v1_vpn_servers__instance_id__post"];
+  };
+  "/api/v1/vpn/servers/detail/{server_id}": {
+    /**
+     * Get Server
+     * @description Get VPN server details
+     */
+    get: operations["get_server_api_v1_vpn_servers_detail__server_id__get"];
+  };
+  "/api/v1/vpn/servers/{server_id}": {
+    /**
+     * Delete Server
+     * @description Delete a VPN server and all its clients
+     */
+    delete: operations["delete_server_api_v1_vpn_servers__server_id__delete"];
+    /**
+     * Update Server
+     * @description Update VPN server configuration
+     */
+    patch: operations["update_server_api_v1_vpn_servers__server_id__patch"];
+  };
+  "/api/v1/vpn/servers/{server_id}/start": {
+    /**
+     * Start Server
+     * @description Start the VPN server
+     */
+    post: operations["start_server_api_v1_vpn_servers__server_id__start_post"];
+  };
+  "/api/v1/vpn/servers/{server_id}/stop": {
+    /**
+     * Stop Server
+     * @description Stop the VPN server
+     */
+    post: operations["stop_server_api_v1_vpn_servers__server_id__stop_post"];
+  };
+  "/api/v1/vpn/servers/{server_id}/restart": {
+    /**
+     * Restart Server
+     * @description Restart the VPN server
+     */
+    post: operations["restart_server_api_v1_vpn_servers__server_id__restart_post"];
+  };
+  "/api/v1/vpn/servers/{server_id}/stats": {
+    /**
+     * Get Server Stats
+     * @description Get real-time VPN server statistics
+     */
+    get: operations["get_server_stats_api_v1_vpn_servers__server_id__stats_get"];
+  };
+  "/api/v1/vpn/servers/{server_id}/clients": {
+    /**
+     * List Clients
+     * @description List all clients for a VPN server
+     */
+    get: operations["list_clients_api_v1_vpn_servers__server_id__clients_get"];
+    /**
+     * Create Client
+     * @description Create a new VPN client
+     */
+    post: operations["create_client_api_v1_vpn_servers__server_id__clients_post"];
+  };
+  "/api/v1/vpn/servers/{server_id}/clients/bulk": {
+    /**
+     * Bulk Create Clients
+     * @description Bulk generate VPN clients (e.g., for an office)
+     */
+    post: operations["bulk_create_clients_api_v1_vpn_servers__server_id__clients_bulk_post"];
+  };
+  "/api/v1/vpn/clients/{client_id}": {
+    /**
+     * Get Client
+     * @description Get client details
+     */
+    get: operations["get_client_api_v1_vpn_clients__client_id__get"];
+    /**
+     * Delete Client
+     * @description Revoke and delete a client
+     */
+    delete: operations["delete_client_api_v1_vpn_clients__client_id__delete"];
+    /**
+     * Update Client
+     * @description Update client configuration
+     */
+    patch: operations["update_client_api_v1_vpn_clients__client_id__patch"];
+  };
+  "/api/v1/vpn/clients/{client_id}/config": {
+    /**
+     * Download Client Config
+     * @description Download client configuration file
+     */
+    get: operations["download_client_config_api_v1_vpn_clients__client_id__config_get"];
+  };
+  "/api/v1/vpn/clients/{client_id}/regenerate": {
+    /**
+     * Regenerate Client Credentials
+     * @description Regenerate client keys/credentials (if compromised)
+     */
+    post: operations["regenerate_client_credentials_api_v1_vpn_clients__client_id__regenerate_post"];
+  };
+  "/api/v1/vpn/servers/{server_id}/connections": {
+    /**
+     * List Connections
+     * @description List active connections for a server
+     */
+    get: operations["list_connections_api_v1_vpn_servers__server_id__connections_get"];
+  };
+  "/api/v1/vpn/servers/{server_id}/connections/history": {
+    /**
+     * List Connection History
+     * @description List historical connections
+     */
+    get: operations["list_connection_history_api_v1_vpn_servers__server_id__connections_history_get"];
+  };
+  "/api/v1/vpn/connections/{connection_id}/disconnect": {
+    /**
+     * Disconnect Client
+     * @description Force disconnect a client
+     */
+    post: operations["disconnect_client_api_v1_vpn_connections__connection_id__disconnect_post"];
+  };
+  "/api/v1/vpn/servers/{server_id}/routes": {
+    /**
+     * List Routes
+     * @description List VPN-specific routes (for split tunneling)
+     */
+    get: operations["list_routes_api_v1_vpn_servers__server_id__routes_get"];
+    /**
+     * Create Route
+     * @description Add a route to the VPN configuration
+     */
+    post: operations["create_route_api_v1_vpn_servers__server_id__routes_post"];
+  };
+  "/api/v1/vpn/routes/{route_id}": {
+    /**
+     * Delete Route
+     * @description Delete a VPN route
+     */
+    delete: operations["delete_route_api_v1_vpn_routes__route_id__delete"];
+  };
+  "/api/v1/vpn/site-to-site/initialize": {
+    /**
+     * Initialize Site To Site
+     * @description Initialize a site-to-site VPN tunnel
+     */
+    post: operations["initialize_site_to_site_api_v1_vpn_site_to_site_initialize_post"];
+  };
+  "/api/v1/vpn/site-to-site/status": {
+    /**
+     * Get Site To Site Status
+     * @description Get status of all site-to-site connections
+     */
+    get: operations["get_site_to_site_status_api_v1_vpn_site_to_site_status_get"];
+  };
+  "/api/v1/dns/servers/{instance_id}": {
+    /** List Servers */
+    get: operations["list_servers_api_v1_dns_servers__instance_id__get"];
+    /** Create Server */
+    post: operations["create_server_api_v1_dns_servers__instance_id__post"];
+  };
+  "/api/v1/dns/servers/detail/{server_id}": {
+    /** Get Server */
+    get: operations["get_server_api_v1_dns_servers_detail__server_id__get"];
+  };
+  "/api/v1/dns/servers/{server_id}": {
+    /** Delete Server */
+    delete: operations["delete_server_api_v1_dns_servers__server_id__delete"];
+    /** Update Server */
+    patch: operations["update_server_api_v1_dns_servers__server_id__patch"];
+  };
+  "/api/v1/dns/servers/{server_id}/actions/{action}": {
+    /** Server Action */
+    post: operations["server_action_api_v1_dns_servers__server_id__actions__action__post"];
+  };
+  "/api/v1/dns/servers/{server_id}/zones": {
+    /** List Zones */
+    get: operations["list_zones_api_v1_dns_servers__server_id__zones_get"];
+    /** Create Zone */
+    post: operations["create_zone_api_v1_dns_servers__server_id__zones_post"];
+  };
+  "/api/v1/dns/servers/{server_id}/zones/reverse": {
+    /** Create Reverse Zone */
+    post: operations["create_reverse_zone_api_v1_dns_servers__server_id__zones_reverse_post"];
+  };
+  "/api/v1/dns/zones/detail/{zone_id}": {
+    /** Get Zone */
+    get: operations["get_zone_api_v1_dns_zones_detail__zone_id__get"];
+  };
+  "/api/v1/dns/zones/{zone_id}": {
+    /** Delete Zone */
+    delete: operations["delete_zone_api_v1_dns_zones__zone_id__delete"];
+    /** Update Zone */
+    patch: operations["update_zone_api_v1_dns_zones__zone_id__patch"];
+  };
+  "/api/v1/dns/zones/{zone_id}/sign": {
+    /** Sign Zone */
+    post: operations["sign_zone_api_v1_dns_zones__zone_id__sign_post"];
+  };
+  "/api/v1/dns/zones/{zone_id}/unsign": {
+    /** Unsign Zone */
+    post: operations["unsign_zone_api_v1_dns_zones__zone_id__unsign_post"];
+  };
+  "/api/v1/dns/zones/{zone_id}/dnssec-keys": {
+    /** List Dnssec Keys */
+    get: operations["list_dnssec_keys_api_v1_dns_zones__zone_id__dnssec_keys_get"];
+  };
+  "/api/v1/dns/zones/{zone_id}/dnssec-rollover": {
+    /** Dnssec Rollover */
+    post: operations["dnssec_rollover_api_v1_dns_zones__zone_id__dnssec_rollover_post"];
+  };
+  "/api/v1/dns/zones/{zone_id}/records": {
+    /** List Records */
+    get: operations["list_records_api_v1_dns_zones__zone_id__records_get"];
+    /** Create Record */
+    post: operations["create_record_api_v1_dns_zones__zone_id__records_post"];
+  };
+  "/api/v1/dns/zones/{zone_id}/records/bulk": {
+    /** Bulk Import Records */
+    post: operations["bulk_import_records_api_v1_dns_zones__zone_id__records_bulk_post"];
+  };
+  "/api/v1/dns/zones/{zone_id}/records/ptr": {
+    /** Create Ptr Record */
+    post: operations["create_ptr_record_api_v1_dns_zones__zone_id__records_ptr_post"];
+  };
+  "/api/v1/dns/records/{record_id}": {
+    /** Delete Record */
+    delete: operations["delete_record_api_v1_dns_records__record_id__delete"];
+    /** Update Record */
+    patch: operations["update_record_api_v1_dns_records__record_id__patch"];
+  };
+  "/api/v1/dns/zones/{zone_id}/slaves": {
+    /** List Zone Slaves */
+    get: operations["list_zone_slaves_api_v1_dns_zones__zone_id__slaves_get"];
+  };
+  "/api/v1/dns/servers/{server_id}/tsig-keys": {
+    /** List Tsig Keys */
+    get: operations["list_tsig_keys_api_v1_dns_servers__server_id__tsig_keys_get"];
+    /** Create Tsig Key */
+    post: operations["create_tsig_key_api_v1_dns_servers__server_id__tsig_keys_post"];
+  };
+  "/api/v1/dns/tsig-keys/{key_id}/rotate": {
+    /** Rotate Tsig Key */
+    post: operations["rotate_tsig_key_api_v1_dns_tsig_keys__key_id__rotate_post"];
+  };
+  "/api/v1/dns/tsig-keys/{key_id}": {
+    /** Delete Tsig Key */
+    delete: operations["delete_tsig_key_api_v1_dns_tsig_keys__key_id__delete"];
+  };
+  "/api/v1/dhcp/servers/{instance_id}": {
+    /** List Servers */
+    get: operations["list_servers_api_v1_dhcp_servers__instance_id__get"];
+    /** Create Server */
+    post: operations["create_server_api_v1_dhcp_servers__instance_id__post"];
+  };
+  "/api/v1/dhcp/servers/detail/{server_id}": {
+    /** Get Server */
+    get: operations["get_server_api_v1_dhcp_servers_detail__server_id__get"];
+  };
+  "/api/v1/dhcp/servers/{server_id}": {
+    /** Delete Server */
+    delete: operations["delete_server_api_v1_dhcp_servers__server_id__delete"];
+    /** Update Server */
+    patch: operations["update_server_api_v1_dhcp_servers__server_id__patch"];
+  };
+  "/api/v1/dhcp/servers/{server_id}/actions/{action}": {
+    /** Server Action */
+    post: operations["server_action_api_v1_dhcp_servers__server_id__actions__action__post"];
+  };
+  "/api/v1/dhcp/servers/{server_id}/subnets": {
+    /** List Subnets */
+    get: operations["list_subnets_api_v1_dhcp_servers__server_id__subnets_get"];
+    /** Create Subnet */
+    post: operations["create_subnet_api_v1_dhcp_servers__server_id__subnets_post"];
+  };
+  "/api/v1/dhcp/subnets/detail/{subnet_id}": {
+    /** Get Subnet */
+    get: operations["get_subnet_api_v1_dhcp_subnets_detail__subnet_id__get"];
+  };
+  "/api/v1/dhcp/subnets/{subnet_id}": {
+    /** Delete Subnet */
+    delete: operations["delete_subnet_api_v1_dhcp_subnets__subnet_id__delete"];
+    /** Update Subnet */
+    patch: operations["update_subnet_api_v1_dhcp_subnets__subnet_id__patch"];
+  };
+  "/api/v1/dhcp/subnets/{subnet_id}/pools": {
+    /** List Pools */
+    get: operations["list_pools_api_v1_dhcp_subnets__subnet_id__pools_get"];
+    /** Create Pool */
+    post: operations["create_pool_api_v1_dhcp_subnets__subnet_id__pools_post"];
+  };
+  "/api/v1/dhcp/pools/{pool_id}": {
+    /** Delete Pool */
+    delete: operations["delete_pool_api_v1_dhcp_pools__pool_id__delete"];
+    /** Update Pool */
+    patch: operations["update_pool_api_v1_dhcp_pools__pool_id__patch"];
+  };
+  "/api/v1/dhcp/subnets/{subnet_id}/reservations": {
+    /** List Reservations */
+    get: operations["list_reservations_api_v1_dhcp_subnets__subnet_id__reservations_get"];
+    /** Create Reservation */
+    post: operations["create_reservation_api_v1_dhcp_subnets__subnet_id__reservations_post"];
+  };
+  "/api/v1/dhcp/reservations/{reservation_id}": {
+    /** Delete Reservation */
+    delete: operations["delete_reservation_api_v1_dhcp_reservations__reservation_id__delete"];
+    /** Update Reservation */
+    patch: operations["update_reservation_api_v1_dhcp_reservations__reservation_id__patch"];
+  };
+  "/api/v1/dhcp/subnets/{subnet_id}/options": {
+    /** List Options */
+    get: operations["list_options_api_v1_dhcp_subnets__subnet_id__options_get"];
+    /** Create Option */
+    post: operations["create_option_api_v1_dhcp_subnets__subnet_id__options_post"];
+  };
+  "/api/v1/dhcp/options/{option_id}": {
+    /** Delete Option */
+    delete: operations["delete_option_api_v1_dhcp_options__option_id__delete"];
+    /** Update Option */
+    patch: operations["update_option_api_v1_dhcp_options__option_id__patch"];
+  };
+  "/api/v1/dhcp/subnets/{subnet_id}/leases": {
+    /** List Subnet Leases */
+    get: operations["list_subnet_leases_api_v1_dhcp_subnets__subnet_id__leases_get"];
+  };
+  "/api/v1/dhcp/leases/active": {
+    /** List Active Leases */
+    get: operations["list_active_leases_api_v1_dhcp_leases_active_get"];
+  };
+  "/api/v1/dhcp/leases/{lease_id}": {
+    /** Release Lease */
+    delete: operations["release_lease_api_v1_dhcp_leases__lease_id__delete"];
+  };
+  "/api/v1/simulation/simulate/single": {
+    /**
+     * Simulate Single Firewall
+     * @description Simulate a single packet through a firewall configuration.
+     *
+     * Returns detailed information about which rules matched and the final action.
+     */
+    post: operations["simulate_single_firewall_api_v1_simulation_simulate_single_post"];
+  };
+  "/api/v1/simulation/simulate/test-suite": {
+    /**
+     * Run Test Suite
+     * @description Run a comprehensive test suite against a firewall configuration.
+     *
+     * Tests can be marked as 'critical' - if any critical test fails,
+     * deployment should be blocked.
+     */
+    post: operations["run_test_suite_api_v1_simulation_simulate_test_suite_post"];
+  };
+  "/api/v1/simulation/simulate/multi-firewall": {
+    /**
+     * Simulate Multi Firewall
+     * @description Simulate packet traversal across multiple firewalls.
+     *
+     * Useful for testing site-to-site VPNs, multi-hop routing,
+     * and distributed firewall policies.
+     */
+    post: operations["simulate_multi_firewall_api_v1_simulation_simulate_multi_firewall_post"];
+  };
+  "/api/v1/simulation/simulate/multi-firewall/tests": {
+    /**
+     * Run Multi Firewall Tests
+     * @description Run tests across multiple firewalls.
+     */
+    post: operations["run_multi_firewall_tests_api_v1_simulation_simulate_multi_firewall_tests_post"];
+  };
+  "/api/v1/simulation/test-suites/basic": {
+    /**
+     * Get Basic Test Suite
+     * @description Get the basic connectivity test suite
+     */
+    get: operations["get_basic_test_suite_api_v1_simulation_test_suites_basic_get"];
+  };
+  "/api/v1/simulation/test-suites/security": {
+    /**
+     * Get Security Test Suite
+     * @description Get the security-focused test suite
+     */
+    get: operations["get_security_test_suite_api_v1_simulation_test_suites_security_get"];
+  };
+  "/api/v1/simulation/test-suites/application": {
+    /**
+     * Get Application Test Suite
+     * @description Get application-specific test suite
+     */
+    get: operations["get_application_test_suite_api_v1_simulation_test_suites_application_get"];
+  };
+  "/api/v1/simulation/test-suites/all": {
+    /**
+     * Get All Test Suites
+     * @description Get all predefined test suites
+     */
+    get: operations["get_all_test_suites_api_v1_simulation_test_suites_all_get"];
+  };
+  "/api/v1/simulation/simulate/visual": {
+    /**
+     * Get Visual Simulation Data
+     * @description Get data for visual packet flow simulation.
+     *
+     * Returns step-by-step data for animating packet flow through rules.
+     */
+    post: operations["get_visual_simulation_data_api_v1_simulation_simulate_visual_post"];
+  };
+  "/api/v1/assistant/chat": {
+    /**
+     * Chat With Assistant
+     * @description Main chat endpoint for the LLM assistant.
+     *
+     * Handles natural language requests for:
+     * - Creating firewall rules
+     * - Generating test cases
+     * - Setting up VPN
+     * - Configuring mail domains
+     * - Explaining configurations
+     * - Troubleshooting issues
+     */
+    post: operations["chat_with_assistant_api_v1_assistant_chat_post"];
+  };
+  "/api/v1/assistant/suggest-firewall-rule": {
+    /**
+     * Suggest Firewall Rule
+     * @description Get a firewall rule suggestion from a natural language description.
+     *
+     * Example: "Allow web server access from anywhere"
+     */
+    post: operations["suggest_firewall_rule_api_v1_assistant_suggest_firewall_rule_post"];
+  };
+  "/api/v1/assistant/generate-tests": {
+    /**
+     * Generate Tests
+     * @description Generate test cases based on a description.
+     *
+     * Example: "Test that web traffic works but SSH is blocked from outside"
+     */
+    post: operations["generate_tests_api_v1_assistant_generate_tests_post"];
+  };
+  "/api/v1/assistant/explain-configuration": {
+    /**
+     * Explain Configuration
+     * @description Get a natural language explanation of a configuration.
+     */
+    post: operations["explain_configuration_api_v1_assistant_explain_configuration_post"];
+  };
+  "/api/v1/assistant/security-audit": {
+    /**
+     * Perform Security Audit
+     * @description Perform a security audit on firewall rules.
+     *
+     * Analyzes rules for security issues and compliance with standards.
+     */
+    post: operations["perform_security_audit_api_v1_assistant_security_audit_post"];
+  };
+  "/api/v1/assistant/troubleshoot": {
+    /**
+     * Troubleshoot Issue
+     * @description Get troubleshooting assistance for a network/firewall issue.
+     */
+    post: operations["troubleshoot_issue_api_v1_assistant_troubleshoot_post"];
+  };
+  "/api/v1/assistant/conversations": {
+    /**
+     * List Conversations
+     * @description List user's past conversations with the assistant
+     */
+    get: operations["list_conversations_api_v1_assistant_conversations_get"];
+  };
+  "/api/v1/assistant/conversations/{conversation_id}": {
+    /**
+     * Get Conversation
+     * @description Get a specific conversation history
+     */
+    get: operations["get_conversation_api_v1_assistant_conversations__conversation_id__get"];
+    /**
+     * Delete Conversation
+     * @description Delete a conversation
+     */
+    delete: operations["delete_conversation_api_v1_assistant_conversations__conversation_id__delete"];
+  };
+  "/api/v1/assistant/capabilities": {
+    /**
+     * Get Assistant Capabilities
+     * @description Get list of things the assistant can help with
+     */
+    get: operations["get_assistant_capabilities_api_v1_assistant_capabilities_get"];
+  };
+  "/api/v1/assistant/config": {
+    /**
+     * Get Llm Config
+     * @description Get current LLM configuration (assistant_chat use case).
+     */
+    get: operations["get_llm_config_api_v1_assistant_config_get"];
+    /**
+     * Update Llm Config
+     * @description Update LLM configuration (admin only) — modifies the assistant_chat use case.
+     */
+    post: operations["update_llm_config_api_v1_assistant_config_post"];
+  };
+  "/api/v1/admin/llm/providers": {
+    /**
+     * List Llm Providers
+     * @description List all LLM providers.
+     */
+    get: operations["list_llm_providers_api_v1_admin_llm_providers_get"];
+    /**
+     * Create Llm Provider
+     * @description Create a new LLM provider.
+     */
+    post: operations["create_llm_provider_api_v1_admin_llm_providers_post"];
+  };
+  "/api/v1/admin/llm/providers/{provider_id}": {
+    /**
+     * Get Llm Provider
+     * @description Get a single LLM provider.
+     */
+    get: operations["get_llm_provider_api_v1_admin_llm_providers__provider_id__get"];
+    /**
+     * Delete Llm Provider
+     * @description Delete an LLM provider (cascades to models).
+     */
+    delete: operations["delete_llm_provider_api_v1_admin_llm_providers__provider_id__delete"];
+    /**
+     * Update Llm Provider
+     * @description Update an LLM provider.
+     */
+    patch: operations["update_llm_provider_api_v1_admin_llm_providers__provider_id__patch"];
+  };
+  "/api/v1/admin/llm/providers/{provider_id}/test": {
+    /**
+     * Test Llm Provider
+     * @description Test connectivity to an LLM provider.
+     */
+    post: operations["test_llm_provider_api_v1_admin_llm_providers__provider_id__test_post"];
+  };
+  "/api/v1/admin/llm/models": {
+    /**
+     * List Llm Models
+     * @description List LLM models, optionally filtered by provider.
+     */
+    get: operations["list_llm_models_api_v1_admin_llm_models_get"];
+    /**
+     * Create Llm Model
+     * @description Create a new LLM model.
+     */
+    post: operations["create_llm_model_api_v1_admin_llm_models_post"];
+  };
+  "/api/v1/admin/llm/models/{model_id}": {
+    /**
+     * Get Llm Model
+     * @description Get a single LLM model.
+     */
+    get: operations["get_llm_model_api_v1_admin_llm_models__model_id__get"];
+    /**
+     * Delete Llm Model
+     * @description Delete an LLM model.
+     */
+    delete: operations["delete_llm_model_api_v1_admin_llm_models__model_id__delete"];
+    /**
+     * Update Llm Model
+     * @description Update an LLM model.
+     */
+    patch: operations["update_llm_model_api_v1_admin_llm_models__model_id__patch"];
+  };
+  "/api/v1/admin/llm/use-cases": {
+    /**
+     * List Llm Use Case Configs
+     * @description List all use-case configurations.
+     */
+    get: operations["list_llm_use_case_configs_api_v1_admin_llm_use_cases_get"];
+    /**
+     * Create Llm Use Case Config
+     * @description Create a new use-case configuration.
+     */
+    post: operations["create_llm_use_case_config_api_v1_admin_llm_use_cases_post"];
+  };
+  "/api/v1/admin/llm/use-cases/{config_id}": {
+    /**
+     * Get Llm Use Case Config
+     * @description Get a single use-case configuration.
+     */
+    get: operations["get_llm_use_case_config_api_v1_admin_llm_use_cases__config_id__get"];
+    /**
+     * Delete Llm Use Case Config
+     * @description Delete a use-case configuration.
+     */
+    delete: operations["delete_llm_use_case_config_api_v1_admin_llm_use_cases__config_id__delete"];
+    /**
+     * Update Llm Use Case Config
+     * @description Update a use-case configuration.
+     */
+    patch: operations["update_llm_use_case_config_api_v1_admin_llm_use_cases__config_id__patch"];
+  };
+  "/api/v1/groupware/status/{domain_id}": {
+    /**
+     * Get Groupware Status
+     * @description Get groupware status for a mail domain
+     */
+    get: operations["get_groupware_status_api_v1_groupware_status__domain_id__get"];
+  };
+  "/api/v1/groupware/enable/{domain_id}": {
+    /**
+     * Enable Groupware
+     * @description Enable groupware (SOGo) for a mail domain
+     */
+    post: operations["enable_groupware_api_v1_groupware_enable__domain_id__post"];
+  };
+  "/api/v1/groupware/disable/{domain_id}": {
+    /**
+     * Disable Groupware
+     * @description Disable groupware (SOGo) for a mail domain
+     */
+    post: operations["disable_groupware_api_v1_groupware_disable__domain_id__post"];
+  };
+  "/api/v1/groupware/stats/{domain_id}": {
+    /**
+     * Get Groupware Stats
+     * @description Get groupware usage statistics for a domain
+     *
+     * Note: In a full implementation, this would query SOGo's database tables.
+     * For now, returns basic domain status.
+     */
+    get: operations["get_groupware_stats_api_v1_groupware_stats__domain_id__get"];
+  };
+  "/health": {
+    /** Health Check */
+    get: operations["health_check_health_get"];
+  };
+  "/api/v1/": {
+    /** Api Info */
+    get: operations["api_info_api_v1__get"];
+  };
 }
+
 export type webhooks = Record<string, never>;
+
 export interface components {
-    schemas: {
-        /**
-         * ActionEnum
-         * @enum {string}
-         */
-        ActionEnum: "accept" | "drop" | "reject" | "log";
-        /** AuditLogResponse */
-        AuditLogResponse: {
-            /** Id */
-            id: number;
-            /** User Id */
-            user_id: number | null;
-            /** Instance Id */
-            instance_id: number | null;
-            /** Action */
-            action: string;
-            /** Resource Type */
-            resource_type: string;
-            /** Resource Id */
-            resource_id: string | null;
-            /** Old Value */
-            old_value: {
-                [key: string]: unknown;
-            } | null;
-            /** New Value */
-            new_value: {
-                [key: string]: unknown;
-            } | null;
-            /** Ip Address */
-            ip_address: string | null;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /**
-         * AuthBackend
-         * @enum {string}
-         */
-        AuthBackend: "local" | "ldap" | "ad";
-        /** ChatRequest */
-        ChatRequest: {
-            /** Message */
-            message: string;
-            /** Instance Id */
-            instance_id?: number | null;
-            /** Conversation Id */
-            conversation_id?: string | null;
-            /** Context */
-            context?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /** ChatResponse */
-        ChatResponse: {
-            /** Type */
-            type: string;
-            /** Message */
-            message: string;
-            /** Data */
-            data?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Can Apply
-             * @default false
-             */
-            can_apply: boolean;
-            /** Follow Up Questions */
-            follow_up_questions?: string[] | null;
-        };
-        /** ConfigExplanationRequest */
-        ConfigExplanationRequest: {
-            /** Config Type */
-            config_type: string;
-            /** Config */
-            config: {
-                [key: string]: unknown;
-            };
-            /** Question */
-            question?: string | null;
-        };
-        /**
-         * FirewallAction
-         * @enum {string}
-         */
-        FirewallAction: "accept" | "drop" | "reject";
-        /** FirewallRuleCreate */
-        FirewallRuleCreate: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Source Type
-             * @default any
-             */
-            source_type: string;
-            /** Source Value */
-            source_value?: string | null;
-            /**
-             * Dest Type
-             * @default any
-             */
-            dest_type: string;
-            /** Dest Value */
-            dest_value?: string | null;
-            /**
-             * Service Protocol
-             * @default tcp
-             */
-            service_protocol: string;
-            /** Service Ports */
-            service_ports?: string | null;
-            /** @default accept */
-            action: components["schemas"]["FirewallAction"];
-            /**
-             * Log Enabled
-             * @default false
-             */
-            log_enabled: boolean;
-        };
-        /** FirewallRuleResponse */
-        FirewallRuleResponse: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Source Type
-             * @default any
-             */
-            source_type: string;
-            /** Source Value */
-            source_value?: string | null;
-            /**
-             * Dest Type
-             * @default any
-             */
-            dest_type: string;
-            /** Dest Value */
-            dest_value?: string | null;
-            /**
-             * Service Protocol
-             * @default tcp
-             */
-            service_protocol: string;
-            /** Service Ports */
-            service_ports?: string | null;
-            /** @default accept */
-            action: components["schemas"]["FirewallAction"];
-            /**
-             * Log Enabled
-             * @default false
-             */
-            log_enabled: boolean;
-            /** Id */
-            id: number;
-            /** Instance Id */
-            instance_id: number;
-            /** Order Index */
-            order_index: number;
-            /** Created By */
-            created_by: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** FirewallRuleUpdate */
-        FirewallRuleUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Description */
-            description?: string | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Source Type */
-            source_type?: string | null;
-            /** Source Value */
-            source_value?: string | null;
-            /** Dest Type */
-            dest_type?: string | null;
-            /** Dest Value */
-            dest_value?: string | null;
-            /** Service Protocol */
-            service_protocol?: string | null;
-            /** Service Ports */
-            service_ports?: string | null;
-            action?: components["schemas"]["FirewallAction"] | null;
-            /** Log Enabled */
-            log_enabled?: boolean | null;
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /** IPSecConfig */
-        IPSecConfig: {
-            /**
-             * Tunnel Type
-             * @default ikev2
-             */
-            tunnel_type: string;
-            /**
-             * Ike Encryption
-             * @default aes256gcm16
-             */
-            ike_encryption: string;
-            /**
-             * Ike Integrity
-             * @default sha384
-             */
-            ike_integrity: string;
-            /**
-             * Ike Dh Group
-             * @default ecp384
-             */
-            ike_dh_group: string;
-            /**
-             * Ike Lifetime
-             * @default 86400
-             */
-            ike_lifetime: number;
-            /**
-             * Esp Encryption
-             * @default aes256gcm16
-             */
-            esp_encryption: string;
-            /**
-             * Esp Integrity
-             * @default sha384
-             */
-            esp_integrity: string;
-            /**
-             * Esp Dh Group
-             * @default ecp384
-             */
-            esp_dh_group: string | null;
-            /**
-             * Esp Lifetime
-             * @default 3600
-             */
-            esp_lifetime: number;
-            /**
-             * Auth Method
-             * @default pubkey
-             */
-            auth_method: string;
-            /**
-             * Dpd Enabled
-             * @default true
-             */
-            dpd_enabled: boolean;
-            /**
-             * Dpd Interval
-             * @default 30
-             */
-            dpd_interval: number;
-            /**
-             * Dpd Timeout
-             * @default 120
-             */
-            dpd_timeout: number;
-            /**
-             * Mobike
-             * @default true
-             */
-            mobike: boolean;
-        };
-        /** InstanceCreate */
-        InstanceCreate: {
-            /** Name */
-            name: string;
-            /** Hostname */
-            hostname: string;
-            /** Capabilities */
-            capabilities?: string[];
-            /** Api Key */
-            api_key?: string | null;
-        };
-        /** InstanceResponse */
-        InstanceResponse: {
-            /** Name */
-            name: string;
-            /** Hostname */
-            hostname: string;
-            /** Capabilities */
-            capabilities?: string[];
-            /** Id */
-            id: number;
-            /** Api Endpoint */
-            api_endpoint: string;
-            status: components["schemas"]["InstanceStatus"];
-            /** Last Seen */
-            last_seen: string | null;
-            /** Config */
-            config: {
-                [key: string]: unknown;
-            };
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * InstanceStatus
-         * @enum {string}
-         */
-        InstanceStatus: "active" | "inactive" | "error" | "maintenance";
-        /** InstanceUpdate */
-        InstanceUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Hostname */
-            hostname?: string | null;
-            status?: components["schemas"]["InstanceStatus"] | null;
-            /** Capabilities */
-            capabilities?: string[] | null;
-            /** Config */
-            config?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /** L2TPConfig */
-        L2TPConfig: {
-            /**
-             * Ppp Interface
-             * @default ppp0
-             */
-            ppp_interface: string;
-            /** Ppp Options */
-            ppp_options?: string[];
-            /** Ipsec Psk */
-            ipsec_psk?: string | null;
-            /**
-             * Chap Secrets
-             * @default true
-             */
-            chap_secrets: boolean;
-            /** Ms Dns */
-            ms_dns?: string[];
-        };
-        /** LDAPConfig */
-        LDAPConfig: {
-            /** Server Url */
-            server_url: string;
-            /** Bind Dn */
-            bind_dn: string;
-            /** Bind Password */
-            bind_password: string;
-            /** Base Dn */
-            base_dn: string;
-            /**
-             * User Filter
-             * @default (objectClass=person)
-             */
-            user_filter: string;
-            /** Group Filter */
-            group_filter?: string | null;
-        };
-        /** LLMConfig */
-        LLMConfig: {
-            /**
-             * Provider
-             * @default openai
-             */
-            provider: string;
-            /**
-             * Model
-             * @default gpt-4
-             */
-            model: string;
-            /** Api Key */
-            api_key?: string | null;
-            /** Api Base */
-            api_base?: string | null;
-            /**
-             * Temperature
-             * @default 0.3
-             */
-            temperature: number;
-            /**
-             * Max Tokens
-             * @default 500
-             */
-            max_tokens: number;
-            /**
-             * System Prompt
-             * @default You are an email classification assistant.
-             */
-            system_prompt: string;
-            /**
-             * Auto Classify
-             * @default false
-             */
-            auto_classify: boolean;
-            /**
-             * Confidence Threshold
-             * @default 0.8
-             */
-            confidence_threshold: number;
-            /** Categories */
-            categories?: string[];
-        };
-        /** LoginRequest */
-        LoginRequest: {
-            /** Username */
-            username: string;
-            /** Password */
-            password: string;
-        };
-        /** LoginResponse */
-        LoginResponse: {
-            /** Access Token */
-            access_token: string;
-            /**
-             * Token Type
-             * @default bearer
-             */
-            token_type: string;
-            user: components["schemas"]["UserResponse"];
-        };
-        /** MailDomainCreate */
-        MailDomainCreate: {
-            /** Domain */
-            domain: string;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Spam Filter Enabled
-             * @default true
-             */
-            spam_filter_enabled: boolean;
-            /**
-             * Virus Scan Enabled
-             * @default true
-             */
-            virus_scan_enabled: boolean;
-            /**
-             * Dkim Enabled
-             * @default true
-             */
-            dkim_enabled: boolean;
-            /**
-             * Dmarc Enabled
-             * @default true
-             */
-            dmarc_enabled: boolean;
-            /**
-             * Spf Enabled
-             * @default true
-             */
-            spf_enabled: boolean;
-            /**
-             * Llm Enabled
-             * @default false
-             */
-            llm_enabled: boolean;
-            /**
-             * Groupware Enabled
-             * @default false
-             */
-            groupware_enabled: boolean;
-            /** Llm Config */
-            llm_config?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /** MailDomainResponse */
-        MailDomainResponse: {
-            /** Domain */
-            domain: string;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Spam Filter Enabled
-             * @default true
-             */
-            spam_filter_enabled: boolean;
-            /**
-             * Virus Scan Enabled
-             * @default true
-             */
-            virus_scan_enabled: boolean;
-            /**
-             * Dkim Enabled
-             * @default true
-             */
-            dkim_enabled: boolean;
-            /**
-             * Dmarc Enabled
-             * @default true
-             */
-            dmarc_enabled: boolean;
-            /**
-             * Spf Enabled
-             * @default true
-             */
-            spf_enabled: boolean;
-            /**
-             * Llm Enabled
-             * @default false
-             */
-            llm_enabled: boolean;
-            /**
-             * Groupware Enabled
-             * @default false
-             */
-            groupware_enabled: boolean;
-            /** Id */
-            id: number;
-            /** Instance Id */
-            instance_id: number;
-            /** Llm Config */
-            llm_config: {
-                [key: string]: unknown;
-            };
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** MailDomainUpdate */
-        MailDomainUpdate: {
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Spam Filter Enabled */
-            spam_filter_enabled?: boolean | null;
-            /** Virus Scan Enabled */
-            virus_scan_enabled?: boolean | null;
-            /** Dkim Enabled */
-            dkim_enabled?: boolean | null;
-            /** Dmarc Enabled */
-            dmarc_enabled?: boolean | null;
-            /** Spf Enabled */
-            spf_enabled?: boolean | null;
-            /** Llm Enabled */
-            llm_enabled?: boolean | null;
-            /** Groupware Enabled */
-            groupware_enabled?: boolean | null;
-            /** Llm Config */
-            llm_config?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /** MailMessageActionRequest */
-        MailMessageActionRequest: {
-            /** Action */
-            action: string;
-            /** Reason */
-            reason?: string | null;
-        };
-        /** MailMessageCreate */
-        MailMessageCreate: {
-            /** Sender */
-            sender: string;
-            /** Recipients */
-            recipients?: string[];
-            /** Subject */
-            subject?: string | null;
-            /** Size Bytes */
-            size_bytes?: number | null;
-            /** Body Preview */
-            body_preview?: string | null;
-            /** Message Id */
-            message_id: string;
-            /** Domain Id */
-            domain_id: number;
-        };
-        /** MailMessageResponse */
-        MailMessageResponse: {
-            /** Sender */
-            sender: string;
-            /** Recipients */
-            recipients?: string[];
-            /** Subject */
-            subject?: string | null;
-            /** Size Bytes */
-            size_bytes?: number | null;
-            /** Body Preview */
-            body_preview?: string | null;
-            /** Id */
-            id: number;
-            /** Domain Id */
-            domain_id: number;
-            /** Message Id */
-            message_id: string;
-            /** Spam Score */
-            spam_score?: number | null;
-            /** Virus Status */
-            virus_status?: string | null;
-            /** Llm Category */
-            llm_category?: string | null;
-            /** Llm Confidence */
-            llm_confidence?: number | null;
-            /** Llm Reason */
-            llm_reason?: string | null;
-            /** Llm Provider */
-            llm_provider?: string | null;
-            /** Llm Model */
-            llm_model?: string | null;
-            /** Classified At */
-            classified_at?: string | null;
-            /**
-             * Action Taken
-             * @default pending
-             */
-            action_taken: string;
-            /** Action Reason */
-            action_reason?: string | null;
-            /** Action Taken At */
-            action_taken_at?: string | null;
-            /** Action Taken By */
-            action_taken_by?: number | null;
-            /**
-             * Status
-             * @default pending
-             */
-            status: string;
-            /**
-             * Received At
-             * Format: date-time
-             */
-            received_at: string;
-        };
-        /** MailUserCreate */
-        MailUserCreate: {
-            /** Username */
-            username: string;
-            /** Full Name */
-            full_name?: string | null;
-            /**
-             * Quota Bytes
-             * @default 1073741824
-             */
-            quota_bytes: number;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /** Password */
-            password?: string | null;
-            /** Forward To */
-            forward_to?: string[];
-        };
-        /** MailUserResponse */
-        MailUserResponse: {
-            /** Username */
-            username: string;
-            /** Full Name */
-            full_name?: string | null;
-            /**
-             * Quota Bytes
-             * @default 1073741824
-             */
-            quota_bytes: number;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /** Id */
-            id: number;
-            /** Domain Id */
-            domain_id: number;
-            /** Quota Used */
-            quota_used: number;
-            /** Forward To */
-            forward_to: string[];
-            /** Vacation Enabled */
-            vacation_enabled: boolean;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** MailUserUpdate */
-        MailUserUpdate: {
-            /** Full Name */
-            full_name?: string | null;
-            /** Password */
-            password?: string | null;
-            /** Quota Bytes */
-            quota_bytes?: number | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Forward To */
-            forward_to?: string[] | null;
-            /** Vacation Enabled */
-            vacation_enabled?: boolean | null;
-            /** Vacation Message */
-            vacation_message?: string | null;
-        };
-        /** MetricSnapshotResponse */
-        MetricSnapshotResponse: {
-            /** Cpu Percent */
-            cpu_percent?: number | null;
-            /** Memory Percent */
-            memory_percent?: number | null;
-            /** Memory Used Bytes */
-            memory_used_bytes?: number | null;
-            /** Memory Total Bytes */
-            memory_total_bytes?: number | null;
-            /** Disk Percent */
-            disk_percent?: number | null;
-            /** Disk Used Bytes */
-            disk_used_bytes?: number | null;
-            /** Disk Total Bytes */
-            disk_total_bytes?: number | null;
-            /** Interface Stats */
-            interface_stats?: {
-                [key: string]: unknown;
-            }[] | null;
-            /** Mail Queue Size */
-            mail_queue_size?: number | null;
-            /** Mail Inbound Count */
-            mail_inbound_count?: number | null;
-            /** Mail Outbound Count */
-            mail_outbound_count?: number | null;
-            /** Mail Spam Count */
-            mail_spam_count?: number | null;
-            /** Mail Virus Count */
-            mail_virus_count?: number | null;
-            /** Id */
-            id: number;
-            /** Instance Id */
-            instance_id: number;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp: string;
-        };
-        /** MetricsQuery */
-        MetricsQuery: {
-            /** Instance Ids */
-            instance_ids?: number[] | null;
-            /** Start Time */
-            start_time?: string | null;
-            /** End Time */
-            end_time?: string | null;
-            /**
-             * Granularity
-             * @default 5m
-             */
-            granularity: string;
-        };
-        /** MetricsSummary */
-        MetricsSummary: {
-            /** Instance Id */
-            instance_id: number;
-            /** Cpu Avg */
-            cpu_avg: number;
-            /** Cpu Max */
-            cpu_max: number;
-            /** Memory Avg */
-            memory_avg: number;
-            /** Memory Max */
-            memory_max: number;
-            /** Disk Avg */
-            disk_avg: number;
-            /** Disk Max */
-            disk_max: number;
-            /** Network In Total */
-            network_in_total: number;
-            /** Network Out Total */
-            network_out_total: number;
-            /** Mail Total Inbound */
-            mail_total_inbound: number;
-            /** Mail Total Outbound */
-            mail_total_outbound: number;
-            /**
-             * Period Start
-             * Format: date-time
-             */
-            period_start: string;
-            /**
-             * Period End
-             * Format: date-time
-             */
-            period_end: string;
-        };
-        /** MultiFirewallRequest */
-        MultiFirewallRequest: {
-            /** Firewalls */
-            firewalls: {
-                [key: string]: unknown;
-            }[];
-            /** Topology */
-            topology: {
-                [key: string]: string[];
-            };
-            /** Source Firewall */
-            source_firewall: string;
-            /** Dest Firewall */
-            dest_firewall: string;
-            packet: components["schemas"]["PacketSpec"];
-        };
-        /** MultiFirewallTestRequest */
-        MultiFirewallTestRequest: {
-            /** Firewalls */
-            firewalls: {
-                [key: string]: unknown;
-            }[];
-            /** Topology */
-            topology: {
-                [key: string]: string[];
-            };
-            /** Tests */
-            tests: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** NATRuleCreate */
-        NATRuleCreate: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Type
-             * @default snat
-             */
-            type: string;
-            /** Interface */
-            interface?: string | null;
-            /** Source Network */
-            source_network?: string | null;
-            /** Dest Network */
-            dest_network?: string | null;
-            /** To Source */
-            to_source?: string | null;
-            /** To Destination */
-            to_destination?: string | null;
-            /** Service Protocol */
-            service_protocol?: string | null;
-            /** Service Ports */
-            service_ports?: string | null;
-        };
-        /** NATRuleResponse */
-        NATRuleResponse: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Type
-             * @default snat
-             */
-            type: string;
-            /** Interface */
-            interface?: string | null;
-            /** Source Network */
-            source_network?: string | null;
-            /** Dest Network */
-            dest_network?: string | null;
-            /** To Source */
-            to_source?: string | null;
-            /** To Destination */
-            to_destination?: string | null;
-            /** Service Protocol */
-            service_protocol?: string | null;
-            /** Service Ports */
-            service_ports?: string | null;
-            /** Id */
-            id: number;
-            /** Instance Id */
-            instance_id: number;
-            /** Order Index */
-            order_index: number;
-            /** Created By */
-            created_by: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** NetworkInterfaceResponse */
-        NetworkInterfaceResponse: {
-            /** Name */
-            name: string;
-            /**
-             * Type
-             * @default other
-             */
-            type: string;
-            /**
-             * Config Type
-             * @default dhcp
-             */
-            config_type: string;
-            /** Ip Address */
-            ip_address?: string | null;
-            /** Netmask */
-            netmask?: string | null;
-            /** Gateway */
-            gateway?: string | null;
-            /** Bandwidth In */
-            bandwidth_in?: number | null;
-            /** Bandwidth Out */
-            bandwidth_out?: number | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /** Id */
-            id: number;
-            /** Instance Id */
-            instance_id: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** OpenVPNConfig */
-        OpenVPNConfig: {
-            /**
-             * Mode
-             * @default tun
-             */
-            mode: string;
-            /**
-             * Topology
-             * @default subnet
-             */
-            topology: string;
-            /**
-             * Cipher
-             * @default AES-256-GCM
-             */
-            cipher: string;
-            /**
-             * Auth Digest
-             * @default SHA256
-             */
-            auth_digest: string;
-            /**
-             * Tls Version Min
-             * @default 1.2
-             */
-            tls_version_min: string;
-            /**
-             * Tls Cipher
-             * @default TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384
-             */
-            tls_cipher: string;
-            /**
-             * Protocol
-             * @default udp
-             */
-            protocol: string;
-            /**
-             * Port
-             * @default 1194
-             */
-            port: number;
-            /** Compression */
-            compression?: string | null;
-            /**
-             * Fast Io
-             * @default true
-             */
-            fast_io: boolean;
-            /**
-             * Duplicate Cn
-             * @default false
-             */
-            duplicate_cn: boolean;
-            /**
-             * Client To Client
-             * @default false
-             */
-            client_to_client: boolean;
-            /**
-             * Max Clients
-             * @default 1024
-             */
-            max_clients: number;
-            /**
-             * Keepalive Interval
-             * @default 10
-             */
-            keepalive_interval: number;
-            /**
-             * Keepalive Timeout
-             * @default 120
-             */
-            keepalive_timeout: number;
-        };
-        /** PPTPConfig */
-        PPTPConfig: {
-            /**
-             * Ppp Interface
-             * @default ppp0
-             */
-            ppp_interface: string;
-            /**
-             * Require Mppe
-             * @default true
-             */
-            require_mppe: boolean;
-            /** Ms Dns */
-            ms_dns?: string[];
-        };
-        /** PacketSpec */
-        PacketSpec: {
-            /** Src Ip */
-            src_ip: string;
-            /** Dst Ip */
-            dst_ip: string;
-            protocol: components["schemas"]["ProtocolEnum"];
-            /** Src Port */
-            src_port?: number | null;
-            /** Dst Port */
-            dst_port?: number | null;
-            /**
-             * Interface In
-             * @default eth0
-             */
-            interface_in: string;
-            /**
-             * Interface Out
-             * @default eth1
-             */
-            interface_out: string;
-            /**
-             * Flags
-             * @default []
-             */
-            flags: string[];
-            /**
-             * Connection State
-             * @default NEW
-             */
-            connection_state: string;
-        };
-        /**
-         * ProtocolEnum
-         * @enum {string}
-         */
-        ProtocolEnum: "tcp" | "udp" | "icmp" | "any";
-        /**
-         * QoSAlgorithm
-         * @enum {string}
-         */
-        QoSAlgorithm: "cake" | "fq_codel" | "htb";
-        /** QoSClassCreate */
-        QoSClassCreate: {
-            /** Name */
-            name: string;
-            /**
-             * Priority
-             * @default 2
-             */
-            priority: number;
-            /**
-             * Min Rate Kbps
-             * @description Guaranteed bandwidth in kbps
-             */
-            min_rate_kbps: number;
-            /**
-             * Max Rate Kbps
-             * @description Burst ceiling in kbps
-             */
-            max_rate_kbps: number;
-            /**
-             * Match Ports
-             * @description Destination port numbers to match
-             */
-            match_ports?: number[];
-            /**
-             * Match Dscp
-             * @description DSCP code point (e.g. EF, AF41)
-             */
-            match_dscp?: string | null;
-            /**
-             * Match Protocol
-             * @description tcp | udp | any
-             * @default any
-             */
-            match_protocol: string;
-        };
-        /** QoSClassResponse */
-        QoSClassResponse: {
-            /** Name */
-            name: string;
-            /**
-             * Priority
-             * @default 2
-             */
-            priority: number;
-            /**
-             * Min Rate Kbps
-             * @description Guaranteed bandwidth in kbps
-             */
-            min_rate_kbps: number;
-            /**
-             * Max Rate Kbps
-             * @description Burst ceiling in kbps
-             */
-            max_rate_kbps: number;
-            /**
-             * Match Ports
-             * @description Destination port numbers to match
-             */
-            match_ports?: number[];
-            /**
-             * Match Dscp
-             * @description DSCP code point (e.g. EF, AF41)
-             */
-            match_dscp?: string | null;
-            /**
-             * Match Protocol
-             * @description tcp | udp | any
-             * @default any
-             */
-            match_protocol: string;
-            /** Id */
-            id: number;
-            /** Policy Id */
-            policy_id: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** QoSClassUpdate */
-        QoSClassUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Priority */
-            priority?: number | null;
-            /** Min Rate Kbps */
-            min_rate_kbps?: number | null;
-            /** Max Rate Kbps */
-            max_rate_kbps?: number | null;
-            /** Match Ports */
-            match_ports?: number[] | null;
-            /** Match Dscp */
-            match_dscp?: string | null;
-            /** Match Protocol */
-            match_protocol?: string | null;
-        };
-        /** QoSPolicyCreate */
-        QoSPolicyCreate: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Interface Name
-             * @description Linux interface name, e.g. eth0
-             */
-            interface_name: string;
-            /**
-             * Interface Id
-             * @description FK to network_interfaces (optional)
-             */
-            interface_id?: number | null;
-            /** @default cake */
-            algorithm: components["schemas"]["QoSAlgorithm"];
-            /**
-             * Download Kbps
-             * @description Ingress rate ceiling in kbps
-             */
-            download_kbps: number;
-            /**
-             * Upload Kbps
-             * @description Egress rate ceiling in kbps
-             */
-            upload_kbps: number;
-            /**
-             * Classes
-             * @description Traffic classes (HTB only). Leave empty for auto-defaults.
-             */
-            classes?: components["schemas"]["QoSClassCreate"][];
-        };
-        /** QoSPolicyResponse */
-        QoSPolicyResponse: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /**
-             * Interface Name
-             * @description Linux interface name, e.g. eth0
-             */
-            interface_name: string;
-            /**
-             * Interface Id
-             * @description FK to network_interfaces (optional)
-             */
-            interface_id?: number | null;
-            /** @default cake */
-            algorithm: components["schemas"]["QoSAlgorithm"];
-            /**
-             * Download Kbps
-             * @description Ingress rate ceiling in kbps
-             */
-            download_kbps: number;
-            /**
-             * Upload Kbps
-             * @description Egress rate ceiling in kbps
-             */
-            upload_kbps: number;
-            /** Id */
-            id: number;
-            /** Instance Id */
-            instance_id: number;
-            /** Applied */
-            applied: boolean;
-            /** Last Applied At */
-            last_applied_at: string | null;
-            /** Apply Error */
-            apply_error: string | null;
-            /** Classes */
-            classes?: components["schemas"]["QoSClassResponse"][];
-            /** Created By */
-            created_by: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** QoSPolicyUpdate */
-        QoSPolicyUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Description */
-            description?: string | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            algorithm?: components["schemas"]["QoSAlgorithm"] | null;
-            /** Download Kbps */
-            download_kbps?: number | null;
-            /** Upload Kbps */
-            upload_kbps?: number | null;
-        };
-        /**
-         * QoSQueueStats
-         * @description Per-qdisc/queue statistics parsed from tc -s output
-         */
-        QoSQueueStats: {
-            /** Qdisc */
-            qdisc: string;
-            /**
-             * Sent Bytes
-             * @default 0
-             */
-            sent_bytes: number;
-            /**
-             * Sent Pkts
-             * @default 0
-             */
-            sent_pkts: number;
-            /**
-             * Dropped Pkts
-             * @default 0
-             */
-            dropped_pkts: number;
-            /**
-             * Overlimits
-             * @default 0
-             */
-            overlimits: number;
-            /**
-             * Backlog Bytes
-             * @default 0
-             */
-            backlog_bytes: number;
-            /**
-             * Backlog Pkts
-             * @default 0
-             */
-            backlog_pkts: number;
-        };
-        /** QoSStatsResponse */
-        QoSStatsResponse: {
-            /** Policy Id */
-            policy_id: number;
-            /** Interface */
-            interface: string;
-            /** Algorithm */
-            algorithm: string;
-            /** Download Kbps */
-            download_kbps: number;
-            /** Upload Kbps */
-            upload_kbps: number;
-            /** Queues */
-            queues?: components["schemas"]["QoSQueueStats"][];
-            /** Raw */
-            raw?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Collected At
-             * Format: date-time
-             */
-            collected_at: string;
-        };
-        /** RoutingRuleCreate */
-        RoutingRuleCreate: {
-            /** Name */
-            name: string;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /** Source Network */
-            source_network?: string | null;
-            /** Dest Network */
-            dest_network?: string | null;
-            /** Service */
-            service?: string | null;
-            /** Inbound Interface */
-            inbound_interface?: string | null;
-            /** Gateway */
-            gateway?: string | null;
-            /** Outbound Interface */
-            outbound_interface?: string | null;
-            /** Mark */
-            mark?: number | null;
-            /** Order Index */
-            order_index?: number | null;
-        };
-        /** RoutingRuleResponse */
-        RoutingRuleResponse: {
-            /** Name */
-            name: string;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /** Source Network */
-            source_network?: string | null;
-            /** Dest Network */
-            dest_network?: string | null;
-            /** Service */
-            service?: string | null;
-            /** Inbound Interface */
-            inbound_interface?: string | null;
-            /** Gateway */
-            gateway?: string | null;
-            /** Outbound Interface */
-            outbound_interface?: string | null;
-            /** Mark */
-            mark?: number | null;
-            /** Order Index */
-            order_index: number;
-            /** Id */
-            id: number;
-            /** Instance Id */
-            instance_id: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** RoutingRuleUpdate */
-        RoutingRuleUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Source Network */
-            source_network?: string | null;
-            /** Dest Network */
-            dest_network?: string | null;
-            /** Service */
-            service?: string | null;
-            /** Inbound Interface */
-            inbound_interface?: string | null;
-            /** Gateway */
-            gateway?: string | null;
-            /** Outbound Interface */
-            outbound_interface?: string | null;
-            /** Mark */
-            mark?: number | null;
-            /** Order Index */
-            order_index?: number | null;
-        };
-        /** RuleSpec */
-        RuleSpec: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Chain */
-            chain: string;
-            action: components["schemas"]["ActionEnum"];
-            /** Src Ip */
-            src_ip?: string | null;
-            /** Dst Ip */
-            dst_ip?: string | null;
-            protocol?: components["schemas"]["ProtocolEnum"] | null;
-            /** Src Port */
-            src_port?: number | null;
-            /** Dst Port */
-            dst_port?: number | null;
-            /** Interface In */
-            interface_in?: string | null;
-            /** Interface Out */
-            interface_out?: string | null;
-            /** State */
-            state?: string | null;
-            /**
-             * Log
-             * @default false
-             */
-            log: boolean;
-            /**
-             * Order
-             * @default 0
-             */
-            order: number;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-        };
-        /** RuleSuggestionRequest */
-        RuleSuggestionRequest: {
-            /** Description */
-            description: string;
-            /** Instance Id */
-            instance_id?: number | null;
-        };
-        /** RuleSuggestionResponse */
-        RuleSuggestionResponse: {
-            /** Rule */
-            rule: {
-                [key: string]: unknown;
-            };
-            /** Explanation */
-            explanation: string;
-            /** Security Notes */
-            security_notes: string;
-            /** Suggested Tests */
-            suggested_tests: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** SecurityAuditRequest */
-        SecurityAuditRequest: {
-            /** Rules */
-            rules: {
-                [key: string]: unknown;
-            }[];
-            /** Standard */
-            standard?: string | null;
-        };
-        /** SecurityAuditResponse */
-        SecurityAuditResponse: {
-            /** Findings */
-            findings: {
-                [key: string]: unknown;
-            }[];
-            /** Risk Score */
-            risk_score: number;
-            /** Recommendations */
-            recommendations: string[];
-            /** Compliance Status */
-            compliance_status: {
-                [key: string]: string;
-            };
-        };
-        /** SimulationRequest */
-        SimulationRequest: {
-            /** Instance Id */
-            instance_id: number;
-            /** Rules */
-            rules: components["schemas"]["RuleSpec"][];
-            /** Interfaces */
-            interfaces: {
-                [key: string]: string;
-            };
-            packet: components["schemas"]["PacketSpec"];
-        };
-        /** SimulationResponse */
-        SimulationResponse: {
-            /** Packet */
-            packet: {
-                [key: string]: unknown;
-            };
-            /** Matched Rule */
-            matched_rule: {
-                [key: string]: unknown;
-            } | null;
-            /** Final Action */
-            final_action: string;
-            /** Chain Traversed */
-            chain_traversed: string[];
-            /** Rules Evaluated */
-            rules_evaluated: number;
-            /** Processing Time Ms */
-            processing_time_ms: number;
-            /** Logs */
-            logs: string[];
-            /** Nat Translation */
-            nat_translation: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /** TestCaseSpec */
-        TestCaseSpec: {
-            /** Id */
-            id?: string | null;
-            /** Name */
-            name: string;
-            /**
-             * Description
-             * @default
-             */
-            description: string | null;
-            packet: components["schemas"]["PacketSpec"];
-            expected_action: components["schemas"]["ActionEnum"];
-            /** Expected Chain */
-            expected_chain?: string | null;
-            /**
-             * Critical
-             * @default false
-             */
-            critical: boolean;
-            /**
-             * Tags
-             * @default []
-             */
-            tags: string[];
-        };
-        /** TestGenerationRequest */
-        TestGenerationRequest: {
-            /** Description */
-            description: string;
-            /** Rules */
-            rules?: {
-                [key: string]: unknown;
-            }[] | null;
-            /** Instance Id */
-            instance_id?: number | null;
-        };
-        /** TestGenerationResponse */
-        TestGenerationResponse: {
-            /** Test Cases */
-            test_cases: {
-                [key: string]: unknown;
-            }[];
-            /** Explanation */
-            explanation: string;
-            /** Coverage Assessment */
-            coverage_assessment: string;
-        };
-        /** TestResultResponse */
-        TestResultResponse: {
-            /** Test Case */
-            test_case: {
-                [key: string]: unknown;
-            };
-            /** Passed */
-            passed: boolean;
-            /** Actual Action */
-            actual_action: string;
-            /** Actual Rule */
-            actual_rule: {
-                [key: string]: unknown;
-            } | null;
-            /** Error Message */
-            error_message: string | null;
-            /** Execution Time Ms */
-            execution_time_ms: number;
-        };
-        /** TestSuiteRequest */
-        TestSuiteRequest: {
-            /** Instance Id */
-            instance_id: number;
-            /** Rules */
-            rules: components["schemas"]["RuleSpec"][];
-            /** Interfaces */
-            interfaces: {
-                [key: string]: string;
-            };
-            /** Tests */
-            tests: components["schemas"]["TestCaseSpec"][];
-        };
-        /** TestSuiteResponse */
-        TestSuiteResponse: {
-            /** Total */
-            total: number;
-            /** Passed */
-            passed: number;
-            /** Failed */
-            failed: number;
-            /** Pass Rate */
-            pass_rate: number;
-            /** Critical Failures */
-            critical_failures: string[];
-            /** Can Deploy */
-            can_deploy: boolean;
-            /** Results */
-            results: components["schemas"]["TestResultResponse"][];
-        };
-        /** UserCreate */
-        UserCreate: {
-            /** Username */
-            username: string;
-            /** Email */
-            email: string;
-            /** @default local */
-            auth_backend: components["schemas"]["AuthBackend"];
-            /** @default user */
-            role: components["schemas"]["UserRole"];
-            /** Password */
-            password?: string | null;
-            /** Instances */
-            instances?: number[];
-        };
-        /** UserPasswordChange */
-        UserPasswordChange: {
-            /** Current Password */
-            current_password: string;
-            /** New Password */
-            new_password: string;
-        };
-        /** UserResponse */
-        UserResponse: {
-            /** Username */
-            username: string;
-            /** Email */
-            email: string;
-            /** @default local */
-            auth_backend: components["schemas"]["AuthBackend"];
-            /** @default user */
-            role: components["schemas"]["UserRole"];
-            /** Id */
-            id: number;
-            /** Is Active */
-            is_active: boolean;
-            /** Instances */
-            instances: number[];
-            /** Preferences */
-            preferences: {
-                [key: string]: unknown;
-            };
-            /** Last Login */
-            last_login: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * UserRole
-         * @enum {string}
-         */
-        UserRole: "superadmin" | "admin" | "user" | "readonly";
-        /** UserUpdate */
-        UserUpdate: {
-            /** Email */
-            email?: string | null;
-            role?: components["schemas"]["UserRole"] | null;
-            /** Is Active */
-            is_active?: boolean | null;
-            /** Instances */
-            instances?: number[] | null;
-            /** Preferences */
-            preferences?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /**
-         * VPNAuthType
-         * @enum {string}
-         */
-        VPNAuthType: "cert" | "password" | "sso" | "psk" | "public_key";
-        /** VPNBulkGenerateRequest */
-        VPNBulkGenerateRequest: {
-            /** Server Id */
-            server_id: number;
-            /** Count */
-            count: number;
-            /**
-             * Name Prefix
-             * @default client
-             */
-            name_prefix: string;
-            /** @default public_key */
-            auth_type: components["schemas"]["VPNAuthType"];
-            /**
-             * Generate Qr
-             * @default true
-             */
-            generate_qr: boolean;
-        };
-        /** VPNBulkGenerateResponse */
-        VPNBulkGenerateResponse: {
-            /** Generated */
-            generated: number;
-            /** Clients */
-            clients: components["schemas"]["VPNClientResponse"][];
-            /** Configs Zip */
-            configs_zip: string;
-        };
-        /** VPNClientCreate */
-        VPNClientCreate: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /** @default user */
-            client_type: components["schemas"]["VPNClientType"];
-            /** @default cert */
-            auth_type: components["schemas"]["VPNAuthType"];
-            /** Assigned Ip */
-            assigned_ip?: string | null;
-            /** Allowed Ips */
-            allowed_ips?: string[];
-            /** Push Routes Override */
-            push_routes_override?: string[];
-            /** User Id */
-            user_id?: number | null;
-            /**
-             * Generate Qr
-             * @default true
-             */
-            generate_qr: boolean;
-        };
-        /** VPNClientResponse */
-        VPNClientResponse: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            /** @default user */
-            client_type: components["schemas"]["VPNClientType"];
-            /** @default cert */
-            auth_type: components["schemas"]["VPNAuthType"];
-            /** Assigned Ip */
-            assigned_ip?: string | null;
-            /** Allowed Ips */
-            allowed_ips?: string[];
-            /** Push Routes Override */
-            push_routes_override?: string[];
-            /** Id */
-            id: number;
-            /** Server Id */
-            server_id: number;
-            /** User Id */
-            user_id: number | null;
-            /** Last Connected */
-            last_connected: string | null;
-            /** Last Ip */
-            last_ip: string | null;
-            /** Connection Count */
-            connection_count: number;
-            /** Bytes Received */
-            bytes_received: number;
-            /** Bytes Sent */
-            bytes_sent: number;
-            /** Public Key */
-            public_key: string | null;
-            /** Config Qr */
-            config_qr: string | null;
-            /** Config File */
-            config_file: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * VPNClientType
-         * @enum {string}
-         */
-        VPNClientType: "user" | "site" | "service";
-        /** VPNClientUpdate */
-        VPNClientUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Description */
-            description?: string | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Assigned Ip */
-            assigned_ip?: string | null;
-            /** Allowed Ips */
-            allowed_ips?: string[] | null;
-            /** Push Routes Override */
-            push_routes_override?: string[] | null;
-        };
-        /** VPNConnectionResponse */
-        VPNConnectionResponse: {
-            /** Id */
-            id: number;
-            /** Server Id */
-            server_id: number;
-            /** Client Id */
-            client_id: number;
-            /** Client Name */
-            client_name: string;
-            protocol: components["schemas"]["VPNProtocol"];
-            /** Client Ip */
-            client_ip: string;
-            /** Virtual Ip */
-            virtual_ip: string;
-            /**
-             * Connected At
-             * Format: date-time
-             */
-            connected_at: string;
-            /** Bytes Received */
-            bytes_received: number;
-            /** Bytes Sent */
-            bytes_sent: number;
-            /** Status */
-            status: string;
-        };
-        /**
-         * VPNProtocol
-         * @enum {string}
-         */
-        VPNProtocol: "wireguard" | "ipsec" | "openvpn" | "pptp" | "l2tp";
-        /** VPNProtocolRecommendation */
-        VPNProtocolRecommendation: {
-            protocol: components["schemas"]["VPNProtocol"];
-            /** Priority */
-            priority: number;
-            /** Security Score */
-            security_score: number;
-            /** Performance Score */
-            performance_score: number;
-            /** Compatibility Score */
-            compatibility_score: number;
-            /** Description */
-            description: string;
-            /** Use Cases */
-            use_cases: string[];
-        };
-        /** VPNRouteCreate */
-        VPNRouteCreate: {
-            /** Destination */
-            destination: string;
-            /** Gateway */
-            gateway?: string | null;
-            /**
-             * Metric
-             * @default 0
-             */
-            metric: number;
-            /**
-             * Apply To All
-             * @default true
-             */
-            apply_to_all: boolean;
-            /** Specific Clients */
-            specific_clients?: number[];
-            /** Description */
-            description?: string | null;
-        };
-        /** VPNRouteResponse */
-        VPNRouteResponse: {
-            /** Destination */
-            destination: string;
-            /** Gateway */
-            gateway?: string | null;
-            /**
-             * Metric
-             * @default 0
-             */
-            metric: number;
-            /**
-             * Apply To All
-             * @default true
-             */
-            apply_to_all: boolean;
-            /** Specific Clients */
-            specific_clients?: number[];
-            /** Description */
-            description?: string | null;
-            /** Id */
-            id: number;
-            /** Server Id */
-            server_id: number;
-            /** Order Index */
-            order_index: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-        };
-        /** VPNServerCreate */
-        VPNServerCreate: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            protocol: components["schemas"]["VPNProtocol"];
-            /**
-             * Listen Address
-             * @default 0.0.0.0
-             */
-            listen_address: string;
-            /** Listen Port */
-            listen_port?: number | null;
-            /**
-             * Network Cidr
-             * @default 10.200.0.0/24
-             */
-            network_cidr: string;
-            /** Dns Servers */
-            dns_servers?: string[];
-            /** Push Routes */
-            push_routes?: string[];
-            /**
-             * Internet Redirect
-             * @default false
-             */
-            internet_redirect: boolean;
-            wireguard_config?: components["schemas"]["WireGuardConfig"] | null;
-            ipsec_config?: components["schemas"]["IPSecConfig"] | null;
-            openvpn_config?: components["schemas"]["OpenVPNConfig"] | null;
-            l2tp_config?: components["schemas"]["L2TPConfig"] | null;
-            pptp_config?: components["schemas"]["PPTPConfig"] | null;
-        };
-        /** VPNServerResponse */
-        VPNServerResponse: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled: boolean;
-            protocol: components["schemas"]["VPNProtocol"];
-            /**
-             * Listen Address
-             * @default 0.0.0.0
-             */
-            listen_address: string;
-            /** Listen Port */
-            listen_port?: number | null;
-            /**
-             * Network Cidr
-             * @default 10.200.0.0/24
-             */
-            network_cidr: string;
-            /** Dns Servers */
-            dns_servers?: string[];
-            /** Push Routes */
-            push_routes?: string[];
-            /**
-             * Internet Redirect
-             * @default false
-             */
-            internet_redirect: boolean;
-            /** Id */
-            id: number;
-            /** Instance Id */
-            instance_id: number;
-            status: components["schemas"]["VPNStatus"];
-            /** Config */
-            config: {
-                [key: string]: unknown;
-            };
-            /** Connected Clients */
-            connected_clients: number;
-            /** Bytes Received */
-            bytes_received: number;
-            /** Bytes Sent */
-            bytes_sent: number;
-            /** Created By */
-            created_by: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** VPNServerStats */
-        VPNServerStats: {
-            /** Server Id */
-            server_id: number;
-            status: components["schemas"]["VPNStatus"];
-            /** Uptime Seconds */
-            uptime_seconds: number;
-            /** Connected Clients */
-            connected_clients: number;
-            /** Total Bytes Received */
-            total_bytes_received: number;
-            /** Total Bytes Sent */
-            total_bytes_sent: number;
-            /** Client List */
-            client_list: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** VPNServerUpdate */
-        VPNServerUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Description */
-            description?: string | null;
-            /** Enabled */
-            enabled?: boolean | null;
-            /** Listen Address */
-            listen_address?: string | null;
-            /** Listen Port */
-            listen_port?: number | null;
-            /** Network Cidr */
-            network_cidr?: string | null;
-            /** Dns Servers */
-            dns_servers?: string[] | null;
-            /** Push Routes */
-            push_routes?: string[] | null;
-            /** Internet Redirect */
-            internet_redirect?: boolean | null;
-            /** Config */
-            config?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /**
-         * VPNStatus
-         * @enum {string}
-         */
-        VPNStatus: "running" | "stopped" | "error" | "restarting";
-        /** ValidationError */
-        ValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
-        /** WireGuardConfig */
-        WireGuardConfig: {
-            /** Private Key */
-            private_key?: string | null;
-            /** Public Key */
-            public_key?: string | null;
-            /**
-             * Listen Port
-             * @default 51820
-             */
-            listen_port: number;
-            /**
-             * Network Cidr
-             * @default 10.200.0.0/24
-             */
-            network_cidr: string;
-            /** Post Up */
-            post_up?: string | null;
-            /** Post Down */
-            post_down?: string | null;
-            /**
-             * Mtu
-             * @default 1420
-             */
-            mtu: number;
-        };
+  schemas: {
+    /**
+     * ActionEnum
+     * @enum {string}
+     */
+    ActionEnum: "accept" | "drop" | "reject" | "log";
+    /** AuditLogResponse */
+    AuditLogResponse: {
+      /** Id */
+      id: number;
+      /** User Id */
+      user_id: number | null;
+      /** Instance Id */
+      instance_id: number | null;
+      /** Action */
+      action: string;
+      /** Resource Type */
+      resource_type: string;
+      /** Resource Id */
+      resource_id: string | null;
+      /** Old Value */
+      old_value: {
+        [key: string]: unknown;
+      } | null;
+      /** New Value */
+      new_value: {
+        [key: string]: unknown;
+      } | null;
+      /** Ip Address */
+      ip_address: string | null;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /**
+     * AuthBackend
+     * @enum {string}
+     */
+    AuthBackend: "local" | "ldap" | "ad";
+    /** BulkRecordImport */
+    BulkRecordImport: {
+      /** Records */
+      records: components["schemas"]["DNSRecordCreate"][];
+    };
+    /** ChatRequest */
+    ChatRequest: {
+      /** Message */
+      message: string;
+      /** Instance Id */
+      instance_id?: number | null;
+      /** Conversation Id */
+      conversation_id?: string | null;
+      /** Context */
+      context?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** ChatResponse */
+    ChatResponse: {
+      /** Type */
+      type: string;
+      /** Message */
+      message: string;
+      /** Data */
+      data?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Can Apply
+       * @default false
+       */
+      can_apply?: boolean;
+      /** Follow Up Questions */
+      follow_up_questions?: string[] | null;
+    };
+    /** ConfigExplanationRequest */
+    ConfigExplanationRequest: {
+      /** Config Type */
+      config_type: string;
+      /** Config */
+      config: {
+        [key: string]: unknown;
+      };
+      /** Question */
+      question?: string | null;
+    };
+    /** CreatePTRRequest */
+    CreatePTRRequest: {
+      /**
+       * Ip Address
+       * @description IP address, e.g. 192.168.0.10
+       */
+      ip_address: string;
+      /**
+       * Hostname
+       * @description Target hostname, e.g. server1.example.com
+       */
+      hostname: string;
+      /**
+       * Ttl
+       * @default 3600
+       */
+      ttl?: number;
+    };
+    /** CreateReverseZoneRequest */
+    CreateReverseZoneRequest: {
+      /**
+       * Network
+       * @description CIDR network, e.g. 192.168.0.0/24 or 2001:db8::/64
+       */
+      network: string;
+      /**
+       * Nameserver
+       * @description Authoritative nameserver, e.g. ns1.example.com
+       */
+      nameserver: string;
+      /**
+       * Admin Email
+       * @description Admin contact, e.g. admin@example.com
+       */
+      admin_email: string;
+    };
+    /**
+     * DHCPHAType
+     * @enum {string}
+     */
+    DHCPHAType: "hot-standby" | "load-balancing";
+    /** DHCPLeaseReleaseResponse */
+    DHCPLeaseReleaseResponse: {
+      /** Id */
+      id: number;
+      state: components["schemas"]["DHCPLeaseState"];
+      /**
+       * Released At
+       * Format: date-time
+       */
+      released_at: string;
+    };
+    /** DHCPLeaseResponse */
+    DHCPLeaseResponse: {
+      /** Id */
+      id: number;
+      /** Subnet Id */
+      subnet_id: number;
+      /** Pool Id */
+      pool_id: number | null;
+      /** Ip Address */
+      ip_address: string;
+      /** Hw Address */
+      hw_address: string | null;
+      /** Hostname */
+      hostname: string | null;
+      /** Client Id */
+      client_id: string | null;
+      /** Lease Start */
+      lease_start: string | null;
+      /** Lease End */
+      lease_end: string | null;
+      /** Released At */
+      released_at: string | null;
+      state: components["schemas"]["DHCPLeaseState"];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * DHCPLeaseState
+     * @enum {string}
+     */
+    DHCPLeaseState: "active" | "expired" | "released";
+    /** DHCPOptionCreate */
+    DHCPOptionCreate: {
+      /** Option Code */
+      option_code: number;
+      /** Option Name */
+      option_name: string;
+      /** Option Value */
+      option_value: string;
+      type: components["schemas"]["DHCPSubnetType"];
+    };
+    /** DHCPOptionResponse */
+    DHCPOptionResponse: {
+      /** Option Code */
+      option_code: number;
+      /** Option Name */
+      option_name: string;
+      /** Option Value */
+      option_value: string;
+      type: components["schemas"]["DHCPSubnetType"];
+      /** Id */
+      id: number;
+      /** Subnet Id */
+      subnet_id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** DHCPOptionUpdate */
+    DHCPOptionUpdate: {
+      /** Option Code */
+      option_code?: number | null;
+      /** Option Name */
+      option_name?: string | null;
+      /** Option Value */
+      option_value?: string | null;
+    };
+    /** DHCPPoolCreate */
+    DHCPPoolCreate: {
+      /** Start Address */
+      start_address: string;
+      /** End Address */
+      end_address: string;
+      type: components["schemas"]["DHCPSubnetType"];
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+    };
+    /** DHCPPoolResponse */
+    DHCPPoolResponse: {
+      /** Start Address */
+      start_address: string;
+      /** End Address */
+      end_address: string;
+      type: components["schemas"]["DHCPSubnetType"];
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Subnet Id */
+      subnet_id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** DHCPPoolUpdate */
+    DHCPPoolUpdate: {
+      /** Start Address */
+      start_address?: string | null;
+      /** End Address */
+      end_address?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
+    };
+    /** DHCPReservationCreate */
+    DHCPReservationCreate: {
+      /** Hostname */
+      hostname?: string | null;
+      /** Ip Address */
+      ip_address: string;
+      /** Hw Address */
+      hw_address: string;
+      type: components["schemas"]["DHCPSubnetType"];
+      /** Description */
+      description?: string | null;
+    };
+    /** DHCPReservationResponse */
+    DHCPReservationResponse: {
+      /** Hostname */
+      hostname?: string | null;
+      /** Ip Address */
+      ip_address: string;
+      /** Hw Address */
+      hw_address: string;
+      type: components["schemas"]["DHCPSubnetType"];
+      /** Description */
+      description?: string | null;
+      /** Id */
+      id: number;
+      /** Subnet Id */
+      subnet_id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** DHCPReservationUpdate */
+    DHCPReservationUpdate: {
+      /** Hostname */
+      hostname?: string | null;
+      /** Ip Address */
+      ip_address?: string | null;
+      /** Hw Address */
+      hw_address?: string | null;
+      /** Description */
+      description?: string | null;
+    };
+    /** DHCPServerCreate */
+    DHCPServerCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Kea Ctrl Agent Address
+       * @default 127.0.0.1
+       */
+      kea_ctrl_agent_address?: string;
+      /**
+       * Kea Ctrl Agent Port
+       * @default 8000
+       */
+      kea_ctrl_agent_port?: number;
+      /**
+       * Ha Enabled
+       * @default false
+       */
+      ha_enabled?: boolean;
+      /** @default hot-standby */
+      ha_mode?: components["schemas"]["DHCPHAType"];
+      /** Ha Peer Address */
+      ha_peer_address?: string | null;
+      /**
+       * Dhcpv4 Enabled
+       * @default true
+       */
+      dhcpv4_enabled?: boolean;
+      /**
+       * Dhcpv6 Enabled
+       * @default false
+       */
+      dhcpv6_enabled?: boolean;
+    };
+    /** DHCPServerResponse */
+    DHCPServerResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Kea Ctrl Agent Address
+       * @default 127.0.0.1
+       */
+      kea_ctrl_agent_address?: string;
+      /**
+       * Kea Ctrl Agent Port
+       * @default 8000
+       */
+      kea_ctrl_agent_port?: number;
+      /**
+       * Ha Enabled
+       * @default false
+       */
+      ha_enabled?: boolean;
+      /** @default hot-standby */
+      ha_mode?: components["schemas"]["DHCPHAType"];
+      /** Ha Peer Address */
+      ha_peer_address?: string | null;
+      /**
+       * Dhcpv4 Enabled
+       * @default true
+       */
+      dhcpv4_enabled?: boolean;
+      /**
+       * Dhcpv6 Enabled
+       * @default false
+       */
+      dhcpv6_enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      status: components["schemas"]["DHCPServerStatus"];
+      /** Created By */
+      created_by: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * Subnets Count
+       * @default 0
+       */
+      subnets_count?: number;
+    };
+    /**
+     * DHCPServerStatus
+     * @enum {string}
+     */
+    DHCPServerStatus: "running" | "stopped" | "error";
+    /** DHCPServerUpdate */
+    DHCPServerUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Kea Ctrl Agent Address */
+      kea_ctrl_agent_address?: string | null;
+      /** Kea Ctrl Agent Port */
+      kea_ctrl_agent_port?: number | null;
+      /** Ha Enabled */
+      ha_enabled?: boolean | null;
+      ha_mode?: components["schemas"]["DHCPHAType"] | null;
+      /** Ha Peer Address */
+      ha_peer_address?: string | null;
+      /** Dhcpv4 Enabled */
+      dhcpv4_enabled?: boolean | null;
+      /** Dhcpv6 Enabled */
+      dhcpv6_enabled?: boolean | null;
+    };
+    /** DHCPSubnetCreate */
+    DHCPSubnetCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /** Subnet */
+      subnet: string;
+      type: components["schemas"]["DHCPSubnetType"];
+      /** Interface */
+      interface?: string | null;
+      /** Relay Addresses */
+      relay_addresses?: string[];
+      /** Domain Name */
+      domain_name?: string | null;
+      /** Dns Servers */
+      dns_servers?: string[];
+      /** Ntp Servers */
+      ntp_servers?: string[];
+      /** Routers */
+      routers?: string[];
+      /**
+       * Lease Time Default
+       * @default 3600
+       */
+      lease_time_default?: number;
+      /**
+       * Lease Time Max
+       * @default 7200
+       */
+      lease_time_max?: number;
+      /**
+       * Lease Time Min
+       * @default 300
+       */
+      lease_time_min?: number;
+      /** Delegated Prefix Length */
+      delegated_prefix_length?: number | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+    };
+    /** DHCPSubnetResponse */
+    DHCPSubnetResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /** Subnet */
+      subnet: string;
+      type: components["schemas"]["DHCPSubnetType"];
+      /** Interface */
+      interface?: string | null;
+      /** Relay Addresses */
+      relay_addresses?: string[];
+      /** Domain Name */
+      domain_name?: string | null;
+      /** Dns Servers */
+      dns_servers?: string[];
+      /** Ntp Servers */
+      ntp_servers?: string[];
+      /** Routers */
+      routers?: string[];
+      /**
+       * Lease Time Default
+       * @default 3600
+       */
+      lease_time_default?: number;
+      /**
+       * Lease Time Max
+       * @default 7200
+       */
+      lease_time_max?: number;
+      /**
+       * Lease Time Min
+       * @default 300
+       */
+      lease_time_min?: number;
+      /** Delegated Prefix Length */
+      delegated_prefix_length?: number | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Server Id */
+      server_id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * Pools Count
+       * @default 0
+       */
+      pools_count?: number;
+      /**
+       * Reservations Count
+       * @default 0
+       */
+      reservations_count?: number;
+      /**
+       * Leases Count
+       * @default 0
+       */
+      leases_count?: number;
+    };
+    /**
+     * DHCPSubnetType
+     * @enum {string}
+     */
+    DHCPSubnetType: "v4" | "v6";
+    /** DHCPSubnetUpdate */
+    DHCPSubnetUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Subnet */
+      subnet?: string | null;
+      /** Interface */
+      interface?: string | null;
+      /** Relay Addresses */
+      relay_addresses?: string[] | null;
+      /** Domain Name */
+      domain_name?: string | null;
+      /** Dns Servers */
+      dns_servers?: string[] | null;
+      /** Ntp Servers */
+      ntp_servers?: string[] | null;
+      /** Routers */
+      routers?: string[] | null;
+      /** Lease Time Default */
+      lease_time_default?: number | null;
+      /** Lease Time Max */
+      lease_time_max?: number | null;
+      /** Lease Time Min */
+      lease_time_min?: number | null;
+      /** Delegated Prefix Length */
+      delegated_prefix_length?: number | null;
+      /** Enabled */
+      enabled?: boolean | null;
+    };
+    /** DNSRecordCreate */
+    DNSRecordCreate: {
+      /** Name */
+      name: string;
+      record_type: components["schemas"]["DNSRecordType"];
+      /** Content */
+      content: string;
+      /**
+       * Ttl
+       * @default 3600
+       */
+      ttl?: number;
+      /**
+       * Priority
+       * @default 0
+       */
+      priority?: number;
+      /**
+       * Weight
+       * @default 0
+       */
+      weight?: number;
+      /**
+       * Port
+       * @default 0
+       */
+      port?: number;
+      /**
+       * Flags
+       * @default 0
+       */
+      flags?: string;
+      /** Tag */
+      tag?: string | null;
+      /** Comment */
+      comment?: string | null;
+    };
+    /** DNSRecordResponse */
+    DNSRecordResponse: {
+      /** Name */
+      name: string;
+      record_type: components["schemas"]["DNSRecordType"];
+      /** Content */
+      content: string;
+      /**
+       * Ttl
+       * @default 3600
+       */
+      ttl?: number;
+      /**
+       * Priority
+       * @default 0
+       */
+      priority?: number;
+      /**
+       * Weight
+       * @default 0
+       */
+      weight?: number;
+      /**
+       * Port
+       * @default 0
+       */
+      port?: number;
+      /**
+       * Flags
+       * @default 0
+       */
+      flags?: string;
+      /** Tag */
+      tag?: string | null;
+      /** Comment */
+      comment?: string | null;
+      /** Id */
+      id: number;
+      /** Zone Id */
+      zone_id: number;
+      /** Is System */
+      is_system: boolean;
+      /** Created By */
+      created_by: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * DNSRecordType
+     * @enum {string}
+     */
+    DNSRecordType: "A" | "AAAA" | "CNAME" | "MX" | "NS" | "PTR" | "TXT" | "SRV" | "CAA" | "SOA" | "DNSKEY" | "DS";
+    /** DNSRecordUpdate */
+    DNSRecordUpdate: {
+      /** Name */
+      name?: string | null;
+      record_type?: components["schemas"]["DNSRecordType"] | null;
+      /** Content */
+      content?: string | null;
+      /** Ttl */
+      ttl?: number | null;
+      /** Priority */
+      priority?: number | null;
+      /** Weight */
+      weight?: number | null;
+      /** Port */
+      port?: number | null;
+      /** Flags */
+      flags?: string | null;
+      /** Tag */
+      tag?: string | null;
+      /** Comment */
+      comment?: string | null;
+    };
+    /** DNSSECKeyResponse */
+    DNSSECKeyResponse: {
+      /** Id */
+      id: number;
+      /** Zone Id */
+      zone_id: number;
+      /** Key Type */
+      key_type: string;
+      /** Algorithm */
+      algorithm: string;
+      /** Key Size */
+      key_size: number;
+      /** Key Tag */
+      key_tag: number | null;
+      /** Public Key Path */
+      public_key_path: string | null;
+      /** Private Key Path */
+      private_key_path: string | null;
+      /** Public Dnskey */
+      public_dnskey: string | null;
+      /** Ds Record */
+      ds_record: string | null;
+      /** Is Active */
+      is_active: boolean;
+      /** Activated At */
+      activated_at: string | null;
+      /** Rotated At */
+      rotated_at: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** DNSSECRolloverRequest */
+    DNSSECRolloverRequest: {
+      /** Key Type */
+      key_type: string;
+      /**
+       * Algorithm
+       * @default ECDSAP256SHA256
+       */
+      algorithm?: string;
+      /**
+       * Key Size
+       * @default 256
+       */
+      key_size?: number;
+    };
+    /** DNSServerCreate */
+    DNSServerCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Listening Addresses */
+      listening_addresses?: string[];
+      /**
+       * Port
+       * @default 53
+       */
+      port?: number;
+      /**
+       * Is Recursive
+       * @default true
+       */
+      is_recursive?: boolean;
+      /**
+       * Is Authoritative
+       * @default true
+       */
+      is_authoritative?: boolean;
+      /** Forwarders */
+      forwarders?: string[];
+      /** Allow Query */
+      allow_query?: string[];
+      /** Allow Transfer */
+      allow_transfer?: string[];
+      /** Also Notify */
+      also_notify?: string[];
+      /**
+       * Dnssec Enabled
+       * @default false
+       */
+      dnssec_enabled?: boolean;
+    };
+    /** DNSServerResponse */
+    DNSServerResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Listening Addresses */
+      listening_addresses?: string[];
+      /**
+       * Port
+       * @default 53
+       */
+      port?: number;
+      /**
+       * Is Recursive
+       * @default true
+       */
+      is_recursive?: boolean;
+      /**
+       * Is Authoritative
+       * @default true
+       */
+      is_authoritative?: boolean;
+      /** Forwarders */
+      forwarders?: string[];
+      /** Allow Query */
+      allow_query?: string[];
+      /** Allow Transfer */
+      allow_transfer?: string[];
+      /** Also Notify */
+      also_notify?: string[];
+      /**
+       * Dnssec Enabled
+       * @default false
+       */
+      dnssec_enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      /** Status */
+      status: string;
+      /** Created By */
+      created_by: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * Zones Count
+       * @default 0
+       */
+      zones_count?: number;
+    };
+    /** DNSServerUpdate */
+    DNSServerUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Listening Addresses */
+      listening_addresses?: string[] | null;
+      /** Port */
+      port?: number | null;
+      /** Is Recursive */
+      is_recursive?: boolean | null;
+      /** Is Authoritative */
+      is_authoritative?: boolean | null;
+      /** Forwarders */
+      forwarders?: string[] | null;
+      /** Allow Query */
+      allow_query?: string[] | null;
+      /** Allow Transfer */
+      allow_transfer?: string[] | null;
+      /** Also Notify */
+      also_notify?: string[] | null;
+      /** Dnssec Enabled */
+      dnssec_enabled?: boolean | null;
+    };
+    /** DNSTSIGKeyCreate */
+    DNSTSIGKeyCreate: {
+      /** Name */
+      name: string;
+      /** @default hmac-sha256 */
+      algorithm?: components["schemas"]["TSIGAlgorithm"];
+      /**
+       * Is Active
+       * @default true
+       */
+      is_active?: boolean;
+      /** Secret */
+      secret?: string | null;
+    };
+    /** DNSTSIGKeyResponse */
+    DNSTSIGKeyResponse: {
+      /** Name */
+      name: string;
+      /** @default hmac-sha256 */
+      algorithm?: components["schemas"]["TSIGAlgorithm"];
+      /**
+       * Is Active
+       * @default true
+       */
+      is_active?: boolean;
+      /** Id */
+      id: number;
+      /** Server Id */
+      server_id: number;
+      /** Secret */
+      secret: string;
+      /** Rotated At */
+      rotated_at: string | null;
+      /** Created By */
+      created_by: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** DNSTSIGKeyRotate */
+    DNSTSIGKeyRotate: {
+      /** @default hmac-sha256 */
+      algorithm?: components["schemas"]["TSIGAlgorithm"];
+    };
+    /** DNSZoneCreate */
+    DNSZoneCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      zone_type: components["schemas"]["DNSZoneType"];
+      /**
+       * Is Reverse
+       * @default false
+       */
+      is_reverse?: boolean;
+      /** Reverse Network */
+      reverse_network?: string | null;
+      /**
+       * Refresh
+       * @default 3600
+       */
+      refresh?: number;
+      /**
+       * Retry
+       * @default 1800
+       */
+      retry?: number;
+      /**
+       * Expire
+       * @default 604800
+       */
+      expire?: number;
+      /**
+       * Minimum Ttl
+       * @default 86400
+       */
+      minimum_ttl?: number;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Dnssec Enabled
+       * @default false
+       */
+      dnssec_enabled?: boolean;
+    };
+    /** DNSZoneResponse */
+    DNSZoneResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      zone_type: components["schemas"]["DNSZoneType"];
+      /**
+       * Is Reverse
+       * @default false
+       */
+      is_reverse?: boolean;
+      /** Reverse Network */
+      reverse_network?: string | null;
+      /**
+       * Refresh
+       * @default 3600
+       */
+      refresh?: number;
+      /**
+       * Retry
+       * @default 1800
+       */
+      retry?: number;
+      /**
+       * Expire
+       * @default 604800
+       */
+      expire?: number;
+      /**
+       * Minimum Ttl
+       * @default 86400
+       */
+      minimum_ttl?: number;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Server Id */
+      server_id: number;
+      /** Serial */
+      serial: number;
+      /** Master Server Address */
+      master_server_address: string | null;
+      /** Forwarders */
+      forwarders: string[];
+      /** Dnssec Enabled */
+      dnssec_enabled: boolean;
+      /** Dnssec Algorithm */
+      dnssec_algorithm: string;
+      /** Dnssec Ds Record */
+      dnssec_ds_record: string | null;
+      /** Transfer Tsig Key Id */
+      transfer_tsig_key_id: number | null;
+      /** Created By */
+      created_by: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * Records Count
+       * @default 0
+       */
+      records_count?: number;
+    };
+    /** DNSZoneSlaveResponse */
+    DNSZoneSlaveResponse: {
+      /** Id */
+      id: number;
+      /** Zone Id */
+      zone_id: number;
+      /** Master Server Address */
+      master_server_address: string;
+      /** Tsig Key Id */
+      tsig_key_id: number | null;
+      /** Last Transfer */
+      last_transfer: string | null;
+      /** Last Serial */
+      last_serial: number;
+      /** Transfer Status */
+      transfer_status: string;
+      /** Transfer Error */
+      transfer_error: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * DNSZoneType
+     * @enum {string}
+     */
+    DNSZoneType: "master" | "slave" | "forward" | "stub";
+    /** DNSZoneUpdate */
+    DNSZoneUpdate: {
+      /** Description */
+      description?: string | null;
+      /** Is Reverse */
+      is_reverse?: boolean | null;
+      /** Reverse Network */
+      reverse_network?: string | null;
+      /** Refresh */
+      refresh?: number | null;
+      /** Retry */
+      retry?: number | null;
+      /** Expire */
+      expire?: number | null;
+      /** Minimum Ttl */
+      minimum_ttl?: number | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Dnssec Enabled */
+      dnssec_enabled?: boolean | null;
+      /** Transfer Tsig Key Id */
+      transfer_tsig_key_id?: number | null;
+    };
+    /**
+     * FirewallAction
+     * @enum {string}
+     */
+    FirewallAction: "accept" | "drop" | "reject";
+    /** FirewallRuleCreate */
+    FirewallRuleCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Source Type
+       * @default any
+       */
+      source_type?: string;
+      /** Source Value */
+      source_value?: string | null;
+      /**
+       * Dest Type
+       * @default any
+       */
+      dest_type?: string;
+      /** Dest Value */
+      dest_value?: string | null;
+      /**
+       * Service Protocol
+       * @default tcp
+       */
+      service_protocol?: string;
+      /** Service Ports */
+      service_ports?: string | null;
+      /** @default accept */
+      action?: components["schemas"]["FirewallAction"];
+      /**
+       * Log Enabled
+       * @default false
+       */
+      log_enabled?: boolean;
+    };
+    /** FirewallRuleResponse */
+    FirewallRuleResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Source Type
+       * @default any
+       */
+      source_type?: string;
+      /** Source Value */
+      source_value?: string | null;
+      /**
+       * Dest Type
+       * @default any
+       */
+      dest_type?: string;
+      /** Dest Value */
+      dest_value?: string | null;
+      /**
+       * Service Protocol
+       * @default tcp
+       */
+      service_protocol?: string;
+      /** Service Ports */
+      service_ports?: string | null;
+      /** @default accept */
+      action?: components["schemas"]["FirewallAction"];
+      /**
+       * Log Enabled
+       * @default false
+       */
+      log_enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      /** Order Index */
+      order_index: number;
+      /** Created By */
+      created_by: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** FirewallRuleUpdate */
+    FirewallRuleUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Source Type */
+      source_type?: string | null;
+      /** Source Value */
+      source_value?: string | null;
+      /** Dest Type */
+      dest_type?: string | null;
+      /** Dest Value */
+      dest_value?: string | null;
+      /** Service Protocol */
+      service_protocol?: string | null;
+      /** Service Ports */
+      service_ports?: string | null;
+      action?: components["schemas"]["FirewallAction"] | null;
+      /** Log Enabled */
+      log_enabled?: boolean | null;
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
+    /** IPSecConfig */
+    IPSecConfig: {
+      /**
+       * Tunnel Type
+       * @default ikev2
+       */
+      tunnel_type?: string;
+      /**
+       * Ike Encryption
+       * @default aes256gcm16
+       */
+      ike_encryption?: string;
+      /**
+       * Ike Integrity
+       * @default sha384
+       */
+      ike_integrity?: string;
+      /**
+       * Ike Dh Group
+       * @default ecp384
+       */
+      ike_dh_group?: string;
+      /**
+       * Ike Lifetime
+       * @default 86400
+       */
+      ike_lifetime?: number;
+      /**
+       * Esp Encryption
+       * @default aes256gcm16
+       */
+      esp_encryption?: string;
+      /**
+       * Esp Integrity
+       * @default sha384
+       */
+      esp_integrity?: string;
+      /**
+       * Esp Dh Group
+       * @default ecp384
+       */
+      esp_dh_group?: string | null;
+      /**
+       * Esp Lifetime
+       * @default 3600
+       */
+      esp_lifetime?: number;
+      /**
+       * Auth Method
+       * @default pubkey
+       */
+      auth_method?: string;
+      /**
+       * Dpd Enabled
+       * @default true
+       */
+      dpd_enabled?: boolean;
+      /**
+       * Dpd Interval
+       * @default 30
+       */
+      dpd_interval?: number;
+      /**
+       * Dpd Timeout
+       * @default 120
+       */
+      dpd_timeout?: number;
+      /**
+       * Mobike
+       * @default true
+       */
+      mobike?: boolean;
+    };
+    /** InstanceCreate */
+    InstanceCreate: {
+      /** Name */
+      name: string;
+      /** Hostname */
+      hostname: string;
+      /** Capabilities */
+      capabilities?: string[];
+      /** Api Key */
+      api_key?: string | null;
+    };
+    /** InstanceResponse */
+    InstanceResponse: {
+      /** Name */
+      name: string;
+      /** Hostname */
+      hostname: string;
+      /** Capabilities */
+      capabilities?: string[];
+      /** Id */
+      id: number;
+      /** Api Endpoint */
+      api_endpoint: string;
+      status: components["schemas"]["InstanceStatus"];
+      /** Last Seen */
+      last_seen: string | null;
+      /** Config */
+      config: {
+        [key: string]: unknown;
+      };
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * InstanceStatus
+     * @enum {string}
+     */
+    InstanceStatus: "active" | "inactive" | "error" | "maintenance";
+    /** InstanceUpdate */
+    InstanceUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Hostname */
+      hostname?: string | null;
+      status?: components["schemas"]["InstanceStatus"] | null;
+      /** Capabilities */
+      capabilities?: string[] | null;
+      /** Config */
+      config?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** L2TPConfig */
+    L2TPConfig: {
+      /**
+       * Ppp Interface
+       * @default ppp0
+       */
+      ppp_interface?: string;
+      /** Ppp Options */
+      ppp_options?: string[];
+      /** Ipsec Psk */
+      ipsec_psk?: string | null;
+      /**
+       * Chap Secrets
+       * @default true
+       */
+      chap_secrets?: boolean;
+      /** Ms Dns */
+      ms_dns?: string[];
+    };
+    /** LDAPConfig */
+    LDAPConfig: {
+      /** Server Url */
+      server_url: string;
+      /** Bind Dn */
+      bind_dn: string;
+      /** Bind Password */
+      bind_password: string;
+      /** Base Dn */
+      base_dn: string;
+      /**
+       * User Filter
+       * @default (objectClass=person)
+       */
+      user_filter?: string;
+      /** Group Filter */
+      group_filter?: string | null;
+    };
+    /** LLMConfig */
+    LLMConfig: {
+      /**
+       * Provider
+       * @default openai
+       */
+      provider?: string;
+      /**
+       * Model
+       * @default gpt-4
+       */
+      model?: string;
+      /** Api Key */
+      api_key?: string | null;
+      /** Api Base */
+      api_base?: string | null;
+      /**
+       * Temperature
+       * @default 0.3
+       */
+      temperature?: number;
+      /**
+       * Max Tokens
+       * @default 500
+       */
+      max_tokens?: number;
+      /**
+       * System Prompt
+       * @default You are an email classification assistant.
+       */
+      system_prompt?: string;
+      /**
+       * Auto Classify
+       * @default false
+       */
+      auto_classify?: boolean;
+      /**
+       * Confidence Threshold
+       * @default 0.8
+       */
+      confidence_threshold?: number;
+      /** Categories */
+      categories?: string[];
+    };
+    /** LLMModelCreate */
+    LLMModelCreate: {
+      /** Name */
+      name: string;
+      /** Display Name */
+      display_name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Max Tokens */
+      max_tokens?: number | null;
+      /**
+       * Supports Vision
+       * @default false
+       */
+      supports_vision?: boolean;
+      /**
+       * Is Enabled
+       * @default true
+       */
+      is_enabled?: boolean;
+      /** Provider Id */
+      provider_id: number;
+    };
+    /** LLMModelResponse */
+    LLMModelResponse: {
+      /** Name */
+      name: string;
+      /** Display Name */
+      display_name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Max Tokens */
+      max_tokens?: number | null;
+      /**
+       * Supports Vision
+       * @default false
+       */
+      supports_vision?: boolean;
+      /**
+       * Is Enabled
+       * @default true
+       */
+      is_enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Provider Id */
+      provider_id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** LLMModelUpdate */
+    LLMModelUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Display Name */
+      display_name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Max Tokens */
+      max_tokens?: number | null;
+      /** Supports Vision */
+      supports_vision?: boolean | null;
+      /** Is Enabled */
+      is_enabled?: boolean | null;
+    };
+    /** LLMProviderCreate */
+    LLMProviderCreate: {
+      /** Name */
+      name: string;
+      provider_type: components["schemas"]["LLMProviderType"];
+      /** Base Url */
+      base_url?: string | null;
+      /** Api Key */
+      api_key?: string | null;
+      /**
+       * Is Enabled
+       * @default true
+       */
+      is_enabled?: boolean;
+      /**
+       * Is Default
+       * @default false
+       */
+      is_default?: boolean;
+    };
+    /** LLMProviderResponse */
+    LLMProviderResponse: {
+      /** Name */
+      name: string;
+      provider_type: components["schemas"]["LLMProviderType"];
+      /** Base Url */
+      base_url?: string | null;
+      /** Api Key */
+      api_key?: string | null;
+      /**
+       * Is Enabled
+       * @default true
+       */
+      is_enabled?: boolean;
+      /**
+       * Is Default
+       * @default false
+       */
+      is_default?: boolean;
+      /** Id */
+      id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * LLMProviderType
+     * @enum {string}
+     */
+    LLMProviderType: "openai" | "anthropic" | "ollama" | "custom";
+    /** LLMProviderUpdate */
+    LLMProviderUpdate: {
+      /** Name */
+      name?: string | null;
+      provider_type?: components["schemas"]["LLMProviderType"] | null;
+      /** Base Url */
+      base_url?: string | null;
+      /** Api Key */
+      api_key?: string | null;
+      /** Is Enabled */
+      is_enabled?: boolean | null;
+      /** Is Default */
+      is_default?: boolean | null;
+    };
+    /**
+     * LLMUseCase
+     * @enum {string}
+     */
+    LLMUseCase: "email_classification" | "assistant_chat" | "security_audit";
+    /** LLMUseCaseConfigCreate */
+    LLMUseCaseConfigCreate: {
+      use_case: components["schemas"]["LLMUseCase"];
+      /** Provider Id */
+      provider_id?: number | null;
+      /** Model Id */
+      model_id?: number | null;
+      /**
+       * Temperature
+       * @default 0.3
+       */
+      temperature?: number;
+      /**
+       * Max Tokens
+       * @default 500
+       */
+      max_tokens?: number;
+      /**
+       * Top P
+       * @default 1
+       */
+      top_p?: number;
+      /** System Prompt */
+      system_prompt?: string | null;
+      /**
+       * Timeout Seconds
+       * @default 30
+       */
+      timeout_seconds?: number;
+      /**
+       * Is Enabled
+       * @default true
+       */
+      is_enabled?: boolean;
+    };
+    /** LLMUseCaseConfigResponse */
+    LLMUseCaseConfigResponse: {
+      use_case: components["schemas"]["LLMUseCase"];
+      /** Provider Id */
+      provider_id?: number | null;
+      /** Model Id */
+      model_id?: number | null;
+      /**
+       * Temperature
+       * @default 0.3
+       */
+      temperature?: number;
+      /**
+       * Max Tokens
+       * @default 500
+       */
+      max_tokens?: number;
+      /**
+       * Top P
+       * @default 1
+       */
+      top_p?: number;
+      /** System Prompt */
+      system_prompt?: string | null;
+      /**
+       * Timeout Seconds
+       * @default 30
+       */
+      timeout_seconds?: number;
+      /**
+       * Is Enabled
+       * @default true
+       */
+      is_enabled?: boolean;
+      /** Id */
+      id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** LLMUseCaseConfigUpdate */
+    LLMUseCaseConfigUpdate: {
+      use_case?: components["schemas"]["LLMUseCase"] | null;
+      /** Provider Id */
+      provider_id?: number | null;
+      /** Model Id */
+      model_id?: number | null;
+      /** Temperature */
+      temperature?: number | null;
+      /** Max Tokens */
+      max_tokens?: number | null;
+      /** Top P */
+      top_p?: number | null;
+      /** System Prompt */
+      system_prompt?: string | null;
+      /** Timeout Seconds */
+      timeout_seconds?: number | null;
+      /** Is Enabled */
+      is_enabled?: boolean | null;
+    };
+    /** LoginRequest */
+    LoginRequest: {
+      /** Username */
+      username: string;
+      /** Password */
+      password: string;
+    };
+    /** LoginResponse */
+    LoginResponse: {
+      /** Access Token */
+      access_token: string;
+      /**
+       * Token Type
+       * @default bearer
+       */
+      token_type?: string;
+      user: components["schemas"]["UserResponse"];
+    };
+    /** MailDomainCreate */
+    MailDomainCreate: {
+      /** Domain */
+      domain: string;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Spam Filter Enabled
+       * @default true
+       */
+      spam_filter_enabled?: boolean;
+      /**
+       * Virus Scan Enabled
+       * @default true
+       */
+      virus_scan_enabled?: boolean;
+      /**
+       * Dkim Enabled
+       * @default true
+       */
+      dkim_enabled?: boolean;
+      /**
+       * Dmarc Enabled
+       * @default true
+       */
+      dmarc_enabled?: boolean;
+      /**
+       * Spf Enabled
+       * @default true
+       */
+      spf_enabled?: boolean;
+      /**
+       * Llm Enabled
+       * @default false
+       */
+      llm_enabled?: boolean;
+      /**
+       * Groupware Enabled
+       * @default false
+       */
+      groupware_enabled?: boolean;
+      /** Llm Config */
+      llm_config?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** MailDomainResponse */
+    MailDomainResponse: {
+      /** Domain */
+      domain: string;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Spam Filter Enabled
+       * @default true
+       */
+      spam_filter_enabled?: boolean;
+      /**
+       * Virus Scan Enabled
+       * @default true
+       */
+      virus_scan_enabled?: boolean;
+      /**
+       * Dkim Enabled
+       * @default true
+       */
+      dkim_enabled?: boolean;
+      /**
+       * Dmarc Enabled
+       * @default true
+       */
+      dmarc_enabled?: boolean;
+      /**
+       * Spf Enabled
+       * @default true
+       */
+      spf_enabled?: boolean;
+      /**
+       * Llm Enabled
+       * @default false
+       */
+      llm_enabled?: boolean;
+      /**
+       * Groupware Enabled
+       * @default false
+       */
+      groupware_enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      /** Llm Config */
+      llm_config: {
+        [key: string]: unknown;
+      };
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** MailDomainUpdate */
+    MailDomainUpdate: {
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Spam Filter Enabled */
+      spam_filter_enabled?: boolean | null;
+      /** Virus Scan Enabled */
+      virus_scan_enabled?: boolean | null;
+      /** Dkim Enabled */
+      dkim_enabled?: boolean | null;
+      /** Dmarc Enabled */
+      dmarc_enabled?: boolean | null;
+      /** Spf Enabled */
+      spf_enabled?: boolean | null;
+      /** Llm Enabled */
+      llm_enabled?: boolean | null;
+      /** Groupware Enabled */
+      groupware_enabled?: boolean | null;
+      /** Llm Config */
+      llm_config?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /** MailMessageActionRequest */
+    MailMessageActionRequest: {
+      /** Action */
+      action: string;
+      /** Reason */
+      reason?: string | null;
+    };
+    /** MailMessageCreate */
+    MailMessageCreate: {
+      /** Sender */
+      sender: string;
+      /** Recipients */
+      recipients?: string[];
+      /** Subject */
+      subject?: string | null;
+      /** Size Bytes */
+      size_bytes?: number | null;
+      /** Body Preview */
+      body_preview?: string | null;
+      /** Message Id */
+      message_id: string;
+      /** Domain Id */
+      domain_id: number;
+    };
+    /** MailMessageResponse */
+    MailMessageResponse: {
+      /** Sender */
+      sender: string;
+      /** Recipients */
+      recipients?: string[];
+      /** Subject */
+      subject?: string | null;
+      /** Size Bytes */
+      size_bytes?: number | null;
+      /** Body Preview */
+      body_preview?: string | null;
+      /** Id */
+      id: number;
+      /** Domain Id */
+      domain_id: number;
+      /** Message Id */
+      message_id: string;
+      /** Spam Score */
+      spam_score?: number | null;
+      /** Virus Status */
+      virus_status?: string | null;
+      /** Llm Category */
+      llm_category?: string | null;
+      /** Llm Confidence */
+      llm_confidence?: number | null;
+      /** Llm Reason */
+      llm_reason?: string | null;
+      /** Llm Provider */
+      llm_provider?: string | null;
+      /** Llm Model */
+      llm_model?: string | null;
+      /** Classified At */
+      classified_at?: string | null;
+      /**
+       * Action Taken
+       * @default pending
+       */
+      action_taken?: string;
+      /** Action Reason */
+      action_reason?: string | null;
+      /** Action Taken At */
+      action_taken_at?: string | null;
+      /** Action Taken By */
+      action_taken_by?: number | null;
+      /**
+       * Status
+       * @default pending
+       */
+      status?: string;
+      /**
+       * Received At
+       * Format: date-time
+       */
+      received_at: string;
+    };
+    /** MailUserCreate */
+    MailUserCreate: {
+      /** Username */
+      username: string;
+      /** Full Name */
+      full_name?: string | null;
+      /**
+       * Quota Bytes
+       * @default 1073741824
+       */
+      quota_bytes?: number;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Password */
+      password?: string | null;
+      /** Forward To */
+      forward_to?: string[];
+    };
+    /** MailUserResponse */
+    MailUserResponse: {
+      /** Username */
+      username: string;
+      /** Full Name */
+      full_name?: string | null;
+      /**
+       * Quota Bytes
+       * @default 1073741824
+       */
+      quota_bytes?: number;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Domain Id */
+      domain_id: number;
+      /** Quota Used */
+      quota_used: number;
+      /** Forward To */
+      forward_to: string[];
+      /** Vacation Enabled */
+      vacation_enabled: boolean;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** MailUserUpdate */
+    MailUserUpdate: {
+      /** Full Name */
+      full_name?: string | null;
+      /** Password */
+      password?: string | null;
+      /** Quota Bytes */
+      quota_bytes?: number | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Forward To */
+      forward_to?: string[] | null;
+      /** Vacation Enabled */
+      vacation_enabled?: boolean | null;
+      /** Vacation Message */
+      vacation_message?: string | null;
+    };
+    /** MetricSnapshotResponse */
+    MetricSnapshotResponse: {
+      /** Cpu Percent */
+      cpu_percent?: number | null;
+      /** Memory Percent */
+      memory_percent?: number | null;
+      /** Memory Used Bytes */
+      memory_used_bytes?: number | null;
+      /** Memory Total Bytes */
+      memory_total_bytes?: number | null;
+      /** Disk Percent */
+      disk_percent?: number | null;
+      /** Disk Used Bytes */
+      disk_used_bytes?: number | null;
+      /** Disk Total Bytes */
+      disk_total_bytes?: number | null;
+      /** Interface Stats */
+      interface_stats?: {
+          [key: string]: unknown;
+        }[] | null;
+      /** Mail Queue Size */
+      mail_queue_size?: number | null;
+      /** Mail Inbound Count */
+      mail_inbound_count?: number | null;
+      /** Mail Outbound Count */
+      mail_outbound_count?: number | null;
+      /** Mail Spam Count */
+      mail_spam_count?: number | null;
+      /** Mail Virus Count */
+      mail_virus_count?: number | null;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+    };
+    /** MetricsQuery */
+    MetricsQuery: {
+      /** Instance Ids */
+      instance_ids?: number[] | null;
+      /** Start Time */
+      start_time?: string | null;
+      /** End Time */
+      end_time?: string | null;
+      /**
+       * Granularity
+       * @default 5m
+       */
+      granularity?: string;
+    };
+    /** MetricsSummary */
+    MetricsSummary: {
+      /** Instance Id */
+      instance_id: number;
+      /** Cpu Avg */
+      cpu_avg: number;
+      /** Cpu Max */
+      cpu_max: number;
+      /** Memory Avg */
+      memory_avg: number;
+      /** Memory Max */
+      memory_max: number;
+      /** Disk Avg */
+      disk_avg: number;
+      /** Disk Max */
+      disk_max: number;
+      /** Network In Total */
+      network_in_total: number;
+      /** Network Out Total */
+      network_out_total: number;
+      /** Mail Total Inbound */
+      mail_total_inbound: number;
+      /** Mail Total Outbound */
+      mail_total_outbound: number;
+      /**
+       * Period Start
+       * Format: date-time
+       */
+      period_start: string;
+      /**
+       * Period End
+       * Format: date-time
+       */
+      period_end: string;
+    };
+    /** MultiFirewallRequest */
+    MultiFirewallRequest: {
+      /** Firewalls */
+      firewalls: {
+          [key: string]: unknown;
+        }[];
+      /** Topology */
+      topology: {
+        [key: string]: string[];
+      };
+      /** Source Firewall */
+      source_firewall: string;
+      /** Dest Firewall */
+      dest_firewall: string;
+      packet: components["schemas"]["PacketSpec"];
+    };
+    /** MultiFirewallTestRequest */
+    MultiFirewallTestRequest: {
+      /** Firewalls */
+      firewalls: {
+          [key: string]: unknown;
+        }[];
+      /** Topology */
+      topology: {
+        [key: string]: string[];
+      };
+      /** Tests */
+      tests: {
+          [key: string]: unknown;
+        }[];
+    };
+    /** NATRuleCreate */
+    NATRuleCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Type
+       * @default snat
+       */
+      type?: string;
+      /** Interface */
+      interface?: string | null;
+      /** Source Network */
+      source_network?: string | null;
+      /** Dest Network */
+      dest_network?: string | null;
+      /** To Source */
+      to_source?: string | null;
+      /** To Destination */
+      to_destination?: string | null;
+      /** Service Protocol */
+      service_protocol?: string | null;
+      /** Service Ports */
+      service_ports?: string | null;
+    };
+    /** NATRuleResponse */
+    NATRuleResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Type
+       * @default snat
+       */
+      type?: string;
+      /** Interface */
+      interface?: string | null;
+      /** Source Network */
+      source_network?: string | null;
+      /** Dest Network */
+      dest_network?: string | null;
+      /** To Source */
+      to_source?: string | null;
+      /** To Destination */
+      to_destination?: string | null;
+      /** Service Protocol */
+      service_protocol?: string | null;
+      /** Service Ports */
+      service_ports?: string | null;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      /** Order Index */
+      order_index: number;
+      /** Created By */
+      created_by: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** NetworkInterfaceResponse */
+    NetworkInterfaceResponse: {
+      /** Name */
+      name: string;
+      /**
+       * Type
+       * @default other
+       */
+      type?: string;
+      /**
+       * Config Type
+       * @default dhcp
+       */
+      config_type?: string;
+      /** Ip Address */
+      ip_address?: string | null;
+      /** Netmask */
+      netmask?: string | null;
+      /** Gateway */
+      gateway?: string | null;
+      /** Bandwidth In */
+      bandwidth_in?: number | null;
+      /** Bandwidth Out */
+      bandwidth_out?: number | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** OpenVPNConfig */
+    OpenVPNConfig: {
+      /**
+       * Mode
+       * @default tun
+       */
+      mode?: string;
+      /**
+       * Topology
+       * @default subnet
+       */
+      topology?: string;
+      /**
+       * Cipher
+       * @default AES-256-GCM
+       */
+      cipher?: string;
+      /**
+       * Auth Digest
+       * @default SHA256
+       */
+      auth_digest?: string;
+      /**
+       * Tls Version Min
+       * @default 1.2
+       */
+      tls_version_min?: string;
+      /**
+       * Tls Cipher
+       * @default TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384
+       */
+      tls_cipher?: string;
+      /**
+       * Protocol
+       * @default udp
+       */
+      protocol?: string;
+      /**
+       * Port
+       * @default 1194
+       */
+      port?: number;
+      /** Compression */
+      compression?: string | null;
+      /**
+       * Fast Io
+       * @default true
+       */
+      fast_io?: boolean;
+      /**
+       * Duplicate Cn
+       * @default false
+       */
+      duplicate_cn?: boolean;
+      /**
+       * Client To Client
+       * @default false
+       */
+      client_to_client?: boolean;
+      /**
+       * Max Clients
+       * @default 1024
+       */
+      max_clients?: number;
+      /**
+       * Keepalive Interval
+       * @default 10
+       */
+      keepalive_interval?: number;
+      /**
+       * Keepalive Timeout
+       * @default 120
+       */
+      keepalive_timeout?: number;
+    };
+    /** PPTPConfig */
+    PPTPConfig: {
+      /**
+       * Ppp Interface
+       * @default ppp0
+       */
+      ppp_interface?: string;
+      /**
+       * Require Mppe
+       * @default true
+       */
+      require_mppe?: boolean;
+      /** Ms Dns */
+      ms_dns?: string[];
+    };
+    /** PacketSpec */
+    PacketSpec: {
+      /** Src Ip */
+      src_ip: string;
+      /** Dst Ip */
+      dst_ip: string;
+      protocol: components["schemas"]["ProtocolEnum"];
+      /** Src Port */
+      src_port?: number | null;
+      /** Dst Port */
+      dst_port?: number | null;
+      /**
+       * Interface In
+       * @default eth0
+       */
+      interface_in?: string;
+      /**
+       * Interface Out
+       * @default eth1
+       */
+      interface_out?: string;
+      /**
+       * Flags
+       * @default []
+       */
+      flags?: string[];
+      /**
+       * Connection State
+       * @default NEW
+       */
+      connection_state?: string;
+    };
+    /**
+     * ProtocolEnum
+     * @enum {string}
+     */
+    ProtocolEnum: "tcp" | "udp" | "icmp" | "any";
+    /**
+     * QoSAlgorithm
+     * @enum {string}
+     */
+    QoSAlgorithm: "cake" | "fq_codel" | "htb";
+    /** QoSClassCreate */
+    QoSClassCreate: {
+      /** Name */
+      name: string;
+      /**
+       * Priority
+       * @default 2
+       */
+      priority?: number;
+      /**
+       * Min Rate Kbps
+       * @description Guaranteed bandwidth in kbps
+       */
+      min_rate_kbps: number;
+      /**
+       * Max Rate Kbps
+       * @description Burst ceiling in kbps
+       */
+      max_rate_kbps: number;
+      /**
+       * Match Ports
+       * @description Destination port numbers to match
+       */
+      match_ports?: number[];
+      /**
+       * Match Dscp
+       * @description DSCP code point (e.g. EF, AF41)
+       */
+      match_dscp?: string | null;
+      /**
+       * Match Protocol
+       * @description tcp | udp | any
+       * @default any
+       */
+      match_protocol?: string;
+    };
+    /** QoSClassResponse */
+    QoSClassResponse: {
+      /** Name */
+      name: string;
+      /**
+       * Priority
+       * @default 2
+       */
+      priority?: number;
+      /**
+       * Min Rate Kbps
+       * @description Guaranteed bandwidth in kbps
+       */
+      min_rate_kbps: number;
+      /**
+       * Max Rate Kbps
+       * @description Burst ceiling in kbps
+       */
+      max_rate_kbps: number;
+      /**
+       * Match Ports
+       * @description Destination port numbers to match
+       */
+      match_ports?: number[];
+      /**
+       * Match Dscp
+       * @description DSCP code point (e.g. EF, AF41)
+       */
+      match_dscp?: string | null;
+      /**
+       * Match Protocol
+       * @description tcp | udp | any
+       * @default any
+       */
+      match_protocol?: string;
+      /** Id */
+      id: number;
+      /** Policy Id */
+      policy_id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** QoSClassUpdate */
+    QoSClassUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Priority */
+      priority?: number | null;
+      /** Min Rate Kbps */
+      min_rate_kbps?: number | null;
+      /** Max Rate Kbps */
+      max_rate_kbps?: number | null;
+      /** Match Ports */
+      match_ports?: number[] | null;
+      /** Match Dscp */
+      match_dscp?: string | null;
+      /** Match Protocol */
+      match_protocol?: string | null;
+    };
+    /** QoSPolicyCreate */
+    QoSPolicyCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Interface Name
+       * @description Linux interface name, e.g. eth0
+       */
+      interface_name: string;
+      /**
+       * Interface Id
+       * @description FK to network_interfaces (optional)
+       */
+      interface_id?: number | null;
+      /** @default cake */
+      algorithm?: components["schemas"]["QoSAlgorithm"];
+      /**
+       * Download Kbps
+       * @description Ingress rate ceiling in kbps
+       */
+      download_kbps: number;
+      /**
+       * Upload Kbps
+       * @description Egress rate ceiling in kbps
+       */
+      upload_kbps: number;
+      /**
+       * Classes
+       * @description Traffic classes (HTB only). Leave empty for auto-defaults.
+       */
+      classes?: components["schemas"]["QoSClassCreate"][];
+    };
+    /** QoSPolicyResponse */
+    QoSPolicyResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /**
+       * Interface Name
+       * @description Linux interface name, e.g. eth0
+       */
+      interface_name: string;
+      /**
+       * Interface Id
+       * @description FK to network_interfaces (optional)
+       */
+      interface_id?: number | null;
+      /** @default cake */
+      algorithm?: components["schemas"]["QoSAlgorithm"];
+      /**
+       * Download Kbps
+       * @description Ingress rate ceiling in kbps
+       */
+      download_kbps: number;
+      /**
+       * Upload Kbps
+       * @description Egress rate ceiling in kbps
+       */
+      upload_kbps: number;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      /** Applied */
+      applied: boolean;
+      /** Last Applied At */
+      last_applied_at: string | null;
+      /** Apply Error */
+      apply_error: string | null;
+      /** Classes */
+      classes?: components["schemas"]["QoSClassResponse"][];
+      /** Created By */
+      created_by: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** QoSPolicyUpdate */
+    QoSPolicyUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      algorithm?: components["schemas"]["QoSAlgorithm"] | null;
+      /** Download Kbps */
+      download_kbps?: number | null;
+      /** Upload Kbps */
+      upload_kbps?: number | null;
+    };
+    /**
+     * QoSQueueStats
+     * @description Per-qdisc/queue statistics parsed from tc -s output
+     */
+    QoSQueueStats: {
+      /** Qdisc */
+      qdisc: string;
+      /**
+       * Sent Bytes
+       * @default 0
+       */
+      sent_bytes?: number;
+      /**
+       * Sent Pkts
+       * @default 0
+       */
+      sent_pkts?: number;
+      /**
+       * Dropped Pkts
+       * @default 0
+       */
+      dropped_pkts?: number;
+      /**
+       * Overlimits
+       * @default 0
+       */
+      overlimits?: number;
+      /**
+       * Backlog Bytes
+       * @default 0
+       */
+      backlog_bytes?: number;
+      /**
+       * Backlog Pkts
+       * @default 0
+       */
+      backlog_pkts?: number;
+    };
+    /** QoSStatsResponse */
+    QoSStatsResponse: {
+      /** Policy Id */
+      policy_id: number;
+      /** Interface */
+      interface: string;
+      /** Algorithm */
+      algorithm: string;
+      /** Download Kbps */
+      download_kbps: number;
+      /** Upload Kbps */
+      upload_kbps: number;
+      /** Queues */
+      queues?: components["schemas"]["QoSQueueStats"][];
+      /** Raw */
+      raw?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Collected At
+       * Format: date-time
+       */
+      collected_at: string;
+    };
+    /** RoutingRuleCreate */
+    RoutingRuleCreate: {
+      /** Name */
+      name: string;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Source Network */
+      source_network?: string | null;
+      /** Dest Network */
+      dest_network?: string | null;
+      /** Service */
+      service?: string | null;
+      /** Inbound Interface */
+      inbound_interface?: string | null;
+      /** Gateway */
+      gateway?: string | null;
+      /** Outbound Interface */
+      outbound_interface?: string | null;
+      /** Mark */
+      mark?: number | null;
+      /** Order Index */
+      order_index?: number | null;
+    };
+    /** RoutingRuleResponse */
+    RoutingRuleResponse: {
+      /** Name */
+      name: string;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Source Network */
+      source_network?: string | null;
+      /** Dest Network */
+      dest_network?: string | null;
+      /** Service */
+      service?: string | null;
+      /** Inbound Interface */
+      inbound_interface?: string | null;
+      /** Gateway */
+      gateway?: string | null;
+      /** Outbound Interface */
+      outbound_interface?: string | null;
+      /** Mark */
+      mark?: number | null;
+      /** Order Index */
+      order_index: number;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** RoutingRuleUpdate */
+    RoutingRuleUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Source Network */
+      source_network?: string | null;
+      /** Dest Network */
+      dest_network?: string | null;
+      /** Service */
+      service?: string | null;
+      /** Inbound Interface */
+      inbound_interface?: string | null;
+      /** Gateway */
+      gateway?: string | null;
+      /** Outbound Interface */
+      outbound_interface?: string | null;
+      /** Mark */
+      mark?: number | null;
+      /** Order Index */
+      order_index?: number | null;
+    };
+    /** RuleSpec */
+    RuleSpec: {
+      /** Id */
+      id: number;
+      /** Name */
+      name: string;
+      /** Chain */
+      chain: string;
+      action: components["schemas"]["ActionEnum"];
+      /** Src Ip */
+      src_ip?: string | null;
+      /** Dst Ip */
+      dst_ip?: string | null;
+      protocol?: components["schemas"]["ProtocolEnum"] | null;
+      /** Src Port */
+      src_port?: number | null;
+      /** Dst Port */
+      dst_port?: number | null;
+      /** Interface In */
+      interface_in?: string | null;
+      /** Interface Out */
+      interface_out?: string | null;
+      /** State */
+      state?: string | null;
+      /**
+       * Log
+       * @default false
+       */
+      log?: boolean;
+      /**
+       * Order
+       * @default 0
+       */
+      order?: number;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+    };
+    /** RuleSuggestionRequest */
+    RuleSuggestionRequest: {
+      /** Description */
+      description: string;
+      /** Instance Id */
+      instance_id?: number | null;
+    };
+    /** RuleSuggestionResponse */
+    RuleSuggestionResponse: {
+      /** Rule */
+      rule: {
+        [key: string]: unknown;
+      };
+      /** Explanation */
+      explanation: string;
+      /** Security Notes */
+      security_notes: string;
+      /** Suggested Tests */
+      suggested_tests: {
+          [key: string]: unknown;
+        }[];
+    };
+    /** SecurityAuditRequest */
+    SecurityAuditRequest: {
+      /** Rules */
+      rules: {
+          [key: string]: unknown;
+        }[];
+      /** Standard */
+      standard?: string | null;
+    };
+    /** SecurityAuditResponse */
+    SecurityAuditResponse: {
+      /** Findings */
+      findings: {
+          [key: string]: unknown;
+        }[];
+      /** Risk Score */
+      risk_score: number;
+      /** Recommendations */
+      recommendations: string[];
+      /** Compliance Status */
+      compliance_status: {
+        [key: string]: string;
+      };
+    };
+    /** SimulationRequest */
+    SimulationRequest: {
+      /** Instance Id */
+      instance_id: number;
+      /** Rules */
+      rules: components["schemas"]["RuleSpec"][];
+      /** Interfaces */
+      interfaces: {
+        [key: string]: string;
+      };
+      packet: components["schemas"]["PacketSpec"];
+    };
+    /** SimulationResponse */
+    SimulationResponse: {
+      /** Packet */
+      packet: {
+        [key: string]: unknown;
+      };
+      /** Matched Rule */
+      matched_rule: {
+        [key: string]: unknown;
+      } | null;
+      /** Final Action */
+      final_action: string;
+      /** Chain Traversed */
+      chain_traversed: string[];
+      /** Rules Evaluated */
+      rules_evaluated: number;
+      /** Processing Time Ms */
+      processing_time_ms: number;
+      /** Logs */
+      logs: string[];
+      /** Nat Translation */
+      nat_translation: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /**
+     * TSIGAlgorithm
+     * @enum {string}
+     */
+    TSIGAlgorithm: "hmac-sha256" | "hmac-sha512";
+    /** TestCaseSpec */
+    TestCaseSpec: {
+      /** Id */
+      id?: string | null;
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description?: string | null;
+      packet: components["schemas"]["PacketSpec"];
+      expected_action: components["schemas"]["ActionEnum"];
+      /** Expected Chain */
+      expected_chain?: string | null;
+      /**
+       * Critical
+       * @default false
+       */
+      critical?: boolean;
+      /**
+       * Tags
+       * @default []
+       */
+      tags?: string[];
+    };
+    /** TestGenerationRequest */
+    TestGenerationRequest: {
+      /** Description */
+      description: string;
+      /** Rules */
+      rules?: {
+          [key: string]: unknown;
+        }[] | null;
+      /** Instance Id */
+      instance_id?: number | null;
+    };
+    /** TestGenerationResponse */
+    TestGenerationResponse: {
+      /** Test Cases */
+      test_cases: {
+          [key: string]: unknown;
+        }[];
+      /** Explanation */
+      explanation: string;
+      /** Coverage Assessment */
+      coverage_assessment: string;
+    };
+    /** TestResultResponse */
+    TestResultResponse: {
+      /** Test Case */
+      test_case: {
+        [key: string]: unknown;
+      };
+      /** Passed */
+      passed: boolean;
+      /** Actual Action */
+      actual_action: string;
+      /** Actual Rule */
+      actual_rule: {
+        [key: string]: unknown;
+      } | null;
+      /** Error Message */
+      error_message: string | null;
+      /** Execution Time Ms */
+      execution_time_ms: number;
+    };
+    /** TestSuiteRequest */
+    TestSuiteRequest: {
+      /** Instance Id */
+      instance_id: number;
+      /** Rules */
+      rules: components["schemas"]["RuleSpec"][];
+      /** Interfaces */
+      interfaces: {
+        [key: string]: string;
+      };
+      /** Tests */
+      tests: components["schemas"]["TestCaseSpec"][];
+    };
+    /** TestSuiteResponse */
+    TestSuiteResponse: {
+      /** Total */
+      total: number;
+      /** Passed */
+      passed: number;
+      /** Failed */
+      failed: number;
+      /** Pass Rate */
+      pass_rate: number;
+      /** Critical Failures */
+      critical_failures: string[];
+      /** Can Deploy */
+      can_deploy: boolean;
+      /** Results */
+      results: components["schemas"]["TestResultResponse"][];
+    };
+    /** UserCreate */
+    UserCreate: {
+      /** Username */
+      username: string;
+      /** Email */
+      email: string;
+      /** @default local */
+      auth_backend?: components["schemas"]["AuthBackend"];
+      /** @default user */
+      role?: components["schemas"]["UserRole"];
+      /** Password */
+      password?: string | null;
+      /** Instances */
+      instances?: number[];
+    };
+    /** UserPasswordChange */
+    UserPasswordChange: {
+      /** Current Password */
+      current_password: string;
+      /** New Password */
+      new_password: string;
+    };
+    /** UserResponse */
+    UserResponse: {
+      /** Username */
+      username: string;
+      /** Email */
+      email: string;
+      /** @default local */
+      auth_backend?: components["schemas"]["AuthBackend"];
+      /** @default user */
+      role?: components["schemas"]["UserRole"];
+      /** Id */
+      id: number;
+      /** Is Active */
+      is_active: boolean;
+      /** Instances */
+      instances: number[];
+      /** Preferences */
+      preferences: {
+        [key: string]: unknown;
+      };
+      /** Last Login */
+      last_login: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * UserRole
+     * @enum {string}
+     */
+    UserRole: "superadmin" | "admin" | "user" | "readonly";
+    /** UserUpdate */
+    UserUpdate: {
+      /** Email */
+      email?: string | null;
+      role?: components["schemas"]["UserRole"] | null;
+      /** Is Active */
+      is_active?: boolean | null;
+      /** Instances */
+      instances?: number[] | null;
+      /** Preferences */
+      preferences?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /**
+     * VPNAuthType
+     * @enum {string}
+     */
+    VPNAuthType: "cert" | "password" | "sso" | "psk" | "public_key";
+    /** VPNBulkGenerateRequest */
+    VPNBulkGenerateRequest: {
+      /** Server Id */
+      server_id: number;
+      /** Count */
+      count: number;
+      /**
+       * Name Prefix
+       * @default client
+       */
+      name_prefix?: string;
+      /** @default public_key */
+      auth_type?: components["schemas"]["VPNAuthType"];
+      /**
+       * Generate Qr
+       * @default true
+       */
+      generate_qr?: boolean;
+    };
+    /** VPNBulkGenerateResponse */
+    VPNBulkGenerateResponse: {
+      /** Generated */
+      generated: number;
+      /** Clients */
+      clients: components["schemas"]["VPNClientResponse"][];
+      /** Configs Zip */
+      configs_zip: string;
+    };
+    /** VPNClientCreate */
+    VPNClientCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** @default user */
+      client_type?: components["schemas"]["VPNClientType"];
+      /** @default cert */
+      auth_type?: components["schemas"]["VPNAuthType"];
+      /** Assigned Ip */
+      assigned_ip?: string | null;
+      /** Allowed Ips */
+      allowed_ips?: string[];
+      /** Push Routes Override */
+      push_routes_override?: string[];
+      /** User Id */
+      user_id?: number | null;
+      /**
+       * Generate Qr
+       * @default true
+       */
+      generate_qr?: boolean;
+    };
+    /** VPNClientResponse */
+    VPNClientResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** @default user */
+      client_type?: components["schemas"]["VPNClientType"];
+      /** @default cert */
+      auth_type?: components["schemas"]["VPNAuthType"];
+      /** Assigned Ip */
+      assigned_ip?: string | null;
+      /** Allowed Ips */
+      allowed_ips?: string[];
+      /** Push Routes Override */
+      push_routes_override?: string[];
+      /** Id */
+      id: number;
+      /** Server Id */
+      server_id: number;
+      /** User Id */
+      user_id: number | null;
+      /** Last Connected */
+      last_connected: string | null;
+      /** Last Ip */
+      last_ip: string | null;
+      /** Connection Count */
+      connection_count: number;
+      /** Bytes Received */
+      bytes_received: number;
+      /** Bytes Sent */
+      bytes_sent: number;
+      /** Public Key */
+      public_key: string | null;
+      /** Config Qr */
+      config_qr: string | null;
+      /** Config File */
+      config_file: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /**
+     * VPNClientType
+     * @enum {string}
+     */
+    VPNClientType: "user" | "site" | "service";
+    /** VPNClientUpdate */
+    VPNClientUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Assigned Ip */
+      assigned_ip?: string | null;
+      /** Allowed Ips */
+      allowed_ips?: string[] | null;
+      /** Push Routes Override */
+      push_routes_override?: string[] | null;
+    };
+    /** VPNConnectionResponse */
+    VPNConnectionResponse: {
+      /** Id */
+      id: number;
+      /** Server Id */
+      server_id: number;
+      /** Client Id */
+      client_id: number;
+      /** Client Name */
+      client_name: string;
+      protocol: components["schemas"]["VPNProtocol"];
+      /** Client Ip */
+      client_ip: string;
+      /** Virtual Ip */
+      virtual_ip: string;
+      /**
+       * Connected At
+       * Format: date-time
+       */
+      connected_at: string;
+      /** Bytes Received */
+      bytes_received: number;
+      /** Bytes Sent */
+      bytes_sent: number;
+      /** Status */
+      status: string;
+    };
+    /**
+     * VPNProtocol
+     * @enum {string}
+     */
+    VPNProtocol: "wireguard" | "ipsec" | "openvpn" | "pptp" | "l2tp";
+    /** VPNProtocolRecommendation */
+    VPNProtocolRecommendation: {
+      protocol: components["schemas"]["VPNProtocol"];
+      /** Priority */
+      priority: number;
+      /** Security Score */
+      security_score: number;
+      /** Performance Score */
+      performance_score: number;
+      /** Compatibility Score */
+      compatibility_score: number;
+      /** Description */
+      description: string;
+      /** Use Cases */
+      use_cases: string[];
+    };
+    /** VPNRouteCreate */
+    VPNRouteCreate: {
+      /**
+       * Destination
+       * Format: ipvanynetwork
+       */
+      destination: string;
+      /** Gateway */
+      gateway?: string | null;
+      /**
+       * Metric
+       * @default 0
+       */
+      metric?: number;
+      /**
+       * Apply To All
+       * @default true
+       */
+      apply_to_all?: boolean;
+      /** Specific Clients */
+      specific_clients?: number[];
+      /** Description */
+      description?: string | null;
+    };
+    /** VPNRouteResponse */
+    VPNRouteResponse: {
+      /**
+       * Destination
+       * Format: ipvanynetwork
+       */
+      destination: string;
+      /** Gateway */
+      gateway?: string | null;
+      /**
+       * Metric
+       * @default 0
+       */
+      metric?: number;
+      /**
+       * Apply To All
+       * @default true
+       */
+      apply_to_all?: boolean;
+      /** Specific Clients */
+      specific_clients?: number[];
+      /** Description */
+      description?: string | null;
+      /** Id */
+      id: number;
+      /** Server Id */
+      server_id: number;
+      /** Order Index */
+      order_index: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** VPNServerCreate */
+    VPNServerCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      protocol: components["schemas"]["VPNProtocol"];
+      /**
+       * Listen Address
+       * @default 0.0.0.0
+       */
+      listen_address?: string;
+      /** Listen Port */
+      listen_port?: number | null;
+      /**
+       * Network Cidr
+       * @default 10.200.0.0/24
+       */
+      network_cidr?: string;
+      /** Ipv6 Tunnel Network */
+      ipv6_tunnel_network?: string | null;
+      /** Dns Servers */
+      dns_servers?: string[];
+      /** Push Routes */
+      push_routes?: string[];
+      /**
+       * Internet Redirect
+       * @default false
+       */
+      internet_redirect?: boolean;
+      wireguard_config?: components["schemas"]["WireGuardConfig"] | null;
+      ipsec_config?: components["schemas"]["IPSecConfig"] | null;
+      openvpn_config?: components["schemas"]["OpenVPNConfig"] | null;
+      l2tp_config?: components["schemas"]["L2TPConfig"] | null;
+      pptp_config?: components["schemas"]["PPTPConfig"] | null;
+    };
+    /** VPNServerResponse */
+    VPNServerResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      protocol: components["schemas"]["VPNProtocol"];
+      /**
+       * Listen Address
+       * @default 0.0.0.0
+       */
+      listen_address?: string;
+      /** Listen Port */
+      listen_port?: number | null;
+      /**
+       * Network Cidr
+       * @default 10.200.0.0/24
+       */
+      network_cidr?: string;
+      /** Ipv6 Tunnel Network */
+      ipv6_tunnel_network?: string | null;
+      /** Dns Servers */
+      dns_servers?: string[];
+      /** Push Routes */
+      push_routes?: string[];
+      /**
+       * Internet Redirect
+       * @default false
+       */
+      internet_redirect?: boolean;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      status: components["schemas"]["VPNStatus"];
+      /** Config */
+      config: {
+        [key: string]: unknown;
+      };
+      /** Connected Clients */
+      connected_clients: number;
+      /** Bytes Received */
+      bytes_received: number;
+      /** Bytes Sent */
+      bytes_sent: number;
+      /** Created By */
+      created_by: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** VPNServerStats */
+    VPNServerStats: {
+      /** Server Id */
+      server_id: number;
+      status: components["schemas"]["VPNStatus"];
+      /** Uptime Seconds */
+      uptime_seconds: number;
+      /** Connected Clients */
+      connected_clients: number;
+      /** Total Bytes Received */
+      total_bytes_received: number;
+      /** Total Bytes Sent */
+      total_bytes_sent: number;
+      /** Client List */
+      client_list: {
+          [key: string]: unknown;
+        }[];
+    };
+    /** VPNServerUpdate */
+    VPNServerUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Listen Address */
+      listen_address?: string | null;
+      /** Listen Port */
+      listen_port?: number | null;
+      /** Network Cidr */
+      network_cidr?: string | null;
+      /** Dns Servers */
+      dns_servers?: string[] | null;
+      /** Push Routes */
+      push_routes?: string[] | null;
+      /** Internet Redirect */
+      internet_redirect?: boolean | null;
+      /** Config */
+      config?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /**
+     * VPNStatus
+     * @enum {string}
+     */
+    VPNStatus: "running" | "stopped" | "error" | "restarting";
+    /** ValidationError */
+    ValidationError: {
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+    };
+    /** WireGuardConfig */
+    WireGuardConfig: {
+      /** Private Key */
+      private_key?: string | null;
+      /** Public Key */
+      public_key?: string | null;
+      /**
+       * Listen Port
+       * @default 51820
+       */
+      listen_port?: number;
+      /**
+       * Network Cidr
+       * @default 10.200.0.0/24
+       */
+      network_cidr?: string;
+      /** Ipv6 Tunnel Network */
+      ipv6_tunnel_network?: string | null;
+      /**
+       * Ipv6 Nat Enabled
+       * @default false
+       */
+      ipv6_nat_enabled?: boolean;
+      /** Post Up */
+      post_up?: string | null;
+      /** Post Down */
+      post_down?: string | null;
+      /**
+       * Mtu
+       * @default 1420
+       */
+      mtu?: number;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
+
 export type $defs = Record<string, never>;
+
+export type external = Record<string, never>;
+
 export interface operations {
-    prometheus_metrics_metrics_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    login_api_v1_auth_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LoginResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_current_user_info_api_v1_auth_me_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponse"];
-                };
-            };
-        };
-    };
-    get_ldap_config_api_v1_auth_ldap_config_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LDAPConfig"] | null;
-                };
-            };
-        };
-    };
-    set_ldap_config_api_v1_auth_ldap_config_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LDAPConfig"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LDAPConfig"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_ldap_config_api_v1_auth_ldap_config_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    test_ldap_connection_api_v1_auth_test_ldap_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LDAPConfig"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_instances_api_v1_instances_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceResponse"][];
-                };
-            };
-        };
-    };
-    create_instance_api_v1_instances_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InstanceCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_instance_api_v1_instances__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_instance_api_v1_instances__instance_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_instance_api_v1_instances__instance_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InstanceUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    instance_heartbeat_api_v1_instances__instance_id__heartbeat_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_users_api_v1_users_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponse"][];
-                };
-            };
-        };
-    };
-    create_user_api_v1_users_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_user_api_v1_users__target_user_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                target_user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_user_api_v1_users__target_user_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                target_user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_user_api_v1_users__target_user_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                target_user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    change_password_api_v1_users__target_user_id__change_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                target_user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserPasswordChange"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_firewall_rules_api_v1_firewall_rules__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FirewallRuleResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_firewall_rule_api_v1_firewall_rules__instance_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FirewallRuleCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FirewallRuleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_firewall_rule_api_v1_firewall_rules_detail__rule_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rule_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FirewallRuleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_firewall_rule_api_v1_firewall_rules__rule_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rule_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_firewall_rule_api_v1_firewall_rules__rule_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rule_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FirewallRuleUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FirewallRuleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    move_rule_api_v1_firewall_rules__rule_id__move_post: {
-        parameters: {
-            query: {
-                direction: string;
-            };
-            header?: never;
-            path: {
-                rule_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    apply_firewall_api_v1_firewall_apply__instance_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_network_interfaces_api_v1_firewall_interfaces__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NetworkInterfaceResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_nat_rules_api_v1_firewall_nat__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NATRuleResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_nat_rule_api_v1_firewall_nat__instance_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NATRuleCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NATRuleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_routing_rules_api_v1_firewall_routing__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingRuleResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_routing_rule_api_v1_firewall_routing__instance_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoutingRuleCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingRuleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_qos_policies_api_v1_firewall_qos__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QoSPolicyResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_qos_policy_api_v1_firewall_qos__instance_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QoSPolicyCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QoSPolicyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_qos_policy_api_v1_firewall_qos__instance_id___policy_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-                policy_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QoSPolicyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_qos_policy_api_v1_firewall_qos__instance_id___policy_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-                policy_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_qos_policy_api_v1_firewall_qos__instance_id___policy_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-                policy_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QoSPolicyUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QoSPolicyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    apply_qos_now_api_v1_firewall_qos__instance_id___policy_id__apply_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-                policy_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_qos_stats_api_v1_firewall_qos__instance_id___policy_id__stats_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-                policy_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QoSStatsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-                policy_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QoSClassCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QoSClassResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes__class_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-                policy_id: number;
-                class_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes__class_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-                policy_id: number;
-                class_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QoSClassUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QoSClassResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    block_ip_api_v1_firewall_block__instance_id__post: {
-        parameters: {
-            query: {
-                ip: string;
-                reason?: string | null;
-                duration?: string | null;
-            };
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    unblock_ip_api_v1_firewall_unblock__instance_id__post: {
-        parameters: {
-            query: {
-                ip: string;
-            };
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_firewall_stats_api_v1_firewall_stats__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_routing_rules_api_v1_routing_rules__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingRuleResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_routing_rule_api_v1_routing_rules__instance_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoutingRuleCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingRuleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_routing_rule_api_v1_routing_rules_detail__rule_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rule_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingRuleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_routing_rule_api_v1_routing_rules__rule_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rule_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_routing_rule_api_v1_routing_rules__rule_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rule_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoutingRuleUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutingRuleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    apply_routing_api_v1_routing_apply__instance_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_domains_api_v1_mail_domains__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailDomainResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_domain_api_v1_mail_domains__instance_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MailDomainCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailDomainResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_domain_api_v1_mail_domains_detail__domain_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailDomainResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_domain_api_v1_mail_domains__domain_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_domain_api_v1_mail_domains__domain_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MailDomainUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailDomainResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    regenerate_dkim_api_v1_mail_domains__domain_id__dkim_regenerate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_dns_records_api_v1_mail_domains__domain_id__dns_records_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_users_api_v1_mail_users__domain_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailUserResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_user_api_v1_mail_users__domain_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MailUserCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailUserResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_user_api_v1_mail_users_detail__user_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailUserResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_user_api_v1_mail_users__user_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_user_api_v1_mail_users__user_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MailUserUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailUserResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_mail_queue_api_v1_mail_queue__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    flush_mail_queue_api_v1_mail_queue__instance_id__flush_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_mail_stats_api_v1_mail_stats__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    test_classify_email_api_v1_mail_domains__domain_id__classify_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    classify_inbound_email_api_v1_mail_classify_inbound_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MailMessageCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_mail_messages_api_v1_mail_messages__domain_id__get: {
-        parameters: {
-            query?: {
-                category?: string | null;
-                status?: string | null;
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailMessageResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_mail_message_api_v1_mail_messages_detail__message_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                message_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailMessageResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reclassify_message_api_v1_mail_messages__message_id__reclassify_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                message_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    message_action_api_v1_mail_messages__message_id__action_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                message_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MailMessageActionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_latest_metrics_api_v1_metrics_latest__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MetricSnapshotResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    query_metrics_api_v1_metrics_query_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MetricsQuery"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MetricSnapshotResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_metrics_summary_api_v1_metrics_summary_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MetricsQuery"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MetricsSummary"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_dashboard_data_api_v1_metrics_dashboard__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_global_overview_api_v1_metrics_overview_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    list_audit_logs_api_v1_audit_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-                user_id_filter?: number | null;
-                instance_id?: number | null;
-                action?: string | null;
-                resource_type?: string | null;
-                resource_id?: string | null;
-                start_time?: string | null;
-                end_time?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditLogResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_instance_logs_api_v1_audit_instance__instance_id__get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-                action?: string | null;
-                resource_type?: string | null;
-                start_time?: string | null;
-                end_time?: string | null;
-            };
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditLogResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_resource_logs_api_v1_audit_resource__resource_type___resource_id__get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                resource_type: string;
-                resource_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditLogResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_audit_summary_api_v1_audit_summary_get: {
-        parameters: {
-            query?: {
-                days?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_protocol_recommendations_api_v1_vpn_protocols_recommendations_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNProtocolRecommendation"][];
-                };
-            };
-        };
-    };
-    list_servers_api_v1_vpn_servers__instance_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNServerResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_server_api_v1_vpn_servers__instance_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                instance_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VPNServerCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNServerResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_server_api_v1_vpn_servers_detail__server_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNServerResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_server_api_v1_vpn_servers__server_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_server_api_v1_vpn_servers__server_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VPNServerUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNServerResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    start_server_api_v1_vpn_servers__server_id__start_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    stop_server_api_v1_vpn_servers__server_id__stop_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    restart_server_api_v1_vpn_servers__server_id__restart_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_server_stats_api_v1_vpn_servers__server_id__stats_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNServerStats"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_clients_api_v1_vpn_servers__server_id__clients_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNClientResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_client_api_v1_vpn_servers__server_id__clients_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VPNClientCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNClientResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    bulk_create_clients_api_v1_vpn_servers__server_id__clients_bulk_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VPNBulkGenerateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNBulkGenerateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_client_api_v1_vpn_clients__client_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                client_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNClientResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_client_api_v1_vpn_clients__client_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                client_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_client_api_v1_vpn_clients__client_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                client_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VPNClientUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNClientResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    download_client_config_api_v1_vpn_clients__client_id__config_get: {
-        parameters: {
-            query?: {
-                format?: string;
-            };
-            header?: never;
-            path: {
-                client_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    regenerate_client_credentials_api_v1_vpn_clients__client_id__regenerate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                client_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_connections_api_v1_vpn_servers__server_id__connections_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNConnectionResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_connection_history_api_v1_vpn_servers__server_id__connections_history_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNConnectionResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    disconnect_client_api_v1_vpn_connections__connection_id__disconnect_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                connection_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_routes_api_v1_vpn_servers__server_id__routes_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNRouteResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_route_api_v1_vpn_servers__server_id__routes_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                server_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VPNRouteCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VPNRouteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_route_api_v1_vpn_routes__route_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                route_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    initialize_site_to_site_api_v1_vpn_site_to_site_initialize_post: {
-        parameters: {
-            query: {
-                local_instance_id: number;
-                remote_endpoint: string;
-                remote_public_key: string;
-                protocol?: components["schemas"]["VPNProtocol"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_site_to_site_status_api_v1_vpn_site_to_site_status_get: {
-        parameters: {
-            query: {
-                instance_id: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    simulate_single_firewall_api_v1_simulation_simulate_single_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulationRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    run_test_suite_api_v1_simulation_simulate_test_suite_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TestSuiteRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TestSuiteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    simulate_multi_firewall_api_v1_simulation_simulate_multi_firewall_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MultiFirewallRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    run_multi_firewall_tests_api_v1_simulation_simulate_multi_firewall_tests_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MultiFirewallTestRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_basic_test_suite_api_v1_simulation_test_suites_basic_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    get_security_test_suite_api_v1_simulation_test_suites_security_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    get_application_test_suite_api_v1_simulation_test_suites_application_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    get_all_test_suites_api_v1_simulation_test_suites_all_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    get_visual_simulation_data_api_v1_simulation_simulate_visual_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulationRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    chat_with_assistant_api_v1_assistant_chat_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChatRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChatResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    suggest_firewall_rule_api_v1_assistant_suggest_firewall_rule_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RuleSuggestionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RuleSuggestionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_tests_api_v1_assistant_generate_tests_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TestGenerationRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TestGenerationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    explain_configuration_api_v1_assistant_explain_configuration_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfigExplanationRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    perform_security_audit_api_v1_assistant_security_audit_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SecurityAuditRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SecurityAuditResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    troubleshoot_issue_api_v1_assistant_troubleshoot_post: {
-        parameters: {
-            query: {
-                description: string;
-                instance_id?: number | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                } | null;
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_conversations_api_v1_assistant_conversations_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    get_conversation_api_v1_assistant_conversations__conversation_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                conversation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_conversation_api_v1_assistant_conversations__conversation_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                conversation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_assistant_capabilities_api_v1_assistant_capabilities_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    get_llm_config_api_v1_assistant_config_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LLMConfig"];
-                };
-            };
-        };
-    };
-    update_llm_config_api_v1_assistant_config_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LLMConfig"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LLMConfig"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_groupware_status_api_v1_groupware_status__domain_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    enable_groupware_api_v1_groupware_enable__domain_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailDomainResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    disable_groupware_api_v1_groupware_disable__domain_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MailDomainResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_groupware_stats_api_v1_groupware_stats__domain_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                domain_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    health_check_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    api_info_api_v1__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
+
+  /** Prometheus Metrics */
+  prometheus_metrics_metrics_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  /** Login */
+  login_api_v1_auth_login_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LoginResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Get Current User Info */
+  get_current_user_info_api_v1_auth_me_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["UserResponse"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Ldap Config
+   * @description Get current LDAP configuration (admin only)
+   */
+  get_ldap_config_api_v1_auth_ldap_config_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LDAPConfig"] | null;
+        };
+      };
+    };
+  };
+  /**
+   * Set Ldap Config
+   * @description Save LDAP configuration (admin only)
+   */
+  set_ldap_config_api_v1_auth_ldap_config_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LDAPConfig"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LDAPConfig"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Ldap Config
+   * @description Clear LDAP configuration (admin only)
+   */
+  delete_ldap_config_api_v1_auth_ldap_config_delete: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  /**
+   * Test Ldap Connection
+   * @description Test LDAP connection without saving
+   */
+  test_ldap_connection_api_v1_auth_test_ldap_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LDAPConfig"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Instances
+   * @description List all instances accessible to the current user
+   */
+  list_instances_api_v1_instances_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["InstanceResponse"][];
+        };
+      };
+    };
+  };
+  /**
+   * Create Instance
+   * @description Register a new viswall instance
+   */
+  create_instance_api_v1_instances_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InstanceCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["InstanceResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Instance
+   * @description Get instance details
+   */
+  get_instance_api_v1_instances__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["InstanceResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Instance
+   * @description Remove an instance from management
+   */
+  delete_instance_api_v1_instances__instance_id__delete: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Instance
+   * @description Update instance configuration
+   */
+  update_instance_api_v1_instances__instance_id__patch: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InstanceUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["InstanceResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Instance Heartbeat
+   * @description Receive heartbeat from an instance (called by instances)
+   */
+  instance_heartbeat_api_v1_instances__instance_id__heartbeat_post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Users
+   * @description List all users (admin only)
+   */
+  list_users_api_v1_users_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["UserResponse"][];
+        };
+      };
+    };
+  };
+  /**
+   * Create User
+   * @description Create a new user
+   */
+  create_user_api_v1_users_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["UserResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get User
+   * @description Get user details
+   */
+  get_user_api_v1_users__target_user_id__get: {
+    parameters: {
+      path: {
+        target_user_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["UserResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete User
+   * @description Delete user
+   */
+  delete_user_api_v1_users__target_user_id__delete: {
+    parameters: {
+      path: {
+        target_user_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update User
+   * @description Update user
+   */
+  update_user_api_v1_users__target_user_id__patch: {
+    parameters: {
+      path: {
+        target_user_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["UserResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Change Password
+   * @description Change user password (self or admin)
+   */
+  change_password_api_v1_users__target_user_id__change_password_post: {
+    parameters: {
+      path: {
+        target_user_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserPasswordChange"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Firewall Rules
+   * @description List firewall rules for an instance
+   */
+  list_firewall_rules_api_v1_firewall_rules__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["FirewallRuleResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Firewall Rule
+   * @description Create a new firewall rule
+   */
+  create_firewall_rule_api_v1_firewall_rules__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FirewallRuleCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["FirewallRuleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Firewall Rule
+   * @description Get firewall rule details
+   */
+  get_firewall_rule_api_v1_firewall_rules_detail__rule_id__get: {
+    parameters: {
+      path: {
+        rule_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["FirewallRuleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Firewall Rule
+   * @description Delete a firewall rule
+   */
+  delete_firewall_rule_api_v1_firewall_rules__rule_id__delete: {
+    parameters: {
+      path: {
+        rule_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Firewall Rule */
+  update_firewall_rule_api_v1_firewall_rules__rule_id__patch: {
+    parameters: {
+      path: {
+        rule_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FirewallRuleUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["FirewallRuleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Move Rule
+   * @description Move a rule in the order
+   */
+  move_rule_api_v1_firewall_rules__rule_id__move_post: {
+    parameters: {
+      query: {
+        direction: string;
+      };
+      path: {
+        rule_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Apply Firewall
+   * @description Apply firewall configuration to instance
+   */
+  apply_firewall_api_v1_firewall_apply__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Network Interfaces
+   * @description List network interfaces for an instance
+   */
+  list_network_interfaces_api_v1_firewall_interfaces__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["NetworkInterfaceResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Nat Rules
+   * @description List NAT rules for an instance
+   */
+  list_nat_rules_api_v1_firewall_nat__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["NATRuleResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Nat Rule
+   * @description Create a NAT rule
+   */
+  create_nat_rule_api_v1_firewall_nat__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NATRuleCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["NATRuleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Routing Rules
+   * @description List policy routing rules
+   */
+  list_routing_rules_api_v1_firewall_routing__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["RoutingRuleResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Routing Rule
+   * @description Create a policy routing rule
+   */
+  create_routing_rule_api_v1_firewall_routing__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RoutingRuleCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["RoutingRuleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Qos Policies */
+  list_qos_policies_api_v1_firewall_qos__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["QoSPolicyResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Qos Policy */
+  create_qos_policy_api_v1_firewall_qos__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QoSPolicyCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["QoSPolicyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Get Qos Policy */
+  get_qos_policy_api_v1_firewall_qos__instance_id___policy_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+        policy_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["QoSPolicyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Qos Policy */
+  delete_qos_policy_api_v1_firewall_qos__instance_id___policy_id__delete: {
+    parameters: {
+      path: {
+        instance_id: number;
+        policy_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Qos Policy */
+  update_qos_policy_api_v1_firewall_qos__instance_id___policy_id__patch: {
+    parameters: {
+      path: {
+        instance_id: number;
+        policy_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QoSPolicyUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["QoSPolicyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Apply Qos Now */
+  apply_qos_now_api_v1_firewall_qos__instance_id___policy_id__apply_post: {
+    parameters: {
+      path: {
+        instance_id: number;
+        policy_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Get Qos Stats */
+  get_qos_stats_api_v1_firewall_qos__instance_id___policy_id__stats_get: {
+    parameters: {
+      path: {
+        instance_id: number;
+        policy_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["QoSStatsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Qos Class */
+  create_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes_post: {
+    parameters: {
+      path: {
+        instance_id: number;
+        policy_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QoSClassCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["QoSClassResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Qos Class */
+  delete_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes__class_id__delete: {
+    parameters: {
+      path: {
+        instance_id: number;
+        policy_id: number;
+        class_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Qos Class */
+  update_qos_class_api_v1_firewall_qos__instance_id___policy_id__classes__class_id__patch: {
+    parameters: {
+      path: {
+        instance_id: number;
+        policy_id: number;
+        class_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QoSClassUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["QoSClassResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Block Ip
+   * @description Block an IP address
+   */
+  block_ip_api_v1_firewall_block__instance_id__post: {
+    parameters: {
+      query: {
+        ip: string;
+        reason?: string | null;
+        duration?: string | null;
+      };
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Unblock Ip
+   * @description Unblock an IP address
+   */
+  unblock_ip_api_v1_firewall_unblock__instance_id__post: {
+    parameters: {
+      query: {
+        ip: string;
+      };
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Firewall Stats
+   * @description Get firewall statistics
+   */
+  get_firewall_stats_api_v1_firewall_stats__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Routing Rules
+   * @description Get routing rules for an instance
+   */
+  get_routing_rules_api_v1_routing_rules__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["RoutingRuleResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Routing Rule
+   * @description Create a new routing rule
+   */
+  create_routing_rule_api_v1_routing_rules__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RoutingRuleCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["RoutingRuleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Routing Rule
+   * @description Get a single routing rule
+   */
+  get_routing_rule_api_v1_routing_rules_detail__rule_id__get: {
+    parameters: {
+      path: {
+        rule_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["RoutingRuleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Routing Rule
+   * @description Delete a routing rule
+   */
+  delete_routing_rule_api_v1_routing_rules__rule_id__delete: {
+    parameters: {
+      path: {
+        rule_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Routing Rule
+   * @description Update a routing rule
+   */
+  update_routing_rule_api_v1_routing_rules__rule_id__patch: {
+    parameters: {
+      path: {
+        rule_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RoutingRuleUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["RoutingRuleResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Apply Routing
+   * @description Apply routing rules to an instance
+   */
+  apply_routing_api_v1_routing_apply__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Domains
+   * @description Get all mail domains for an instance
+   */
+  get_domains_api_v1_mail_domains__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailDomainResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Domain
+   * @description Create a new mail domain with optional DKIM generation
+   */
+  create_domain_api_v1_mail_domains__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MailDomainCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["MailDomainResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Domain
+   * @description Get mail domain details
+   */
+  get_domain_api_v1_mail_domains_detail__domain_id__get: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailDomainResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Domain
+   * @description Delete a mail domain and all its users
+   */
+  delete_domain_api_v1_mail_domains__domain_id__delete: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Domain
+   * @description Update mail domain settings
+   */
+  update_domain_api_v1_mail_domains__domain_id__patch: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MailDomainUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailDomainResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Regenerate Dkim
+   * @description Regenerate DKIM keys for a domain
+   */
+  regenerate_dkim_api_v1_mail_domains__domain_id__dkim_regenerate_post: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Dns Records
+   * @description Get DNS records needed for mail domain (SPF, DKIM, DMARC)
+   */
+  get_dns_records_api_v1_mail_domains__domain_id__dns_records_get: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Users
+   * @description Get all mail users for a domain
+   */
+  get_users_api_v1_mail_users__domain_id__get: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailUserResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create User
+   * @description Create a new mail user
+   */
+  create_user_api_v1_mail_users__domain_id__post: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MailUserCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["MailUserResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get User
+   * @description Get mail user details
+   */
+  get_user_api_v1_mail_users_detail__user_id__get: {
+    parameters: {
+      path: {
+        user_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailUserResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete User
+   * @description Delete a mail user
+   */
+  delete_user_api_v1_mail_users__user_id__delete: {
+    parameters: {
+      path: {
+        user_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update User
+   * @description Update mail user settings
+   */
+  update_user_api_v1_mail_users__user_id__patch: {
+    parameters: {
+      path: {
+        user_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MailUserUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailUserResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Mail Queue
+   * @description Get current mail queue status for an instance
+   */
+  get_mail_queue_api_v1_mail_queue__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Flush Mail Queue
+   * @description Force immediate delivery attempt for queued messages
+   */
+  flush_mail_queue_api_v1_mail_queue__instance_id__flush_post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Mail Stats
+   * @description Get comprehensive mail statistics
+   */
+  get_mail_stats_api_v1_mail_stats__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Test Classify Email
+   * @description Test LLM classification on a sample email
+   */
+  test_classify_email_api_v1_mail_domains__domain_id__classify_post: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Classify Inbound Email
+   * @description Internal endpoint for mail agent to classify incoming email
+   */
+  classify_inbound_email_api_v1_mail_classify_inbound_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MailMessageCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Mail Messages
+   * @description List classified emails for a domain with optional filters
+   */
+  list_mail_messages_api_v1_mail_messages__domain_id__get: {
+    parameters: {
+      query?: {
+        category?: string | null;
+        status?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailMessageResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Mail Message
+   * @description Get detailed information about a classified email
+   */
+  get_mail_message_api_v1_mail_messages_detail__message_id__get: {
+    parameters: {
+      path: {
+        message_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailMessageResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Reclassify Message
+   * @description Retry LLM classification for an existing message
+   */
+  reclassify_message_api_v1_mail_messages__message_id__reclassify_post: {
+    parameters: {
+      path: {
+        message_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Message Action
+   * @description Take admin action on a classified message (deliver, quarantine, reject)
+   */
+  message_action_api_v1_mail_messages__message_id__action_post: {
+    parameters: {
+      path: {
+        message_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MailMessageActionRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Latest Metrics
+   * @description Get latest metrics snapshot for an instance
+   */
+  get_latest_metrics_api_v1_metrics_latest__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MetricSnapshotResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Query Metrics
+   * @description Query historical metrics snapshots
+   */
+  query_metrics_api_v1_metrics_query_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MetricsQuery"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MetricSnapshotResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Metrics Summary
+   * @description Get aggregated metrics summary per instance
+   */
+  get_metrics_summary_api_v1_metrics_summary_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MetricsQuery"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MetricsSummary"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Dashboard Data
+   * @description Get all metrics needed for the dashboard
+   */
+  get_dashboard_data_api_v1_metrics_dashboard__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Global Overview
+   * @description Get global overview counts for the main dashboard
+   */
+  get_global_overview_api_v1_metrics_overview_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+  };
+  /**
+   * List Audit Logs
+   * @description List audit logs with filtering (admin only)
+   */
+  list_audit_logs_api_v1_audit_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+        user_id_filter?: number | null;
+        instance_id?: number | null;
+        action?: string | null;
+        resource_type?: string | null;
+        resource_id?: string | null;
+        start_time?: string | null;
+        end_time?: string | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AuditLogResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Instance Logs
+   * @description Get audit logs for a specific instance
+   */
+  get_instance_logs_api_v1_audit_instance__instance_id__get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+        action?: string | null;
+        resource_type?: string | null;
+        start_time?: string | null;
+        end_time?: string | null;
+      };
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AuditLogResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Resource Logs
+   * @description Get audit logs for a specific resource
+   */
+  get_resource_logs_api_v1_audit_resource__resource_type___resource_id__get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      path: {
+        resource_type: string;
+        resource_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AuditLogResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Audit Summary
+   * @description Get audit log summary statistics
+   */
+  get_audit_summary_api_v1_audit_summary_get: {
+    parameters: {
+      query?: {
+        days?: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Protocol Recommendations
+   * @description Get VPN protocol recommendations with security/performance scores
+   */
+  get_protocol_recommendations_api_v1_vpn_protocols_recommendations_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNProtocolRecommendation"][];
+        };
+      };
+    };
+  };
+  /**
+   * List Servers
+   * @description List all VPN servers for an instance
+   */
+  list_servers_api_v1_vpn_servers__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNServerResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Server
+   * @description Create a new VPN server
+   */
+  create_server_api_v1_vpn_servers__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VPNServerCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["VPNServerResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Server
+   * @description Get VPN server details
+   */
+  get_server_api_v1_vpn_servers_detail__server_id__get: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNServerResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Server
+   * @description Delete a VPN server and all its clients
+   */
+  delete_server_api_v1_vpn_servers__server_id__delete: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Server
+   * @description Update VPN server configuration
+   */
+  update_server_api_v1_vpn_servers__server_id__patch: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VPNServerUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNServerResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Start Server
+   * @description Start the VPN server
+   */
+  start_server_api_v1_vpn_servers__server_id__start_post: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Stop Server
+   * @description Stop the VPN server
+   */
+  stop_server_api_v1_vpn_servers__server_id__stop_post: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Restart Server
+   * @description Restart the VPN server
+   */
+  restart_server_api_v1_vpn_servers__server_id__restart_post: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Server Stats
+   * @description Get real-time VPN server statistics
+   */
+  get_server_stats_api_v1_vpn_servers__server_id__stats_get: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNServerStats"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Clients
+   * @description List all clients for a VPN server
+   */
+  list_clients_api_v1_vpn_servers__server_id__clients_get: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNClientResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Client
+   * @description Create a new VPN client
+   */
+  create_client_api_v1_vpn_servers__server_id__clients_post: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VPNClientCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNClientResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Bulk Create Clients
+   * @description Bulk generate VPN clients (e.g., for an office)
+   */
+  bulk_create_clients_api_v1_vpn_servers__server_id__clients_bulk_post: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VPNBulkGenerateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNBulkGenerateResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Client
+   * @description Get client details
+   */
+  get_client_api_v1_vpn_clients__client_id__get: {
+    parameters: {
+      path: {
+        client_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNClientResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Client
+   * @description Revoke and delete a client
+   */
+  delete_client_api_v1_vpn_clients__client_id__delete: {
+    parameters: {
+      path: {
+        client_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Client
+   * @description Update client configuration
+   */
+  update_client_api_v1_vpn_clients__client_id__patch: {
+    parameters: {
+      path: {
+        client_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VPNClientUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNClientResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Download Client Config
+   * @description Download client configuration file
+   */
+  download_client_config_api_v1_vpn_clients__client_id__config_get: {
+    parameters: {
+      query?: {
+        format?: string;
+      };
+      path: {
+        client_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Regenerate Client Credentials
+   * @description Regenerate client keys/credentials (if compromised)
+   */
+  regenerate_client_credentials_api_v1_vpn_clients__client_id__regenerate_post: {
+    parameters: {
+      path: {
+        client_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Connections
+   * @description List active connections for a server
+   */
+  list_connections_api_v1_vpn_servers__server_id__connections_get: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNConnectionResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Connection History
+   * @description List historical connections
+   */
+  list_connection_history_api_v1_vpn_servers__server_id__connections_history_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNConnectionResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Disconnect Client
+   * @description Force disconnect a client
+   */
+  disconnect_client_api_v1_vpn_connections__connection_id__disconnect_post: {
+    parameters: {
+      path: {
+        connection_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Routes
+   * @description List VPN-specific routes (for split tunneling)
+   */
+  list_routes_api_v1_vpn_servers__server_id__routes_get: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNRouteResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Route
+   * @description Add a route to the VPN configuration
+   */
+  create_route_api_v1_vpn_servers__server_id__routes_post: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VPNRouteCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VPNRouteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Route
+   * @description Delete a VPN route
+   */
+  delete_route_api_v1_vpn_routes__route_id__delete: {
+    parameters: {
+      path: {
+        route_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Initialize Site To Site
+   * @description Initialize a site-to-site VPN tunnel
+   */
+  initialize_site_to_site_api_v1_vpn_site_to_site_initialize_post: {
+    parameters: {
+      query: {
+        local_instance_id: number;
+        remote_endpoint: string;
+        remote_public_key: string;
+        protocol?: components["schemas"]["VPNProtocol"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Site To Site Status
+   * @description Get status of all site-to-site connections
+   */
+  get_site_to_site_status_api_v1_vpn_site_to_site_status_get: {
+    parameters: {
+      query: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Servers */
+  list_servers_api_v1_dns_servers__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSServerResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Server */
+  create_server_api_v1_dns_servers__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DNSServerCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DNSServerResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Get Server */
+  get_server_api_v1_dns_servers_detail__server_id__get: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSServerResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Server */
+  delete_server_api_v1_dns_servers__server_id__delete: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Server */
+  update_server_api_v1_dns_servers__server_id__patch: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DNSServerUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSServerResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Server Action */
+  server_action_api_v1_dns_servers__server_id__actions__action__post: {
+    parameters: {
+      path: {
+        server_id: number;
+        action: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Zones */
+  list_zones_api_v1_dns_servers__server_id__zones_get: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSZoneResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Zone */
+  create_zone_api_v1_dns_servers__server_id__zones_post: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DNSZoneCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DNSZoneResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Reverse Zone */
+  create_reverse_zone_api_v1_dns_servers__server_id__zones_reverse_post: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateReverseZoneRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DNSZoneResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Get Zone */
+  get_zone_api_v1_dns_zones_detail__zone_id__get: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSZoneResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Zone */
+  delete_zone_api_v1_dns_zones__zone_id__delete: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Zone */
+  update_zone_api_v1_dns_zones__zone_id__patch: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DNSZoneUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSZoneResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Sign Zone */
+  sign_zone_api_v1_dns_zones__zone_id__sign_post: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Unsign Zone */
+  unsign_zone_api_v1_dns_zones__zone_id__unsign_post: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Dnssec Keys */
+  list_dnssec_keys_api_v1_dns_zones__zone_id__dnssec_keys_get: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSSECKeyResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Dnssec Rollover */
+  dnssec_rollover_api_v1_dns_zones__zone_id__dnssec_rollover_post: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DNSSECRolloverRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSSECKeyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Records */
+  list_records_api_v1_dns_zones__zone_id__records_get: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSRecordResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Record */
+  create_record_api_v1_dns_zones__zone_id__records_post: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DNSRecordCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DNSRecordResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Bulk Import Records */
+  bulk_import_records_api_v1_dns_zones__zone_id__records_bulk_post: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BulkRecordImport"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSRecordResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Ptr Record */
+  create_ptr_record_api_v1_dns_zones__zone_id__records_ptr_post: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreatePTRRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSRecordResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Record */
+  delete_record_api_v1_dns_records__record_id__delete: {
+    parameters: {
+      path: {
+        record_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Record */
+  update_record_api_v1_dns_records__record_id__patch: {
+    parameters: {
+      path: {
+        record_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DNSRecordUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSRecordResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Zone Slaves */
+  list_zone_slaves_api_v1_dns_zones__zone_id__slaves_get: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSZoneSlaveResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Tsig Keys */
+  list_tsig_keys_api_v1_dns_servers__server_id__tsig_keys_get: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSTSIGKeyResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Tsig Key */
+  create_tsig_key_api_v1_dns_servers__server_id__tsig_keys_post: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DNSTSIGKeyCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DNSTSIGKeyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Rotate Tsig Key */
+  rotate_tsig_key_api_v1_dns_tsig_keys__key_id__rotate_post: {
+    parameters: {
+      path: {
+        key_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DNSTSIGKeyRotate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSTSIGKeyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Tsig Key */
+  delete_tsig_key_api_v1_dns_tsig_keys__key_id__delete: {
+    parameters: {
+      path: {
+        key_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Servers */
+  list_servers_api_v1_dhcp_servers__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPServerResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Server */
+  create_server_api_v1_dhcp_servers__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DHCPServerCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DHCPServerResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Get Server */
+  get_server_api_v1_dhcp_servers_detail__server_id__get: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPServerResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Server */
+  delete_server_api_v1_dhcp_servers__server_id__delete: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Server */
+  update_server_api_v1_dhcp_servers__server_id__patch: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DHCPServerUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPServerResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Server Action */
+  server_action_api_v1_dhcp_servers__server_id__actions__action__post: {
+    parameters: {
+      path: {
+        server_id: number;
+        action: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Subnets */
+  list_subnets_api_v1_dhcp_servers__server_id__subnets_get: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPSubnetResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Subnet */
+  create_subnet_api_v1_dhcp_servers__server_id__subnets_post: {
+    parameters: {
+      path: {
+        server_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DHCPSubnetCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DHCPSubnetResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Get Subnet */
+  get_subnet_api_v1_dhcp_subnets_detail__subnet_id__get: {
+    parameters: {
+      path: {
+        subnet_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPSubnetResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Subnet */
+  delete_subnet_api_v1_dhcp_subnets__subnet_id__delete: {
+    parameters: {
+      path: {
+        subnet_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Subnet */
+  update_subnet_api_v1_dhcp_subnets__subnet_id__patch: {
+    parameters: {
+      path: {
+        subnet_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DHCPSubnetUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPSubnetResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Pools */
+  list_pools_api_v1_dhcp_subnets__subnet_id__pools_get: {
+    parameters: {
+      path: {
+        subnet_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPPoolResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Pool */
+  create_pool_api_v1_dhcp_subnets__subnet_id__pools_post: {
+    parameters: {
+      path: {
+        subnet_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DHCPPoolCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DHCPPoolResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Pool */
+  delete_pool_api_v1_dhcp_pools__pool_id__delete: {
+    parameters: {
+      path: {
+        pool_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Pool */
+  update_pool_api_v1_dhcp_pools__pool_id__patch: {
+    parameters: {
+      path: {
+        pool_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DHCPPoolUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPPoolResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Reservations */
+  list_reservations_api_v1_dhcp_subnets__subnet_id__reservations_get: {
+    parameters: {
+      path: {
+        subnet_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPReservationResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Reservation */
+  create_reservation_api_v1_dhcp_subnets__subnet_id__reservations_post: {
+    parameters: {
+      path: {
+        subnet_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DHCPReservationCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DHCPReservationResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Reservation */
+  delete_reservation_api_v1_dhcp_reservations__reservation_id__delete: {
+    parameters: {
+      path: {
+        reservation_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Reservation */
+  update_reservation_api_v1_dhcp_reservations__reservation_id__patch: {
+    parameters: {
+      path: {
+        reservation_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DHCPReservationUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPReservationResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Options */
+  list_options_api_v1_dhcp_subnets__subnet_id__options_get: {
+    parameters: {
+      path: {
+        subnet_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPOptionResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Create Option */
+  create_option_api_v1_dhcp_subnets__subnet_id__options_post: {
+    parameters: {
+      path: {
+        subnet_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DHCPOptionCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DHCPOptionResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Delete Option */
+  delete_option_api_v1_dhcp_options__option_id__delete: {
+    parameters: {
+      path: {
+        option_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Update Option */
+  update_option_api_v1_dhcp_options__option_id__patch: {
+    parameters: {
+      path: {
+        option_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DHCPOptionUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPOptionResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Subnet Leases */
+  list_subnet_leases_api_v1_dhcp_subnets__subnet_id__leases_get: {
+    parameters: {
+      path: {
+        subnet_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPLeaseResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Active Leases */
+  list_active_leases_api_v1_dhcp_leases_active_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPLeaseResponse"][];
+        };
+      };
+    };
+  };
+  /** Release Lease */
+  release_lease_api_v1_dhcp_leases__lease_id__delete: {
+    parameters: {
+      path: {
+        lease_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DHCPLeaseReleaseResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Simulate Single Firewall
+   * @description Simulate a single packet through a firewall configuration.
+   *
+   * Returns detailed information about which rules matched and the final action.
+   */
+  simulate_single_firewall_api_v1_simulation_simulate_single_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SimulationRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SimulationResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Run Test Suite
+   * @description Run a comprehensive test suite against a firewall configuration.
+   *
+   * Tests can be marked as 'critical' - if any critical test fails,
+   * deployment should be blocked.
+   */
+  run_test_suite_api_v1_simulation_simulate_test_suite_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TestSuiteRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["TestSuiteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Simulate Multi Firewall
+   * @description Simulate packet traversal across multiple firewalls.
+   *
+   * Useful for testing site-to-site VPNs, multi-hop routing,
+   * and distributed firewall policies.
+   */
+  simulate_multi_firewall_api_v1_simulation_simulate_multi_firewall_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MultiFirewallRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Run Multi Firewall Tests
+   * @description Run tests across multiple firewalls.
+   */
+  run_multi_firewall_tests_api_v1_simulation_simulate_multi_firewall_tests_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MultiFirewallTestRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Basic Test Suite
+   * @description Get the basic connectivity test suite
+   */
+  get_basic_test_suite_api_v1_simulation_test_suites_basic_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  /**
+   * Get Security Test Suite
+   * @description Get the security-focused test suite
+   */
+  get_security_test_suite_api_v1_simulation_test_suites_security_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  /**
+   * Get Application Test Suite
+   * @description Get application-specific test suite
+   */
+  get_application_test_suite_api_v1_simulation_test_suites_application_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  /**
+   * Get All Test Suites
+   * @description Get all predefined test suites
+   */
+  get_all_test_suites_api_v1_simulation_test_suites_all_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  /**
+   * Get Visual Simulation Data
+   * @description Get data for visual packet flow simulation.
+   *
+   * Returns step-by-step data for animating packet flow through rules.
+   */
+  get_visual_simulation_data_api_v1_simulation_simulate_visual_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SimulationRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Chat With Assistant
+   * @description Main chat endpoint for the LLM assistant.
+   *
+   * Handles natural language requests for:
+   * - Creating firewall rules
+   * - Generating test cases
+   * - Setting up VPN
+   * - Configuring mail domains
+   * - Explaining configurations
+   * - Troubleshooting issues
+   */
+  chat_with_assistant_api_v1_assistant_chat_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChatRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ChatResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Suggest Firewall Rule
+   * @description Get a firewall rule suggestion from a natural language description.
+   *
+   * Example: "Allow web server access from anywhere"
+   */
+  suggest_firewall_rule_api_v1_assistant_suggest_firewall_rule_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RuleSuggestionRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["RuleSuggestionResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Generate Tests
+   * @description Generate test cases based on a description.
+   *
+   * Example: "Test that web traffic works but SSH is blocked from outside"
+   */
+  generate_tests_api_v1_assistant_generate_tests_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TestGenerationRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["TestGenerationResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Explain Configuration
+   * @description Get a natural language explanation of a configuration.
+   */
+  explain_configuration_api_v1_assistant_explain_configuration_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfigExplanationRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Perform Security Audit
+   * @description Perform a security audit on firewall rules.
+   *
+   * Analyzes rules for security issues and compliance with standards.
+   */
+  perform_security_audit_api_v1_assistant_security_audit_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SecurityAuditRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SecurityAuditResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Troubleshoot Issue
+   * @description Get troubleshooting assistance for a network/firewall issue.
+   */
+  troubleshoot_issue_api_v1_assistant_troubleshoot_post: {
+    parameters: {
+      query: {
+        description: string;
+        instance_id?: number | null;
+      };
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          [key: string]: unknown;
+        } | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Conversations
+   * @description List user's past conversations with the assistant
+   */
+  list_conversations_api_v1_assistant_conversations_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  /**
+   * Get Conversation
+   * @description Get a specific conversation history
+   */
+  get_conversation_api_v1_assistant_conversations__conversation_id__get: {
+    parameters: {
+      path: {
+        conversation_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Conversation
+   * @description Delete a conversation
+   */
+  delete_conversation_api_v1_assistant_conversations__conversation_id__delete: {
+    parameters: {
+      path: {
+        conversation_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Assistant Capabilities
+   * @description Get list of things the assistant can help with
+   */
+  get_assistant_capabilities_api_v1_assistant_capabilities_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  /**
+   * Get Llm Config
+   * @description Get current LLM configuration (assistant_chat use case).
+   */
+  get_llm_config_api_v1_assistant_config_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMConfig"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Llm Config
+   * @description Update LLM configuration (admin only) — modifies the assistant_chat use case.
+   */
+  update_llm_config_api_v1_assistant_config_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LLMConfig"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMConfig"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Llm Providers
+   * @description List all LLM providers.
+   */
+  list_llm_providers_api_v1_admin_llm_providers_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMProviderResponse"][];
+        };
+      };
+    };
+  };
+  /**
+   * Create Llm Provider
+   * @description Create a new LLM provider.
+   */
+  create_llm_provider_api_v1_admin_llm_providers_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LLMProviderCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["LLMProviderResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Llm Provider
+   * @description Get a single LLM provider.
+   */
+  get_llm_provider_api_v1_admin_llm_providers__provider_id__get: {
+    parameters: {
+      path: {
+        provider_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMProviderResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Llm Provider
+   * @description Delete an LLM provider (cascades to models).
+   */
+  delete_llm_provider_api_v1_admin_llm_providers__provider_id__delete: {
+    parameters: {
+      path: {
+        provider_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Llm Provider
+   * @description Update an LLM provider.
+   */
+  update_llm_provider_api_v1_admin_llm_providers__provider_id__patch: {
+    parameters: {
+      path: {
+        provider_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LLMProviderUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMProviderResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Test Llm Provider
+   * @description Test connectivity to an LLM provider.
+   */
+  test_llm_provider_api_v1_admin_llm_providers__provider_id__test_post: {
+    parameters: {
+      path: {
+        provider_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Llm Models
+   * @description List LLM models, optionally filtered by provider.
+   */
+  list_llm_models_api_v1_admin_llm_models_get: {
+    parameters: {
+      query?: {
+        provider_id?: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMModelResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Llm Model
+   * @description Create a new LLM model.
+   */
+  create_llm_model_api_v1_admin_llm_models_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LLMModelCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["LLMModelResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Llm Model
+   * @description Get a single LLM model.
+   */
+  get_llm_model_api_v1_admin_llm_models__model_id__get: {
+    parameters: {
+      path: {
+        model_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMModelResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Llm Model
+   * @description Delete an LLM model.
+   */
+  delete_llm_model_api_v1_admin_llm_models__model_id__delete: {
+    parameters: {
+      path: {
+        model_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Llm Model
+   * @description Update an LLM model.
+   */
+  update_llm_model_api_v1_admin_llm_models__model_id__patch: {
+    parameters: {
+      path: {
+        model_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LLMModelUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMModelResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Llm Use Case Configs
+   * @description List all use-case configurations.
+   */
+  list_llm_use_case_configs_api_v1_admin_llm_use_cases_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMUseCaseConfigResponse"][];
+        };
+      };
+    };
+  };
+  /**
+   * Create Llm Use Case Config
+   * @description Create a new use-case configuration.
+   */
+  create_llm_use_case_config_api_v1_admin_llm_use_cases_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LLMUseCaseConfigCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["LLMUseCaseConfigResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Llm Use Case Config
+   * @description Get a single use-case configuration.
+   */
+  get_llm_use_case_config_api_v1_admin_llm_use_cases__config_id__get: {
+    parameters: {
+      path: {
+        config_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMUseCaseConfigResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Llm Use Case Config
+   * @description Delete a use-case configuration.
+   */
+  delete_llm_use_case_config_api_v1_admin_llm_use_cases__config_id__delete: {
+    parameters: {
+      path: {
+        config_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Llm Use Case Config
+   * @description Update a use-case configuration.
+   */
+  update_llm_use_case_config_api_v1_admin_llm_use_cases__config_id__patch: {
+    parameters: {
+      path: {
+        config_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LLMUseCaseConfigUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMUseCaseConfigResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Groupware Status
+   * @description Get groupware status for a mail domain
+   */
+  get_groupware_status_api_v1_groupware_status__domain_id__get: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Enable Groupware
+   * @description Enable groupware (SOGo) for a mail domain
+   */
+  enable_groupware_api_v1_groupware_enable__domain_id__post: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailDomainResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Disable Groupware
+   * @description Disable groupware (SOGo) for a mail domain
+   */
+  disable_groupware_api_v1_groupware_disable__domain_id__post: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailDomainResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Groupware Stats
+   * @description Get groupware usage statistics for a domain
+   *
+   * Note: In a full implementation, this would query SOGo's database tables.
+   * For now, returns basic domain status.
+   */
+  get_groupware_stats_api_v1_groupware_stats__domain_id__get: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Health Check */
+  health_check_health_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  /** Api Info */
+  api_info_api_v1__get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
 }
