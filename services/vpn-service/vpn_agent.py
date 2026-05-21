@@ -590,23 +590,76 @@ class VPNAgent:
             return False
 
 
-# Main entry point for agent
+def create_app(agent: VPNAgent):
+    from fastapi import FastAPI, HTTPException
+
+    app = FastAPI(title="Viswall VPN Agent", version="1.0.0")
+
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "service": "vpn-agent"}
+
+    @app.post("/deploy")
+    async def deploy(config: dict):
+        try:
+            await agent.deploy_server(config)
+            return {"success": True}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/start")
+    async def start(protocol: str):
+        try:
+            if protocol == "wireguard":
+                await agent.wg.start()
+            elif protocol == "ipsec":
+                await agent.ipsec.start()
+            elif protocol == "openvpn":
+                await agent.ovpn.start()
+            else:
+                raise HTTPException(status_code=400, detail=f"Unknown protocol: {protocol}")
+            return {"success": True}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/stop")
+    async def stop(protocol: str):
+        try:
+            if protocol == "wireguard":
+                await agent.wg.stop()
+            elif protocol == "ipsec":
+                await agent.ipsec.stop()
+            elif protocol == "openvpn":
+                await agent.ovpn.stop()
+            else:
+                raise HTTPException(status_code=400, detail=f"Unknown protocol: {protocol}")
+            return {"success": True}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/client")
+    async def create_client(data: dict):
+        try:
+            config = await agent.create_client_config(data)
+            return {"success": True, "config": config}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return app
+
+
 async def main():
     """VPN Agent main loop"""
     agent = VPNAgent()
-    
-    # Connect to API gateway and listen for commands
-    # This would be a long-running process
-    
+
     print("Viswall VPN Agent started")
     print("Supported protocols: WireGuard, IPsec/IKEv2, OpenVPN")
-    
-    # Example: Deploy WireGuard
-    # await agent.deploy_server({
-    #     "protocol": "wireguard",
-    #     "listen_port": 51820,
-    #     "network_cidr": "10.200.0.0/24"
-    # })
+
+    app = create_app(agent)
+    import uvicorn
+    config_uvicorn = uvicorn.Config(app, host="::", port=8083, loop="asyncio")
+    server = uvicorn.Server(config_uvicorn)
+    await server.serve()
 
 if __name__ == "__main__":
     asyncio.run(main())

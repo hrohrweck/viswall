@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Plus, Trash2, Shield, Key, Brain, Users } from 'lucide-react'
+import { ArrowLeft, Mail, Plus, Trash2, Shield, Key, Brain, Users, Globe } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
 import {
   useMailDomain,
@@ -9,6 +9,10 @@ import {
   useDeleteMailUser,
   useDeleteMailDomain,
   useRegenerateDkim,
+  useGroupwareStatus,
+  useEnableGroupware,
+  useDisableGroupware,
+  useGroupwareStats,
 } from '../../hooks/useApi'
 import { StatusBadge, Modal, ConfirmDialog, LoadingSpinner, EmptyState, DataTable } from '../../components/ui'
 import type { MailUser } from '../../types'
@@ -26,6 +30,10 @@ export function MailDomainDetail() {
   const createMutation = useCreateMailUser(selectedInstanceId!, domainId)
   const deleteMutation = useDeleteMailUser(selectedInstanceId!, domainId)
   const dkimMutation = useRegenerateDkim(selectedInstanceId!)
+  const { data: groupwareStatus } = useGroupwareStatus(domainId)
+  const enableGroupware = useEnableGroupware(domainId)
+  const disableGroupware = useDisableGroupware(domainId)
+  const { data: groupwareStats } = useGroupwareStats(domainId)
 
   const [showDeleteDomain, setShowDeleteDomain] = useState(false)
   const [showCreateUser, setShowCreateUser] = useState(false)
@@ -33,7 +41,7 @@ export function MailDomainDetail() {
   const [newUsername, setNewUsername] = useState('')
   const [newFullName, setNewFullName] = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [activeTab, setActiveTab] = useState<'users' | 'classification'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'classification' | 'groupware'>('users')
 
   if (isLoading) return <LoadingSpinner />
   if (!domain) return <p className="text-gray-600">Domain not found.</p>
@@ -69,6 +77,7 @@ export function MailDomainDetail() {
     { label: 'DMARC', enabled: domain.dmarc_enabled },
     { label: 'SPF', enabled: domain.spf_enabled },
     { label: 'LLM Classify', enabled: domain.llm_enabled },
+    { label: 'Groupware', enabled: domain.groupware_enabled },
   ]
 
   const userColumns = [
@@ -190,6 +199,17 @@ export function MailDomainDetail() {
             <Brain className="w-4 h-4" />
             Classification
           </button>
+          <button
+            onClick={() => setActiveTab('groupware')}
+            className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'groupware'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            Groupware
+          </button>
         </nav>
       </div>
 
@@ -216,6 +236,63 @@ export function MailDomainDetail() {
       )}
 
       {activeTab === 'classification' && <MailClassificationView domainId={domainId} />}
+
+      {activeTab === 'groupware' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">SOGo Groupware</h3>
+            <div className="flex items-center gap-3">
+              <span className={`text-sm font-medium ${domain.groupware_enabled ? 'text-green-600' : 'text-gray-500'}`}>
+                {domain.groupware_enabled ? 'Enabled' : 'Disabled'}
+              </span>
+              <button
+                onClick={() => {
+                  if (domain.groupware_enabled) {
+                    disableGroupware.mutate()
+                  } else {
+                    enableGroupware.mutate()
+                  }
+                }}
+                disabled={enableGroupware.isPending || disableGroupware.isPending}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  domain.groupware_enabled ? 'bg-primary-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    domain.groupware_enabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {groupwareStatus?.sogo_url && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800">
+                SOGo is accessible at <a href={groupwareStatus.sogo_url} className="font-medium underline">{groupwareStatus.sogo_url}</a>
+              </p>
+            </div>
+          )}
+
+          {groupwareStats && domain.groupware_enabled && (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Calendars</p>
+                <p className="text-2xl font-semibold text-gray-900">{(groupwareStats.calendars as number) || 0}</p>
+              </div>
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Contacts</p>
+                <p className="text-2xl font-semibold text-gray-900">{(groupwareStats.contacts as number) || 0}</p>
+              </div>
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Active Users</p>
+                <p className="text-2xl font-semibold text-gray-900">{(groupwareStats.active_users as number) || 0}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <Modal open={showCreateUser} onClose={() => setShowCreateUser(false)} title="Add Mailbox">
         <div className="space-y-4">

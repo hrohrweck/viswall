@@ -870,13 +870,72 @@ class MailServiceAgent:
 
 
 # Main entry point
+def create_app(agent: MailServiceAgent):
+    from fastapi import FastAPI, HTTPException
+    import uvicorn
+
+    app = FastAPI(title="Viswall Mail Agent", version="1.0.0")
+
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "service": "mail-agent"}
+
+    @app.post("/deploy")
+    async def deploy(config: dict):
+        try:
+            await agent.deploy_mail_server(config)
+            return {"success": True}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/reload")
+    async def reload():
+        try:
+            await agent.reload_exim()
+            return {"success": True}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/dkim/generate")
+    async def generate_dkim(domain: str):
+        try:
+            key = await agent.generate_dkim_keys(domain)
+            return {"success": True, "public_key": key}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/classify")
+    async def classify_email(data: dict):
+        if not agent.llm:
+            raise HTTPException(status_code=400, detail="LLM not enabled")
+        try:
+            result = await agent.classify_email(data)
+            return result
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return app
+
+
 async def main():
-    """Mail Service Agent main loop"""
-    
+    """Mail Agent main entry point"""
+    import os
+
     config = {
-        "db": {
+        "exim": {
+            "config_dir": os.getenv("EXIM_CONFIG_DIR", "/etc/exim4"),
+            "primary_hostname": os.getenv("EXIM_HOSTNAME", "mail.example.com")
+        },
+        "clamav": {
+            "socket": os.getenv("CLAMAV_SOCKET", "/var/run/clamav/clamd.ctl")
+        },
+        "spamassassin": {
+            "config_dir": os.getenv("SPAMASSASSIN_DIR", "/etc/spamassassin")
+        },
+        "database": {
             "host": os.getenv("DB_HOST", "localhost"),
-            "database": os.getenv("DB_NAME_VISWALL", "viswall"),
+            "port": int(os.getenv("DB_PORT", "5432")),
+            "name": os.getenv("DB_NAME", "viswall"),
             "user": os.getenv("DB_USER", "viswall"),
             "password": os.getenv("DB_PASS", "")
         },
@@ -887,18 +946,17 @@ async def main():
             "model": os.getenv("LLM_MODEL", "gpt-4")
         }
     }
-    
+
     agent = MailServiceAgent(config)
-    
+
     print("Viswall Mail Service Agent started")
     print(f"Features: Exim + ClamAV + SpamAssassin + {'LLM' if agent.llm else 'No LLM'}")
-    
-    # Example deployment
-    # await agent.deploy_mail_server({
-    #     "hostname": "mail.example.com",
-    #     "domains": ["example.com"],
-    #     "dkim_enabled": True
-    # })
+
+    app = create_app(agent)
+    import uvicorn
+    config_uvicorn = uvicorn.Config(app, host="::", port=8082, loop="asyncio")
+    server = uvicorn.Server(config_uvicorn)
+    await server.serve()
 
 if __name__ == "__main__":
     asyncio.run(main())

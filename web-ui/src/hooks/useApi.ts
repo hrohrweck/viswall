@@ -75,6 +75,13 @@ import type {
   LLMUseCaseConfig,
   LLMUseCaseConfigUpdate,
   LDAPConfig,
+  QoSPolicy,
+  QoSPolicyCreate,
+  QoSPolicyUpdate,
+  QoSClass,
+  QoSStats,
+  NATRule,
+  NATRuleCreate,
   MailMessage,
   CategoryConfig,
 } from '../types'
@@ -88,6 +95,8 @@ const queryKeys = {
   networkInterfaces: (instanceId: number) => ['network-interfaces', instanceId] as const,
   mailDomains: (instanceId: number) => ['mail-domains', instanceId] as const,
   mailDomain: (instanceId: number, domainId: number) => ['mail-domains', instanceId, domainId] as const,
+  groupwareStatus: (domainId: number) => ['groupware-status', domainId] as const,
+  groupwareStats: (domainId: number) => ['groupware-stats', domainId] as const,
   mailUsers: (instanceId: number, domainId: number) => ['mail-users', instanceId, domainId] as const,
   mailMessages: (domainId: number, filters?: Record<string, unknown>) => ['mail-messages', domainId, filters] as const,
   mailMessage: (messageId: number) => ['mail-message', messageId] as const,
@@ -102,6 +111,10 @@ const queryKeys = {
   dashboardData: (instanceId: number) => ['dashboard', instanceId] as const,
   metricsOverview: ['metrics', 'overview'] as const,
   routingRules: (instanceId: number) => ['routing-rules', instanceId] as const,
+  natRules: (instanceId: number) => ['nat-rules', instanceId] as const,
+  qosPolicies: (instanceId: number) => ['qos-policies', instanceId] as const,
+  qosPolicy: (instanceId: number, policyId: number) => ['qos-policies', instanceId, policyId] as const,
+  qosStats: (instanceId: number, policyId: number) => ['qos-stats', instanceId, policyId] as const,
   dnsServers: (instanceId: number) => ['dns-servers', instanceId] as const,
   dnsZones: (serverId: number) => ['dns-zones', serverId] as const,
   dnsRecords: (zoneId: number) => ['dns-records', zoneId] as const,
@@ -400,6 +413,61 @@ export function useDeleteMailDomain(instanceId: number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.mailDomains(instanceId) })
     },
+  })
+}
+
+export function useGroupwareStatus(domainId: number) {
+  return useQuery<{
+    domain_id: number
+    domain: string
+    groupware_enabled: boolean
+    sogo_url: string | null
+  }>({
+    queryKey: queryKeys.groupwareStatus(domainId),
+    queryFn: async () => {
+      const { data } = await api.get(`/groupware/status/${domainId}`)
+      return data
+    },
+    enabled: !!domainId,
+  })
+}
+
+export function useEnableGroupware(domainId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/groupware/enable/${domainId}`)
+      return data as MailDomain
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.groupwareStatus(domainId) })
+      qc.invalidateQueries({ queryKey: ['mail-domains'] })
+    },
+  })
+}
+
+export function useDisableGroupware(domainId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/groupware/disable/${domainId}`)
+      return data as MailDomain
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.groupwareStatus(domainId) })
+      qc.invalidateQueries({ queryKey: ['mail-domains'] })
+    },
+  })
+}
+
+export function useGroupwareStats(domainId: number) {
+  return useQuery<Record<string, unknown>>({
+    queryKey: queryKeys.groupwareStats(domainId),
+    queryFn: async () => {
+      const { data } = await api.get(`/groupware/stats/${domainId}`)
+      return data
+    },
+    enabled: !!domainId,
   })
 }
 
@@ -827,6 +895,140 @@ export function useApplyRouting(instanceId: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.routingRules(instanceId) })
+    },
+  })
+}
+
+export function useNATRules(instanceId: number) {
+  return useQuery<NATRule[]>({
+    queryKey: queryKeys.natRules(instanceId),
+    queryFn: async () => {
+      const { data } = await api.get(`/firewall/nat/${instanceId}`)
+      return data
+    },
+    enabled: !!instanceId,
+  })
+}
+
+export function useCreateNATRule(instanceId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: NATRuleCreate) => {
+      const { data } = await api.post(`/firewall/nat/${instanceId}`, body)
+      return data as NATRule
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.natRules(instanceId) })
+    },
+  })
+}
+
+export function useQoSPolicies(instanceId: number) {
+  return useQuery<QoSPolicy[]>({
+    queryKey: queryKeys.qosPolicies(instanceId),
+    queryFn: async () => {
+      const { data } = await api.get(`/firewall/qos/${instanceId}`)
+      return data
+    },
+    enabled: !!instanceId,
+  })
+}
+
+export function useQoSPolicy(instanceId: number, policyId: number) {
+  return useQuery<QoSPolicy>({
+    queryKey: queryKeys.qosPolicy(instanceId, policyId),
+    queryFn: async () => {
+      const { data } = await api.get(`/firewall/qos/${instanceId}/${policyId}`)
+      return data
+    },
+    enabled: !!instanceId && !!policyId,
+  })
+}
+
+export function useCreateQoSPolicy(instanceId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: QoSPolicyCreate) => {
+      const { data } = await api.post(`/firewall/qos/${instanceId}`, body)
+      return data as QoSPolicy
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.qosPolicies(instanceId) })
+    },
+  })
+}
+
+export function useUpdateQoSPolicy(instanceId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...body }: QoSPolicyUpdate & { id: number }) => {
+      const { data } = await api.patch(`/firewall/qos/${instanceId}/${id}`, body)
+      return data as QoSPolicy
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.qosPolicies(instanceId) })
+    },
+  })
+}
+
+export function useDeleteQoSPolicy(instanceId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (policyId: number) => {
+      await api.delete(`/firewall/qos/${instanceId}/${policyId}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.qosPolicies(instanceId) })
+    },
+  })
+}
+
+export function useApplyQoSPolicy(instanceId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (policyId: number) => {
+      const { data } = await api.post(`/firewall/qos/${instanceId}/${policyId}/apply`)
+      return data as { status: string }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.qosPolicies(instanceId) })
+    },
+  })
+}
+
+export function useQoSStats(instanceId: number, policyId: number, options?: Partial<UseQueryOptions<QoSStats>>) {
+  return useQuery<QoSStats>({
+    queryKey: queryKeys.qosStats(instanceId, policyId),
+    queryFn: async () => {
+      const { data } = await api.get(`/firewall/qos/${instanceId}/${policyId}/stats`)
+      return data
+    },
+    enabled: !!instanceId && !!policyId,
+    ...options,
+  })
+}
+
+export function useCreateQoSClass(instanceId: number, policyId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Partial<QoSClass>) => {
+      const { data } = await api.post(`/firewall/qos/${instanceId}/${policyId}/classes`, body)
+      return data as QoSClass
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.qosPolicies(instanceId) })
+    },
+  })
+}
+
+export function useDeleteQoSClass(instanceId: number, policyId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (classId: number) => {
+      await api.delete(`/firewall/qos/${instanceId}/${policyId}/classes/${classId}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.qosPolicies(instanceId) })
     },
   })
 }

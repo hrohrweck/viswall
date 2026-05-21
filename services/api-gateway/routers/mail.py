@@ -15,6 +15,7 @@ from shared.schemas import (
 )
 from shared.security import require_auth, require_admin, get_password_hash
 from shared.audit_logger import log_audit
+from utils.agent_client import agent_request, AgentClientError
 from mail_classifier import (
     classify_email,
     LLMClassificationError,
@@ -753,15 +754,47 @@ async def message_action(
 
 async def generate_dkim_keys(domain_id: int, domain_name: str):
     """Generate DKIM keys for a domain"""
-    # Would call mail agent to generate keys
-    pass
+    from shared.database import AsyncSessionLocal
+    from utils.agent_client import agent_request, AgentClientError
+    import logging
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(select(MailDomain).where(MailDomain.id == domain_id))
+            domain = result.scalar_one_or_none()
+            if not domain:
+                return
+            await agent_request(
+                db=db,
+                instance_id=domain.instance_id,
+                method="POST",
+                path="/dkim/generate",
+                json_data={"domain": domain_name},
+            )
+        except AgentClientError as e:
+            logger.error(f"Failed to generate DKIM for {domain_name}: {e}")
 
 async def reload_mail_config(instance_id: int):
     """Reload Exim configuration on an instance"""
-    # Would notify mail agent to reload
-    pass
+    from shared.database import AsyncSessionLocal
+    from utils.agent_client import agent_request, AgentClientError
+    import logging
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        try:
+            await agent_request(
+                db=db,
+                instance_id=instance_id,
+                method="POST",
+                path="/reload",
+            )
+        except AgentClientError as e:
+            logger.error(f"Failed to reload mail config on instance {instance_id}: {e}")
 
 async def create_maildir(domain: str, username: str):
     """Create Maildir for a new user"""
-    # Would call mail agent to create directories
-    pass
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Maildir creation requested for {username}@{domain} (agent endpoint not yet implemented)")

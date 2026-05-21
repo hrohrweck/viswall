@@ -24,6 +24,9 @@ from viswall.resources import (
     AssistantResource,
     GroupwareResource,
     DHCPResource,
+    DNSResource,
+    FirewallSimulationResource,
+    LLMAdminResource,
 )
 
 T = TypeVar("T")
@@ -90,6 +93,9 @@ class ViswallClient:
         self.assistant = AssistantResource(self)
         self.groupware = GroupwareResource(self)
         self.dhcp = DHCPResource(self)
+        self.dns = DNSResource(self)
+        self.firewall_simulation = FirewallSimulationResource(self)
+        self.llm_admin = LLMAdminResource(self)
 
     def _request(
         self,

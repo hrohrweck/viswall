@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Instances } from './pages/Instances'
 import { InstanceDetail } from './pages/InstanceDetail'
 import { FirewallRules } from './pages/FirewallRules'
+import { NatRules } from './pages/NatRules'
 import { FirewallSimulator } from './pages/Firewall/FirewallSimulator'
 import { FirewallTestSuite } from './pages/Firewall/FirewallTestSuite'
 import { TrafficShaping } from './pages/TrafficShaping'
@@ -64,6 +65,10 @@ export const router = createBrowserRouter([
       {
         path: 'firewall/tests',
         element: <FirewallTestSuite />,
+      },
+      {
+        path: 'firewall/nat',
+        element: <NatRules />,
       },
       {
         path: 'traffic',

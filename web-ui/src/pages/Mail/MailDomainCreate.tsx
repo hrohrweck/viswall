@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Shield, Brain, Mail, Check } from 'lucide-react'
+import { ArrowLeft, Shield, Brain, Mail, Check, Globe } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
 import { useCreateMailDomain } from '../../hooks/useApi'
 
@@ -17,6 +17,7 @@ export function MailDomainCreate() {
     dmarc_enabled: true,
     spf_enabled: true,
     llm_enabled: false,
+    groupware_enabled: false,
     llm_config: {
       provider: 'openai',
       model: 'gpt-4',
@@ -39,6 +40,7 @@ export function MailDomainCreate() {
       spf_enabled: config.spf_enabled,
       llm_enabled: config.llm_enabled,
       llm_config: config.llm_config,
+      groupware_enabled: config.groupware_enabled,
     })
     navigate('/mail')
   }
@@ -176,8 +178,27 @@ export function MailDomainCreate() {
               <span className="font-medium">AI Email Classification (LLM)</span>
             </div>
             <p className="text-sm text-gray-600 mt-1">
-              Advanced email categorization using GPT-4 or Claude. 
+              Advanced email categorization using GPT-4 or Claude.
               Can classify emails as important, newsletter, social, promotional, etc.
+            </p>
+          </div>
+        </label>
+
+        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={config.groupware_enabled}
+            onChange={(e) => setConfig({ ...config, groupware_enabled: e.target.checked })}
+            className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-indigo-600" />
+              <span className="font-medium">SOGo Groupware</span>
+            </div>
+            <p className="text-sm text-gray-600 mt-1">
+              Enable CalDAV, CardDAV, and ActiveSync for this domain.
+              Users can access calendars and contacts via SOGo.
             </p>
           </div>
         </label>

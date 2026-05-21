@@ -20,6 +20,9 @@ import {
   AssistantResource,
   GroupwareResource,
   DHCPResource,
+  DNSResource,
+  FirewallSimulationResource,
+  LLMAdminResource,
 } from './resources';
 
 export interface ViswallClientConfig {
@@ -43,6 +46,9 @@ export class ViswallClient {
   public readonly assistant: AssistantResource;
   public readonly groupware: GroupwareResource;
   public readonly dhcp: DHCPResource;
+  public readonly dns: DNSResource;
+  public readonly firewallSimulation: FirewallSimulationResource;
+  public readonly llmAdmin: LLMAdminResource;
 
   constructor(config: ViswallClientConfig) {
     const baseURL = config.baseURL.replace(/\/$/, '') + '/api/v1';
@@ -82,6 +88,9 @@ export class ViswallClient {
     this.assistant = new AssistantResource(this);
     this.groupware = new GroupwareResource(this);
     this.dhcp = new DHCPResource(this);
+    this.dns = new DNSResource(this);
+    this.firewallSimulation = new FirewallSimulationResource(this);
+    this.llmAdmin = new LLMAdminResource(this);
   }
 
   async request<T = unknown>(

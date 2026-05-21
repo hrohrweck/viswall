@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Gauge, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp, Settings } from 'lucide-react'
 import { api } from '../../utils/api'
-import { qosApi, type QoSPolicy, type QoSClass, type QoSStats, type Instance } from './api'
+import {
+  useQoSPolicies,
+  useDeleteQoSPolicy,
+  useApplyQoSPolicy,
+  useQoSStats,
+  useCreateQoSPolicy,
+  useUpdateQoSPolicy,
+} from '../../hooks/useApi'
+import type { QoSPolicy, QoSClass, QoSStats, Instance } from '../../types'
 
 export function TrafficShaping() {
   const queryClient = useQueryClient()
@@ -11,7 +19,7 @@ export function TrafficShaping() {
   const [editingPolicy, setEditingPolicy] = useState<QoSPolicy | null>(null)
   const [expandedPolicy, setExpandedPolicy] = useState<number | null>(null)
 
-  const { data: instances = [] } = useQuery({
+  const { data: instances = [] } = useQuery<Instance[]>({
     queryKey: ['instances'],
     queryFn: async () => {
       const res = await api.get<Instance[]>('/instances')
@@ -25,25 +33,9 @@ export function TrafficShaping() {
     }
   }, [instances, selectedInstanceId])
 
-  const { data: policies = [], isLoading } = useQuery({
-    queryKey: ['qos-policies', selectedInstanceId],
-    queryFn: () => qosApi.list(selectedInstanceId!),
-    enabled: !!selectedInstanceId,
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (policyId: number) => qosApi.delete(selectedInstanceId!, policyId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['qos-policies', selectedInstanceId] })
-    },
-  })
-
-  const applyMutation = useMutation({
-    mutationFn: (policyId: number) => qosApi.apply(selectedInstanceId!, policyId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['qos-policies', selectedInstanceId] })
-    },
-  })
+  const { data: policies = [], isLoading } = useQoSPolicies(selectedInstanceId || 0)
+  const deleteMutation = useDeleteQoSPolicy(selectedInstanceId || 0)
+  const applyMutation = useApplyQoSPolicy(selectedInstanceId || 0)
 
   return (
     <div className="space-y-6">
@@ -154,9 +146,7 @@ function PolicyCard({
   onDelete,
   onApply,
 }: PolicyCardProps) {
-  const { data: stats } = useQuery({
-    queryKey: ['qos-stats', instanceId, policy.id],
-    queryFn: () => qosApi.stats(instanceId, policy.id),
+  const { data: stats } = useQoSStats(instanceId, policy.id, {
     enabled: policy.applied,
     refetchInterval: 30000,
   })
@@ -308,35 +298,39 @@ function PolicyFormModal({ instanceId, policy, onClose, onSuccess }: PolicyFormM
   const [uploadKbps, setUploadKbps] = useState(policy?.upload_kbps || 50000)
   const [enabled, setEnabled] = useState(policy?.enabled ?? true)
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => {
-      if (policy) {
-        return qosApi.update(instanceId, policy.id, data)
-      }
-      return qosApi.create(instanceId, {
-        name,
-        description,
-        interface_name: interfaceName,
-        algorithm,
-        download_kbps: downloadKbps,
-        upload_kbps: uploadKbps,
-        enabled,
-        classes: [],
-      })
-    },
-    onSuccess,
-  })
+  const createMutation = useCreateQoSPolicy(instanceId)
+  const updateMutation = useUpdateQoSPolicy(instanceId)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    createMutation.mutate({
-      name,
-      description,
-      enabled,
-      algorithm,
-      download_kbps: downloadKbps,
-      upload_kbps: uploadKbps,
-    })
+    if (policy) {
+      updateMutation.mutate(
+        {
+          id: policy.id,
+          name,
+          description,
+          enabled,
+          algorithm,
+          download_kbps: downloadKbps,
+          upload_kbps: uploadKbps,
+        },
+        { onSuccess }
+      )
+    } else {
+      createMutation.mutate(
+        {
+          name,
+          description,
+          interface_name: interfaceName,
+          algorithm,
+          download_kbps: downloadKbps,
+          upload_kbps: uploadKbps,
+          enabled,
+          classes: [],
+        },
+        { onSuccess }
+      )
+    }
   }
 
   return (
@@ -443,7 +437,7 @@ function PolicyFormModal({ instanceId, policy, onClose, onSuccess }: PolicyFormM
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || updateMutation.isPending}
               className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
             >
               {createMutation.isPending ? 'Saving...' : policy ? 'Update' : 'Create'}

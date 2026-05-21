@@ -37,6 +37,7 @@ from shared.schemas import (
 )
 from shared.security import require_auth, require_admin
 from shared.audit_logger import log_audit
+from utils.agent_client import agent_request, AgentClientError
 
 router = APIRouter()
 
@@ -763,15 +764,70 @@ def _default_htb_classes(download_kbps: int, upload_kbps: int) -> List[QoSClassC
 
 
 async def apply_qos_policy(instance_id: int, policy_id: int):
-    pass
+    from shared.database import AsyncSessionLocal
+    from shared.models import QoSPolicy
+    from sqlalchemy import select
+
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(QoSPolicy).where(QoSPolicy.id == policy_id)
+            )
+            policy = result.scalar_one_or_none()
+            if not policy:
+                return
+
+            await agent_request(
+                db=db,
+                instance_id=instance_id,
+                method="POST",
+                path="/qos/apply",
+                json_data={
+                    "interface": policy.interface_name,
+                    "algorithm": policy.algorithm,
+                    "download_kbps": policy.download_kbps,
+                    "upload_kbps": policy.upload_kbps,
+                    "classes": [],
+                },
+            )
+        except AgentClientError as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to apply QoS policy {policy_id} to instance {instance_id}: {e}")
 
 
 async def clear_qos_on_interface(instance_id: int, interface_name: str):
-    pass
+    from shared.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        try:
+            await agent_request(
+                db=db,
+                instance_id=instance_id,
+                method="POST",
+                path="/qos/clear",
+                json_data={"interface": interface_name},
+            )
+        except AgentClientError as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to clear QoS on {interface_name} for instance {instance_id}: {e}")
 
 
 async def fetch_qos_stats_from_agent(instance_id: int, interface_name: str) -> dict:
-    return {"queues": [], "raw": None}
+    from shared.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await agent_request(
+                db=db,
+                instance_id=instance_id,
+                method="GET",
+                path=f"/qos/stats/{interface_name}",
+            )
+            return result.get("stats", {"queues": [], "raw": None})
+        except AgentClientError:
+            return {"queues": [], "raw": None}
 
 
 # ============================================================================
@@ -786,32 +842,67 @@ async def block_ip(
     reason: Optional[str] = "manual",
     duration: Optional[str] = "1h",
     admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
 ):
     """Block an IP address"""
-    return {"status": "queued", "action": "block", "ip": ip, "duration": duration}
+    try:
+        await agent_request(
+            db=db,
+            instance_id=instance_id,
+            method="POST",
+            path="/block",
+            json_data={"ip": ip, "reason": reason},
+        )
+        return {"status": "success", "action": "block", "ip": ip, "duration": duration}
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
 
 @router.post("/unblock/{instance_id}")
-async def unblock_ip(instance_id: int, ip: str, admin_id: int = Depends(require_admin)):
+async def unblock_ip(
+    instance_id: int,
+    ip: str,
+    admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
     """Unblock an IP address"""
-    return {"status": "queued", "action": "unblock", "ip": ip}
+    try:
+        await agent_request(
+            db=db,
+            instance_id=instance_id,
+            method="POST",
+            path="/unblock",
+            json_data={"ip": ip},
+        )
+        return {"status": "success", "action": "unblock", "ip": ip}
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
 
 @router.get("/stats/{instance_id}")
-async def get_firewall_stats(instance_id: int, user_id: int = Depends(require_auth)):
+async def get_firewall_stats(instance_id: int, user_id: int = Depends(require_auth), db: AsyncSession = Depends(get_db)):
     """Get firewall statistics"""
-    return {
-        "instance_id": instance_id,
-        "connections": 0,
-        "packets_accepted": 0,
-        "packets_dropped": 0,
-        "blacklist_size": 0,
-        "top_blocked_ips": [],
-    }
+    try:
+        result = await agent_request(
+            db=db,
+            instance_id=instance_id,
+            method="GET",
+            path="/stats",
+        )
+        return result
+    except AgentClientError:
+        return {
+            "instance_id": instance_id,
+            "connections": 0,
+            "packets_accepted": 0,
+            "packets_dropped": 0,
+            "blacklist_size": 0,
+            "top_blocked_ips": [],
+        }
 
 
-# Background task
 async def reload_firewall(instance_id: int):
     """Reload firewall configuration on an instance"""
-    # Would call firewall agent via message queue or API
-    pass
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Firewall reload requested for instance {instance_id} (agent endpoint not yet implemented)")
