@@ -125,11 +125,12 @@ export function FirewallSimulator() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
+    const isDark = document.documentElement.classList.contains('dark')
+
     // Draw connections
-    ctx.strokeStyle = '#e5e7eb'
+    ctx.strokeStyle = isDark ? '#374151' : '#e5e7eb'
     ctx.lineWidth = 2
     ctx.beginPath()
     
@@ -150,20 +151,20 @@ export function FirewallSimulator() {
       // Draw node
       ctx.beginPath()
       ctx.arc(step.position.x + 20, step.position.y + 20, 20, 0, Math.PI * 2)
-      ctx.fillStyle = isActive ? (step.type === 'action' && step.action === 'accept' ? '#10b981' : step.type === 'action' && step.action === 'drop' ? '#ef4444' : '#3b82f6') : '#f3f4f6'
+      ctx.fillStyle = isActive ? (step.type === 'action' && step.action === 'accept' ? '#10b981' : step.type === 'action' && step.action === 'drop' ? '#ef4444' : '#3b82f6') : (isDark ? '#1f2937' : '#f3f4f6')
       ctx.fill()
-      ctx.strokeStyle = isCurrent ? '#1d4ed8' : '#d1d5db'
+      ctx.strokeStyle = isCurrent ? '#3b82f6' : (isDark ? '#4b5563' : '#d1d5db')
       ctx.lineWidth = isCurrent ? 3 : 1
       ctx.stroke()
       
       // Draw step number
-      ctx.fillStyle = isActive ? 'white' : '#6b7280'
+      ctx.fillStyle = isActive ? 'white' : (isDark ? '#9ca3af' : '#6b7280')
       ctx.font = '12px sans-serif'
       ctx.textAlign = 'center'
       ctx.fillText(String(step.step), step.position.x + 20, step.position.y + 25)
       
       // Draw label
-      ctx.fillStyle = '#374151'
+      ctx.fillStyle = isDark ? '#d1d5db' : '#374151'
       ctx.font = '11px sans-serif'
       ctx.textAlign = 'center'
       ctx.fillText(step.type, step.position.x + 20, step.position.y + 55)
@@ -174,8 +175,8 @@ export function FirewallSimulator() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Firewall Rule Simulator</h2>
-          <p className="text-gray-600 mt-1">Test firewall rules before deploying to production</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Firewall Rule Simulator</h2>
+          <p className="text-gray-600 mt-1 dark:text-gray-400">Test firewall rules before deploying to production</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -190,7 +191,7 @@ export function FirewallSimulator() {
           <button
             onClick={() => { setCurrentStep(0); setIsPlaying(false); }}
             disabled={!simulation}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             <RotateCcw className="w-4 h-4" />
             Reset
@@ -200,38 +201,38 @@ export function FirewallSimulator() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Packet Configuration */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="font-semibold text-gray-900 mb-4">Test Packet</h3>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-900 mb-4 dark:text-white">Test Packet</h3>
           
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Source IP</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Source IP</label>
                 <input
                   type="text"
                   value={packet.src_ip}
                   onChange={(e) => setPacket({ ...packet, src_ip: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dest IP</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Dest IP</label>
                 <input
                   type="text"
                   value={packet.dst_ip}
                   onChange={(e) => setPacket({ ...packet, dst_ip: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Protocol</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Protocol</label>
                 <select
                   value={packet.protocol}
                   onChange={(e) => setPacket({ ...packet, protocol: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                 >
                   <option value="tcp">TCP</option>
                   <option value="udp">UDP</option>
@@ -239,43 +240,43 @@ export function FirewallSimulator() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Src Port</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Src Port</label>
                 <input
                   type="number"
                   value={packet.src_port}
                   onChange={(e) => setPacket({ ...packet, src_port: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dst Port</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Dst Port</label>
                 <input
                   type="number"
                   value={packet.dst_port}
                   onChange={(e) => setPacket({ ...packet, dst_port: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">In Interface</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">In Interface</label>
                 <select
                   value={packet.interface_in}
                   onChange={(e) => setPacket({ ...packet, interface_in: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                 >
                   <option value="eth0">eth0 (WAN)</option>
                   <option value="eth1">eth1 (LAN)</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Conn State</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Conn State</label>
                 <select
                   value={packet.connection_state}
                   onChange={(e) => setPacket({ ...packet, connection_state: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                 >
                   <option value="NEW">NEW</option>
                   <option value="ESTABLISHED">ESTABLISHED</option>
@@ -294,10 +295,10 @@ export function FirewallSimulator() {
         </div>
 
         {/* Visualization */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="font-semibold text-gray-900 mb-4">Packet Flow Visualization</h3>
+        <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-900 mb-4 dark:text-white">Packet Flow Visualization</h3>
           
-          <div className="relative h-80 bg-gray-50 rounded-lg overflow-hidden">
+          <div className="relative h-80 bg-gray-50 rounded-lg overflow-hidden dark:bg-gray-950">
             {simulation ? (
               <canvas
                 ref={canvasRef}
@@ -306,7 +307,7 @@ export function FirewallSimulator() {
                 className="w-full h-full"
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400">
+              <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-600">
                 Configure packet and click "Run Simulation"
               </div>
             )}
@@ -314,44 +315,28 @@ export function FirewallSimulator() {
 
           {/* Step Details */}
           {simulation && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg dark:bg-blue-950/20">
               <div className="flex items-start gap-3">
-                <ChevronRight className="w-5 h-5 text-blue-600 mt-0.5" />
+                <ChevronRight className="w-5 h-5 text-blue-600 mt-0.5 dark:text-blue-400" />
                 <div>
-                  <p className="font-medium text-blue-900">
-                    Step {currentStep + 1}: {simulation.steps[currentStep]?.description}
-                  </p>                  
-                  {simulation.steps[currentStep]?.rule && (
-                    <p className="text-sm text-blue-700 mt-1">
-                      Rule: {simulation.steps[currentStep].rule.name} ({simulation.steps[currentStep].rule.action})
-                    </p>
-                  )}
+                  <p className="text-sm text-blue-800 dark:text-blue-300">{simulation.steps[currentStep].description}</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Result */}
-          {simulation && currentStep === simulation.steps.length - 1 && (
-            <div className={`mt-4 p-4 rounded-lg ${
-              simulation.final_result.final_action === 'accept' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-            }`}>
-              <div className="flex items-center gap-3">
+          {simulation && (
+            <div className="mt-4 p-4 border border-gray-200 rounded-lg dark:border-gray-700">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Simulation Result</h4>
+              <div className="flex items-center gap-2">
                 {simulation.final_result.final_action === 'accept' ? (
-                  <CheckCircle className="w-6 h-6 text-green-600" />
+                  <CheckCircle className="w-5 h-5 text-green-600" />
                 ) : (
-                  <XCircle className="w-6 h-6 text-red-600" />
+                  <XCircle className="w-5 h-5 text-red-600" />
                 )}
-                <div>
-                  <p className="font-semibold">
-                    Final Action: {simulation.final_result.final_action.toUpperCase()}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Matched rule: {simulation.final_result.matched_rule?.name || 'None'} | 
-                    Rules evaluated: {simulation.final_result.rules_evaluated} | 
-                    Time: {simulation.final_result.processing_time_ms}ms
-                  </p>
-                </div>
+                <span className="text-sm font-medium capitalize dark:text-white">
+                  {simulation.final_result.final_action}
+                </span>
               </div>
             </div>
           )}

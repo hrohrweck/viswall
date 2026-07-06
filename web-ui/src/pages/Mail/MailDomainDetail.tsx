@@ -86,8 +86,8 @@ export function MailDomainDetail() {
       header: 'User',
       render: (user: MailUser) => (
         <div>
-          <p className="font-medium text-gray-900">{user.username}@{domain.domain}</p>
-          {user.full_name && <p className="text-xs text-gray-500">{user.full_name}</p>}
+          <p className="font-medium text-gray-900 dark:text-white">{user.username}@{domain.domain}</p>
+          {user.full_name && <p className="text-xs text-gray-500 dark:text-gray-400">{user.full_name}</p>}
         </div>
       ),
     },
@@ -101,13 +101,13 @@ export function MailDomainDetail() {
       header: 'Quota',
       render: (user: MailUser) => (
         <div className="text-sm">
-          <div className="w-24 bg-gray-200 rounded-full h-1.5">
+          <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
             <div
               className="bg-primary-600 h-1.5 rounded-full"
               style={{ width: `${Math.min((user.quota_used / user.quota_bytes) * 100, 100)}%` }}
             />
           </div>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {formatBytes(user.quota_used)} / {formatBytes(user.quota_bytes)}
           </span>
         </div>
@@ -117,7 +117,7 @@ export function MailDomainDetail() {
       key: 'forwarding',
       header: 'Forwarding',
       render: (user: MailUser) => (
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-gray-600 dark:text-gray-400">
           {user.forward_to.length > 0 ? user.forward_to.join(', ') : '-'}
         </span>
       ),
@@ -139,26 +139,26 @@ export function MailDomainDetail() {
   return (
     <div>
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate('/mail')} className="p-2 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        <button onClick={() => navigate('/mail')} className="p-2 hover:bg-gray-100 rounded-lg dark:hover:bg-gray-800">
+          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-gray-900">{domain.domain}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{domain.domain}</h2>
             <StatusBadge status={domain.enabled ? 'active' : 'inactive'} />
           </div>
         </div>
         <button
           onClick={() => dkimMutation.mutate(domain.id)}
           disabled={dkimMutation.isPending}
-          className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+          className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
         >
           <Key className="w-4 h-4" />
           Regenerate DKIM
         </button>
         <button
           onClick={() => setShowDeleteDomain(true)}
-          className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+          className="p-2 text-red-600 hover:bg-red-50 rounded-lg dark:hover:bg-red-950/30"
         >
           <Trash2 className="w-5 h-5" />
         </button>
@@ -166,23 +166,23 @@ export function MailDomainDetail() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {securityFeatures.map(({ label, enabled }) => (
-          <div key={label} className={`p-4 rounded-lg border ${enabled ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+          <div key={label} className={`p-4 rounded-lg border ${enabled ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900' : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700'}`}>
             <div className="flex items-center gap-2">
-              <Shield className={`w-4 h-4 ${enabled ? 'text-green-600' : 'text-gray-400'}`} />
-              <span className={`text-sm font-medium ${enabled ? 'text-green-700' : 'text-gray-500'}`}>{label}</span>
+              <Shield className={`w-4 h-4 ${enabled ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`} />
+              <span className={`text-sm font-medium ${enabled ? 'text-green-700 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>{label}</span>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-gray-200 mb-6 dark:border-gray-700">
         <nav className="flex gap-6">
           <button
             onClick={() => setActiveTab('users')}
             className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'users'
-                ? 'border-primary-600 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
             }`}
           >
             <Users className="w-4 h-4" />
@@ -192,8 +192,8 @@ export function MailDomainDetail() {
             onClick={() => setActiveTab('classification')}
             className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'classification'
-                ? 'border-primary-600 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
             }`}
           >
             <Brain className="w-4 h-4" />
@@ -203,8 +203,8 @@ export function MailDomainDetail() {
             onClick={() => setActiveTab('groupware')}
             className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'groupware'
-                ? 'border-primary-600 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
             }`}
           >
             <Globe className="w-4 h-4" />
@@ -216,7 +216,7 @@ export function MailDomainDetail() {
       {activeTab === 'users' && (
         <>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Mailboxes</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Mailboxes</h3>
             <button
               onClick={() => setShowCreateUser(true)}
               className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
@@ -240,9 +240,9 @@ export function MailDomainDetail() {
       {activeTab === 'groupware' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">SOGo Groupware</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">SOGo Groupware</h3>
             <div className="flex items-center gap-3">
-              <span className={`text-sm font-medium ${domain.groupware_enabled ? 'text-green-600' : 'text-gray-500'}`}>
+              <span className={`text-sm font-medium ${domain.groupware_enabled ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
                 {domain.groupware_enabled ? 'Enabled' : 'Disabled'}
               </span>
               <button
@@ -255,7 +255,7 @@ export function MailDomainDetail() {
                 }}
                 disabled={enableGroupware.isPending || disableGroupware.isPending}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  domain.groupware_enabled ? 'bg-primary-600' : 'bg-gray-200'
+                  domain.groupware_enabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'
                 }`}
               >
                 <span
@@ -268,26 +268,26 @@ export function MailDomainDetail() {
           </div>
 
           {groupwareStatus?.sogo_url && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
-                SOGo is accessible at <a href={groupwareStatus.sogo_url} className="font-medium underline">{groupwareStatus.sogo_url}</a>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-950/20 dark:border-blue-900 dark:text-blue-300">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                SOGo is accessible at <a href={groupwareStatus.sogo_url} className="font-medium underline dark:text-blue-200">{groupwareStatus.sogo_url}</a>
               </p>
             </div>
           )}
 
           {groupwareStats && domain.groupware_enabled && (
             <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <p className="text-sm text-gray-500">Calendars</p>
-                <p className="text-2xl font-semibold text-gray-900">{(groupwareStats.calendars as number) || 0}</p>
+              <div className="bg-white rounded-lg border border-gray-200 p-4 dark:bg-gray-900 dark:border-gray-700">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Calendars</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{(groupwareStats.calendars as number) || 0}</p>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <p className="text-sm text-gray-500">Contacts</p>
-                <p className="text-2xl font-semibold text-gray-900">{(groupwareStats.contacts as number) || 0}</p>
+              <div className="bg-white rounded-lg border border-gray-200 p-4 dark:bg-gray-900 dark:border-gray-700">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Contacts</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{(groupwareStats.contacts as number) || 0}</p>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <p className="text-sm text-gray-500">Active Users</p>
-                <p className="text-2xl font-semibold text-gray-900">{(groupwareStats.active_users as number) || 0}</p>
+              <div className="bg-white rounded-lg border border-gray-200 p-4 dark:bg-gray-900 dark:border-gray-700">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Active Users</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{(groupwareStats.active_users as number) || 0}</p>
               </div>
             </div>
           )}
@@ -297,41 +297,41 @@ export function MailDomainDetail() {
       <Modal open={showCreateUser} onClose={() => setShowCreateUser(false)} title="Add Mailbox">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Username</label>
             <div className="flex">
               <input
                 type="text"
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                 placeholder="user"
               />
-              <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-500 text-sm">
+              <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-500 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400">
                 @{domain.domain}
               </span>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Full Name</label>
             <input
               type="text"
               value={newFullName}
               onChange={(e) => setNewFullName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Password</label>
             <input
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
               placeholder="Leave empty to auto-generate"
             />
           </div>
           <div className="flex justify-end gap-3">
-            <button onClick={() => setShowCreateUser(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+            <button onClick={() => setShowCreateUser(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">Cancel</button>
             <button onClick={handleCreateUser} disabled={!newUsername || createMutation.isPending} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
               {createMutation.isPending ? 'Creating...' : 'Create'}
             </button>

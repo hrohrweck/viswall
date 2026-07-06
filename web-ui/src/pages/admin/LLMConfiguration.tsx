@@ -56,7 +56,7 @@ export function LLMConfiguration() {
               onClick={() => setActiveTab(id)}
               className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === id
-                  ? 'border-primary-600 text-primary-600'
+                  ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >

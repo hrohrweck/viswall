@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -23,4 +24,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 ENV PYTHONPATH=/app:/app/services/api-gateway
-CMD ["uvicorn", "main:app", "--host", "::", "--port", "8000", "--reload"]
+CMD ["gunicorn", "main:app", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "-b", "[::]:8000", "--access-logfile", "-", "--error-logfile", "-"]

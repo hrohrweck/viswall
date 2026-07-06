@@ -12,11 +12,11 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon: Icon, title, description, actionLabel, actionTo, onAction }: EmptyStateProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
       <div className="p-12 text-center">
-        <Icon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">{title}</h3>
-        <p className="text-gray-600 mb-6">{description}</p>
+        <Icon className="w-16 h-16 text-gray-300 mx-auto mb-4 dark:text-gray-600" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2 dark:text-white">{title}</h3>
+        <p className="text-gray-600 mb-6 dark:text-gray-400">{description}</p>
         {actionLabel && (actionTo ? (
           <Link
             to={actionTo}

@@ -23,7 +23,7 @@ export function InstanceSelector() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-400 text-sm">
+      <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-400 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
         Loading...
       </div>
     )
@@ -31,7 +31,7 @@ export function InstanceSelector() {
 
   if (!instances || instances.length === 0) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-400 text-sm">
+      <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-400 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
         No instances
       </div>
     )
@@ -41,16 +41,16 @@ export function InstanceSelector() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm min-w-[200px]"
+        className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm min-w-[200px] dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:hover:bg-gray-700"
       >
-        <Server className="w-4 h-4 text-gray-500" />
+        <Server className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         <span className="flex-1 text-left truncate">
           {selected ? selected.name : 'Select instance...'}
         </span>
         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+        <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
           {instances.map((instance) => (
             <button
               key={instance.id}
@@ -58,8 +58,8 @@ export function InstanceSelector() {
                 setSelectedInstance(instance.id)
                 setOpen(false)
               }}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${
-                instance.id === selectedInstanceId ? 'bg-primary-50 text-primary-700' : ''
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 dark:hover:bg-gray-700 ${
+                instance.id === selectedInstanceId ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400' : ''
               }`}
             >
               <Server className="w-4 h-4" />

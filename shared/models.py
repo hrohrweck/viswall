@@ -1,6 +1,7 @@
 from sqlalchemy import (
     Column,
     Integer,
+    BigInteger,
     String,
     Boolean,
     DateTime,
@@ -184,8 +185,8 @@ class MailUser(Base):
     username = Column(String(100), nullable=False)
     password_hash = Column(String(255))
     full_name = Column(String(255))
-    quota_bytes = Column(Integer, default=1073741824)  # 1GB default
-    quota_used = Column(Integer, default=0)
+    quota_bytes = Column(BigInteger, default=1073741824)  # 1GB default
+    quota_used = Column(BigInteger, default=0)
     enabled = Column(Boolean, default=True)
 
     # Delivery options
@@ -1050,3 +1051,22 @@ class DNSSECKey(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     zone = relationship("DNSZone", back_populates="dnssec_keys")
+
+
+class MailAlias(Base):
+    """Email aliases and catch-alls: (source, domain) -> destination address.
+
+    source is a local-part, or '*' for a domain catch-all. One row per destination
+    (multi-target aliases = multiple rows). destination may be a local mailbox
+    address or an external address.
+    """
+
+    __tablename__ = "mail_aliases"
+
+    id = Column(Integer, primary_key=True)
+    domain_id = Column(Integer, ForeignKey("mail_domains.id"), nullable=False, index=True)
+    source = Column(String(255), nullable=False)
+    destination = Column(String(255), nullable=False)
+    enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -1,0 +1,112 @@
+# Gitleaks configuration for the Viswall repository.
+# Extends the built-in default ruleset with project-specific checks.
+# Docs: https://github.com/gitleaks/gitleaks
+
+title = "viswall"
+
+[extend]
+# Inherit the community-maintained default rules (private keys, AWS, GCP,
+# GitHub tokens, generic high-entropy, etc.) and add custom rules below.
+useDefault = true
+
+##############################################################################
+# Custom rules
+##############################################################################
+
+# Private key material (PEM/DER/OpenSSH headers beyond what the default covers)
+[[rules]]
+id = "pem-private-key-block"
+description = "PEM private key block"
+regex = '''-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'''
+tags = ["key", "pem", "private"]
+
+# Generic password / secret assignment in YAML, TOML, env, and ini files.
+# Matches `key: value`, `key = value`, `export KEY=value` where the value is
+# non-trivial (>= 8 chars) and not an obvious placeholder.
+[[rules]]
+id = "password-assignment"
+description = "Password or secret assignment in config files"
+regex = '''(?i)(?:password|passwd|pwd|secret|api[_-]?key|token)\s*[:=]\s*['"]?[A-Za-z0-9/+=!@#$%^&*{}._~-]{8,}'''
+tags = ["password", "secret"]
+# Avoid flagging intentional placeholders and examples.
+[rules.allowlist]
+regexes = [
+  '''(?i)(change|changeme|placeholder|example|your-|<|REPLACE|REQUIRED|required|set-via|vault_)''',
+  '''\$\{[A-Z_]+\}''',
+  '''\$\{[A-Z_]+:?''',
+  '''@@[A-Z_]+@@''',
+  '''os\.getenv''',
+  '''getenv\(['"]''',
+]
+
+# Bearer / Authorization headers
+[[rules]]
+id = "bearer-token"
+description = "Bearer token in HTTP header"
+regex = '''(?i)authorization\s*:\s*(?:bearer|token)\s+[A-Za-z0-9._\-/+=]{20,}'''
+tags = ["token", "bearer"]
+
+# JWT (three base64url segments separated by dots)
+[[rules]]
+id = "jwt-token"
+description = "JSON Web Token"
+regex = '''eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}'''
+tags = ["jwt", "token"]
+
+# Database connection strings containing credentials
+[[rules]]
+id = "db-connection-string-with-password"
+description = "Database connection string with embedded password"
+regex = '''(?i)(?:postgres(?:ql)?|mysql|mongodb(\+srv)?|redis|amqp)://[^:\s]+:[^@\s]{4,}@'''
+tags = ["database", "dsn"]
+
+# AWS access key IDs (20-char uppercase alphanumeric prefixed with AKIA/ASIA)
+[[rules]]
+id = "aws-access-key-id"
+description = "AWS Access Key ID"
+regex = '''(?:AKIA|ASIA)[0-9A-Z]{16}'''
+tags = ["aws", "key"]
+
+# Generic high-entropy API key (32+ hex or base64 characters on a key-named line)
+[[rules]]
+id = "generic-api-key"
+description = "Generic high-entropy API key"
+regex = '''(?i)(?:api[_-]?key|client[_-]?secret|private[_-]?key)["']?\s*[:=]\s*["']?[A-Fa-z0-9]{32,}'''
+tags = ["api-key", "high-entropy"]
+
+##############################################################################
+# Allowlist — paths and regexes to ignore globally
+##############################################################################
+[allowlist]
+description = "Global allowlist"
+paths = [
+  '''(^|/)\.git/.*''',
+  '''(^|/)node_modules/.*''',
+  '''(^|/)vendor/.*''',
+  '''(^|/)\.venv/.*''',
+  # The example env file ships non-secret placeholders by design.
+  '''deployments/docker/\.env\.example''',
+  # Test fixtures may contain synthetic secrets.
+  '''(^|/)tests?/.*(?:fixture|mock|sample).*''',
+  # Security scanner config files contain keywords like "secret" by design.
+  '''(^|/)\.gitguardian\.ya?ml''',
+  '''(^|/)\.gitleaksignore''',
+  # Docker Compose deployment uses env-var references, not hardcoded secrets.
+  '''deployments/docker/docker-compose\.yml''',
+  # Template files use @@VAR@@ placeholders, not real secrets.
+  '''(^|/).*\.tmpl$''',
+  '''(^|/)config/.*\.conf(\.ext)?(\.tmpl)?$''',
+  # Migration scripts read credentials from env vars, no hardcoded secrets.
+  '''scripts/migrate_legacy.*\.py''',
+]
+# Substrings that are intentionally not secrets.
+regexes = [
+  '''(?i)changeme''',
+  '''(?i)change-me''',
+  '''(?i)placeholder''',
+  '''(?i)example\.com''',
+  '''(?i)your-secret-key''',
+  '''(?i)required''',
+  '''@@[A-Z_]+@@''',
+  '''os\.getenv''',
+]

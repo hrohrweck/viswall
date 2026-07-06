@@ -30,6 +30,7 @@
   WOPort = 20000;
   WOLogFile = /var/log/sogo/sogo.log;
   WOPidFile = /var/run/sogo/sogo.pid;
+  WOServerURL = "https://mail.example.com";
 
   /* DAV access */
   SOGoCalendarDAVAccessEnabled = YES;
@@ -42,11 +43,18 @@
   SOGoMaximumSyncInterval = 30;
 
   /* Web interface settings */
-  SOGoLoginModule = Calendar;
+  SOGoLoginModule = Mail;
   SOGoPageTitle = "Viswall Groupware";
-  SOGoVacationEnabled = YES;
-  SOGoSieveScriptsEnabled = YES;
-  SOGoSieveServer = "sieve://dovecot:4190";
+  SOGoVacationEnabled = NO;
+  SOGoSieveScriptsEnabled = NO;
+
+  /* Mail — IMAP and SMTP connections to the mail-service container.
+     CRITICAL: the trailing slash before the query string (143/?tls=YES, not
+     143?tls=YES) is required — without it, NGImap4 misparses the scheme as the
+     hostname. tlsVerifyMode=none skips cert verification because the Docker DNS
+      name (mail-service) doesn't match the TLS cert CN (mail.example.com). */
+  SOGoIMAPServer = "imap://mail-service:143/?tls=YES&tlsVerifyMode=none";
+  SOGoSMTPServer = "smtp://mail-service:587/?tls=YES&tlsVerifyMode=none";
 
   /* Language */
   SOGoLanguage = English;

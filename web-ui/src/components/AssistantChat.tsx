@@ -179,11 +179,11 @@ export function AssistantChat() {
         <div className="space-y-4">
           <p>{message.content}</p>
           
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="font-semibold text-gray-900">Suggested Rule</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white">Suggested Rule</h4>
               <span className={`px-2 py-1 text-xs rounded ${
-                data.rule.action === 'accept' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                data.rule.action === 'accept' ? 'bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400'
               }`}>
                 {data.rule.action.toUpperCase()}
               </span>
@@ -191,49 +191,49 @@ export function AssistantChat() {
             
             <div className="space-y-2 text-sm">
               <div className="flex">
-                <span className="w-24 text-gray-600">Name:</span>
-                <span className="font-mono">{data.rule.name}</span>
+                <span className="w-24 text-gray-600 dark:text-gray-400">Name:</span>
+                <span className="font-mono dark:text-white">{data.rule.name}</span>
               </div>
               <div className="flex">
-                <span className="w-24 text-gray-600">Chain:</span>
-                <span className="font-mono">{data.rule.chain}</span>
+                <span className="w-24 text-gray-600 dark:text-gray-400">Chain:</span>
+                <span className="font-mono dark:text-white">{data.rule.chain}</span>
               </div>
               {data.rule.protocol && (
                 <div className="flex">
-                  <span className="w-24 text-gray-600">Protocol:</span>
-                  <span className="font-mono">{data.rule.protocol}</span>
+                  <span className="w-24 text-gray-600 dark:text-gray-400">Protocol:</span>
+                  <span className="font-mono dark:text-white">{data.rule.protocol}</span>
                 </div>
               )}
               {data.rule.dst_port && (
                 <div className="flex">
-                  <span className="w-24 text-gray-600">Port:</span>
-                  <span className="font-mono">{data.rule.dst_port}</span>
+                  <span className="w-24 text-gray-600 dark:text-gray-400">Port:</span>
+                  <span className="font-mono dark:text-white">{data.rule.dst_port}</span>
                 </div>
               )}
               {data.rule.interface_in && (
                 <div className="flex">
-                  <span className="w-24 text-gray-600">Interface:</span>
-                  <span className="font-mono">{data.rule.interface_in}</span>
+                  <span className="w-24 text-gray-600 dark:text-gray-400">Interface:</span>
+                  <span className="font-mono dark:text-white">{data.rule.interface_in}</span>
                 </div>
               )}
             </div>
 
-            <div className="mt-4 p-3 bg-blue-50 rounded text-sm">
-              <p className="text-blue-900"><strong>Explanation:</strong> {data.explanation}</p>
+            <div className="mt-4 p-3 bg-blue-50 rounded text-sm dark:bg-blue-950/20">
+              <p className="text-blue-900 dark:text-blue-300"><strong>Explanation:</strong> {data.explanation}</p>
             </div>
 
-            <div className="mt-3 p-3 bg-green-50 rounded text-sm">
-              <p className="text-green-900">{data.security_notes}</p>
+            <div className="mt-3 p-3 bg-green-50 rounded text-sm dark:bg-green-950/20">
+              <p className="text-green-900 dark:text-green-400">{data.security_notes}</p>
             </div>
           </div>
 
           {data.suggested_tests.length > 0 && (
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-3">Suggested Tests</h4>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+              <h4 className="font-semibold text-gray-900 mb-3 dark:text-white">Suggested Tests</h4>
               <div className="space-y-2">
                 {data.suggested_tests.map((test: TestCase, idx: number) => (
-                  <div key={idx} className="flex items-center gap-2 text-sm">
-                    <Check className="w-4 h-4 text-green-600" />
+                  <div key={idx} className="flex items-center gap-2 text-sm dark:text-gray-300">
+                    <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
                     <span>{test.name} (should {test.should})</span>
                   </div>
                 ))}
@@ -245,7 +245,7 @@ export function AssistantChat() {
             <button className="flex-1 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
               Add to Firewall
             </button>
-            <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+            <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
               Test in Simulator
             </button>
           </div>
@@ -259,26 +259,26 @@ export function AssistantChat() {
         <div className="space-y-4">
           <p>{message.content}</p>
           
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <h4 className="font-semibold text-gray-900 mb-3">Generated Test Cases</h4>
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+            <h4 className="font-semibold text-gray-900 mb-3 dark:text-white">Generated Test Cases</h4>
             
             <div className="space-y-3">
               {data.test_cases.map((test: TestSuggestionData['test_cases'][number], idx: number) => (
-                <div key={idx} className="p-3 bg-white rounded border border-gray-200">
+                <div key={idx} className="p-3 bg-white rounded border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">{test.name}</span>
+                    <span className="font-medium dark:text-white">{test.name}</span>
                     {test.critical && (
-                      <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded">Critical</span>
+                      <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded dark:bg-red-950/30 dark:text-red-400">Critical</span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{test.description}</p>
-                  <div className="mt-2 text-sm font-mono bg-gray-100 p-2 rounded">
+                  <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">{test.description}</p>
+                  <div className="mt-2 text-sm font-mono bg-gray-100 p-2 rounded dark:bg-gray-950 dark:text-gray-300">
                     {test.packet.protocol} {test.packet.src_ip}:{test.packet.src_port || 'any'} → {test.packet.dst_ip}:{test.packet.dst_port}
                   </div>
                   <div className="mt-2 flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Expected:</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Expected:</span>
                     <span className={`px-2 py-0.5 rounded text-xs ${
-                      test.expected_action === 'accept' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      test.expected_action === 'accept' ? 'bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400'
                     }`}>
                       {test.expected_action.toUpperCase()}
                     </span>
@@ -287,14 +287,14 @@ export function AssistantChat() {
               ))}
             </div>
 
-            <p className="mt-3 text-sm text-gray-600">{data.coverage}</p>
+            <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">{data.coverage}</p>
           </div>
 
           <div className="flex gap-2">
             <button className="flex-1 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
               Run Tests
             </button>
-            <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+            <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
               Add to Test Suite
             </button>
           </div>
@@ -306,16 +306,16 @@ export function AssistantChat() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="h-full flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-            <Bot className="w-6 h-6 text-primary-600" />
+          <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center dark:bg-primary-950/30">
+            <Bot className="w-6 h-6 text-primary-600 dark:text-primary-400" />
           </div>
           <div>
-            <h2 className="font-semibold text-gray-900">Configuration Assistant</h2>
-            <p className="text-sm text-gray-600">Powered by AI</p>
+            <h2 className="font-semibold text-gray-900 dark:text-white">Configuration Assistant</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Powered by AI</p>
           </div>
         </div>
       </div>
@@ -328,19 +328,19 @@ export function AssistantChat() {
             className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-              message.role === 'user' ? 'bg-gray-200' : 'bg-primary-100'
+              message.role === 'user' ? 'bg-gray-200 dark:bg-gray-700' : 'bg-primary-100 dark:bg-primary-950/30'
             }`}>
               {message.role === 'user' ? (
-                <User className="w-5 h-5 text-gray-600" />
+                <User className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               ) : (
-                <Bot className="w-5 h-5 text-primary-600" />
+                <Bot className="w-5 h-5 text-primary-600 dark:text-primary-400" />
               )}
             </div>
             
             <div className={`max-w-[80%] rounded-lg p-3 ${
               message.role === 'user' 
                 ? 'bg-primary-600 text-white' 
-                : 'bg-gray-100 text-gray-900'
+                : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
             }`}>
               {renderMessageContent(message)}
             </div>
@@ -349,10 +349,10 @@ export function AssistantChat() {
         
         {isLoading && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-primary-600" />
+            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center dark:bg-primary-950/30">
+              <Bot className="w-5 h-5 text-primary-600 dark:text-primary-400" />
             </div>
-            <div className="bg-gray-100 rounded-lg p-3">
+            <div className="bg-gray-100 rounded-lg p-3 dark:bg-gray-800">
               <div className="flex gap-1">
                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
@@ -368,13 +368,13 @@ export function AssistantChat() {
       {/* Suggestions */}
       {showSuggestions && (
         <div className="px-4 pb-2">
-          <p className="text-sm text-gray-500 mb-2">Try asking:</p>
+          <p className="text-sm text-gray-500 mb-2 dark:text-gray-400">Try asking:</p>
           <div className="flex flex-wrap gap-2">
             {suggestions.map((suggestion, idx) => (
               <button
                 key={idx}
                 onClick={() => handleSuggestionClick(suggestion.text)}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-sm text-gray-700 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-sm text-gray-700 transition-colors dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
               >
                 <suggestion.icon className="w-4 h-4" />
                 {suggestion.text}
@@ -385,7 +385,7 @@ export function AssistantChat() {
       )}
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex gap-2">
           <input
             type="text"
@@ -393,7 +393,7 @@ export function AssistantChat() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Ask me anything about your configuration..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
           
           <button

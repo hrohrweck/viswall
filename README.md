@@ -243,7 +243,7 @@ services:
       context: ../..
       dockerfile: services/mail-service/Dockerfile
     environment:
-      DATABASE_URL: postgresql+asyncpg://viswall:${DB_PASSWORD:-viswall}@postgres/viswall
+      DATABASE_URL: postgresql+asyncpg://viswall:${DB_PASSWORD:?DB_PASSWORD is required}@postgres/viswall
       REDIS_URL: redis://redis:6379/1
     privileged: true
     ports:

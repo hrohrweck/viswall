@@ -62,8 +62,8 @@ export function Users() {
       header: 'User',
       render: (user: User) => (
         <div>
-          <p className="font-medium text-gray-900">{user.username}</p>
-          <p className="text-xs text-gray-500">{user.email}</p>
+          <p className="font-medium text-gray-900 dark:text-white">{user.username}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
         </div>
       ),
     },
@@ -90,7 +90,7 @@ export function Users() {
       key: 'instances',
       header: 'Instances',
       render: (user: User) => (
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-gray-600 dark:text-gray-400">
           {user.instances.length > 0
             ? `${user.instances.length} assigned`
             : 'None'}
@@ -101,7 +101,7 @@ export function Users() {
       key: 'last_login',
       header: 'Last Login',
       render: (user: User) => (
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-gray-500 dark:text-gray-400">
           {user.last_login
             ? formatDistanceToNow(new Date(user.last_login), { addSuffix: true })
             : 'Never'}
@@ -127,7 +127,7 @@ export function Users() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Users</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Users</h2>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"

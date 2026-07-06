@@ -88,8 +88,8 @@ export function DNSServers() {
       <div>
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">DNS Servers</h2>
-            <p className="text-gray-600 mt-1">Manage authoritative and recursive BIND9 DNS servers</p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">DNS Servers</h2>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage authoritative and recursive BIND9 DNS servers</p>
           </div>
         </div>
         <EmptyState icon={Database} title="Select an Instance" description="Choose an instance to manage DNS." />
@@ -105,8 +105,8 @@ export function DNSServers() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">DNS Servers</h2>
-            <p className="text-gray-600 mt-1">Public/private zones, DNSSEC, forwarding, and reverse DNS</p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">DNS Servers</h2>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Public/private zones, DNSSEC, forwarding, and reverse DNS</p>
           </div>
           <InstanceSelector />
         </div>
@@ -120,9 +120,9 @@ export function DNSServers() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-4 py-3 border-b border-gray-200 font-semibold">Servers</div>
-          <div className="divide-y divide-gray-100">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          <div className="px-4 py-3 border-b border-gray-200 font-semibold dark:border-gray-700 dark:text-white">Servers</div>
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {servers && servers.length > 0 ? servers.map((server) => (
               <button
                 key={server.id}
@@ -130,13 +130,13 @@ export function DNSServers() {
                   setSelectedServer(server)
                   setSelectedZone(null)
                 }}
-                className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${selectedServer?.id === server.id ? 'bg-primary-50' : ''}`}
+                className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 ${selectedServer?.id === server.id ? 'bg-primary-50 dark:bg-primary-950/30' : ''}`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-gray-900 truncate">{server.name}</span>
+                  <span className="font-medium text-gray-900 truncate dark:text-white">{server.name}</span>
                   <StatusBadge status={server.status} />
                 </div>
-                <div className="mt-1 text-xs text-gray-500">
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   {server.zones_count} zones · {server.port}/tcp+udp
                 </div>
                 <div className="mt-2 flex items-center gap-2">
@@ -145,7 +145,7 @@ export function DNSServers() {
                       event.stopPropagation()
                       void actionMutation.mutateAsync({ serverId: server.id, action: 'start' })
                     }}
-                    className="p-1 rounded text-green-700 hover:bg-green-100"
+                    className="p-1 rounded text-green-700 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-950/30"
                     title="Start"
                   >
                     <Play className="w-4 h-4" />
@@ -155,7 +155,7 @@ export function DNSServers() {
                       event.stopPropagation()
                       void actionMutation.mutateAsync({ serverId: server.id, action: 'stop' })
                     }}
-                    className="p-1 rounded text-gray-700 hover:bg-gray-100"
+                    className="p-1 rounded text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                     title="Stop"
                   >
                     <Square className="w-4 h-4" />
@@ -165,7 +165,7 @@ export function DNSServers() {
                       event.stopPropagation()
                       void actionMutation.mutateAsync({ serverId: server.id, action: 'reload' })
                     }}
-                    className="p-1 rounded text-blue-700 hover:bg-blue-100"
+                    className="p-1 rounded text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-950/30"
                     title="Reload"
                   >
                     <RotateCw className="w-4 h-4" />
@@ -175,7 +175,7 @@ export function DNSServers() {
                       event.stopPropagation()
                       setDeleteServerTarget(server)
                     }}
-                    className="p-1 rounded text-red-700 hover:bg-red-100"
+                    className="p-1 rounded text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/30"
                     title="Delete"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -183,13 +183,13 @@ export function DNSServers() {
                 </div>
               </button>
             )) : (
-              <div className="p-4 text-sm text-gray-500">No DNS servers yet.</div>
+              <div className="p-4 text-sm text-gray-500 dark:text-gray-400">No DNS servers yet.</div>
             )}
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-4 py-3 border-b border-gray-200 font-semibold flex items-center justify-between">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          <div className="px-4 py-3 border-b border-gray-200 font-semibold flex items-center justify-between dark:border-gray-700 dark:text-white">
             <span>Zones</span>
             <button
               disabled={!selectedServer}
@@ -200,28 +200,28 @@ export function DNSServers() {
             </button>
           </div>
           {zonesLoading ? <div className="p-4"><LoadingSpinner /></div> : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {zones && zones.length > 0 ? zones.map((zone) => (
                 <button
                   key={zone.id}
                   onClick={() => setSelectedZone(zone)}
-                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${selectedZone?.id === zone.id ? 'bg-primary-50' : ''}`}
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 ${selectedZone?.id === zone.id ? 'bg-primary-50 dark:bg-primary-950/30' : ''}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-gray-900 truncate">{zone.name}</span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 uppercase">{zone.zone_type}</span>
+                    <span className="font-medium text-gray-900 truncate dark:text-white">{zone.name}</span>
+                    <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 uppercase dark:bg-gray-800 dark:text-gray-300">{zone.zone_type}</span>
                   </div>
-                  <div className="mt-1 text-xs text-gray-500">
+                  <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     serial {zone.serial} · {zone.records_count} records
                   </div>
                   <div className="mt-2 flex items-center gap-2">
-                    {zone.dnssec_enabled ? <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700">DNSSEC</span> : null}
+                    {zone.dnssec_enabled ? <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400">DNSSEC</span> : null}
                     <button
                       onClick={(event) => {
                         event.stopPropagation()
                         setDeleteZoneTarget(zone)
                       }}
-                      className="p-1 rounded text-red-700 hover:bg-red-100"
+                      className="p-1 rounded text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/30"
                       title="Delete"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -229,14 +229,14 @@ export function DNSServers() {
                   </div>
                 </button>
               )) : (
-                <div className="p-4 text-sm text-gray-500">No zones for this server.</div>
+                <div className="p-4 text-sm text-gray-500 dark:text-gray-400">No zones for this server.</div>
               )}
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-4 py-3 border-b border-gray-200 font-semibold flex items-center justify-between">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          <div className="px-4 py-3 border-b border-gray-200 font-semibold flex items-center justify-between dark:border-gray-700 dark:text-white">
             <span>Records</span>
             <button
               disabled={!selectedZone}
@@ -247,31 +247,31 @@ export function DNSServers() {
             </button>
           </div>
           {recordsLoading ? <div className="p-4"><LoadingSpinner /></div> : (
-            <div className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[420px] overflow-y-auto">
               {records && records.length > 0 ? records.map((record) => (
                 <div key={record.id} className="px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium text-gray-900 truncate">{record.name}</div>
-                    <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">{record.record_type}</span>
+                    <div className="text-sm font-medium text-gray-900 truncate dark:text-white">{record.name}</div>
+                    <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{record.record_type}</span>
                   </div>
-                  <div className="text-xs text-gray-600 mt-1 break-all">{record.content}</div>
-                  <div className="text-xs text-gray-500 mt-1 flex items-center justify-between">
+                  <div className="text-xs text-gray-600 mt-1 break-all dark:text-gray-400">{record.content}</div>
+                  <div className="text-xs text-gray-500 mt-1 flex items-center justify-between dark:text-gray-500">
                     <span>TTL {record.ttl}</span>
                     {!record.is_system ? (
                       <button
                         onClick={() => setDeleteRecordTarget(record)}
-                        className="p-1 rounded text-red-700 hover:bg-red-100"
+                        className="p-1 rounded text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/30"
                         title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     ) : (
-                      <span className="text-[11px] px-2 py-0.5 rounded bg-blue-100 text-blue-700">system</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400">system</span>
                     )}
                   </div>
                 </div>
               )) : (
-                <div className="p-4 text-sm text-gray-500">No records in this zone.</div>
+                <div className="p-4 text-sm text-gray-500 dark:text-gray-400">No records in this zone.</div>
               )}
             </div>
           )}
@@ -391,14 +391,14 @@ function ServerForm({
       }}
     >
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Name</span>
-        <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</span>
+        <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
       </label>
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Forwarders (comma separated)</span>
-        <input value={forwarders} onChange={(event) => setForwarders(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Forwarders (comma separated)</span>
+        <input value={forwarders} onChange={(event) => setForwarders(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
       </label>
-      <div className="flex items-center gap-6 text-sm">
+      <div className="flex items-center gap-6 text-sm dark:text-gray-300">
         <label className="inline-flex items-center gap-2">
           <input type="checkbox" checked={isRecursive} onChange={(event) => setIsRecursive(event.target.checked)} />
           Recursive
@@ -443,16 +443,16 @@ function ZoneForm({
       }}
     >
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Zone Name</span>
-        <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Zone Name</span>
+        <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
       </label>
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Zone Type</span>
-        <select value={zoneType} onChange={(event) => setZoneType(event.target.value as DNSZoneType)} className="mt-1 w-full border rounded-lg px-3 py-2">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Zone Type</span>
+        <select value={zoneType} onChange={(event) => setZoneType(event.target.value as DNSZoneType)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
           {zoneTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       </label>
-      <label className="inline-flex items-center gap-2 text-sm">
+      <label className="inline-flex items-center gap-2 text-sm dark:text-gray-300">
         <input type="checkbox" checked={dnssecEnabled} onChange={(event) => setDnssecEnabled(event.target.checked)} />
         Enable DNSSEC
       </label>
@@ -493,22 +493,22 @@ function RecordForm({
       }}
     >
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Name</span>
-        <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</span>
+        <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
       </label>
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Type</span>
-        <select value={recordType} onChange={(event) => setRecordType(event.target.value as DNSRecordType)} className="mt-1 w-full border rounded-lg px-3 py-2">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Type</span>
+        <select value={recordType} onChange={(event) => setRecordType(event.target.value as DNSRecordType)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
           {recordTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       </label>
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Content</span>
-        <input value={content} onChange={(event) => setContent(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Content</span>
+        <input value={content} onChange={(event) => setContent(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
       </label>
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">TTL</span>
-        <input type="number" min={0} value={ttl} onChange={(event) => setTtl(Number(event.target.value))} className="mt-1 w-full border rounded-lg px-3 py-2" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">TTL</span>
+        <input type="number" min={0} value={ttl} onChange={(event) => setTtl(Number(event.target.value))} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
       </label>
       <div className="flex justify-end">
         <button disabled={loading} className="px-4 py-2 rounded-lg bg-primary-600 text-white disabled:opacity-50">

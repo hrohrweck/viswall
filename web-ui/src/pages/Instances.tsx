@@ -36,8 +36,8 @@ export function Instances() {
       header: 'Name',
       render: (item: Instance) => (
         <div>
-          <p className="font-medium text-gray-900">{item.name}</p>
-          <p className="text-xs text-gray-500">{item.hostname}</p>
+          <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{item.hostname}</p>
         </div>
       ),
     },
@@ -53,11 +53,11 @@ export function Instances() {
         <div className="flex flex-wrap gap-1">
           {item.capabilities.length > 0
             ? item.capabilities.map((c) => (
-                <span key={c} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
+                <span key={c} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs dark:bg-gray-800 dark:text-gray-300">
                   {c}
                 </span>
               ))
-            : <span className="text-gray-400 text-xs">None</span>}
+            : <span className="text-gray-400 text-xs dark:text-gray-500">None</span>}
         </div>
       ),
     },
@@ -65,7 +65,7 @@ export function Instances() {
       key: 'last_seen',
       header: 'Last Seen',
       render: (item: Instance) => (
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-gray-500 dark:text-gray-400">
           {item.last_seen
             ? formatDistanceToNow(new Date(item.last_seen), { addSuffix: true })
             : 'Never'}
@@ -92,7 +92,7 @@ export function Instances() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Instances</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Instances</h2>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"

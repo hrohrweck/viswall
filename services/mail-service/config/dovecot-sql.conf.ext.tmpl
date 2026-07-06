@@ -1,0 +1,10 @@
+driver = pgsql
+connect = host=@@DB_HOST@@ port=@@DB_PORT@@ dbname=@@DB_NAME@@ user=@@DB_USER@@ passfile=/tmp/dovecot.pgpass
+default_pass_scheme = CRYPT
+
+# password_hash holds a crypt-format hash (bcrypt $2b$ from passlib / ETL); {CRYPT} makes Dovecot use crypt(3).
+password_query = SELECT lower(u.username || '@' || d.domain) AS user, ('{CRYPT}' || u.password_hash) AS password FROM mail_users u JOIN mail_domains d ON u.domain_id = d.id WHERE lower(u.username || '@' || d.domain) = lower('%u') AND u.enabled = TRUE AND d.enabled = TRUE
+
+user_query = SELECT 5000 AS uid, 5000 AS gid, ('/var/mail/vhosts/' || d.domain || '/' || u.username) AS home, ('maildir:/var/mail/vhosts/' || d.domain || '/' || u.username || '/Maildir') AS mail, ('*:bytes=' || u.quota_bytes::text) AS quota_rule FROM mail_users u JOIN mail_domains d ON u.domain_id = d.id WHERE lower(u.username || '@' || d.domain) = lower('%u') AND u.enabled = TRUE
+
+iterate_query = SELECT lower(u.username || '@' || d.domain) AS user FROM mail_users u JOIN mail_domains d ON u.domain_id = d.id WHERE u.enabled = TRUE

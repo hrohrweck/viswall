@@ -56,7 +56,7 @@ export function RoutingRules() {
   if (!selectedInstanceId) {
     return (
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Routing Rules</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 dark:text-white">Routing Rules</h2>
         <EmptyState
           icon={Route}
           title="Select an Instance"
@@ -76,7 +76,7 @@ export function RoutingRules() {
       key: 'order',
       header: '#',
       render: (rule: RoutingRule) => (
-        <span className="text-gray-400 text-xs w-4">{rule.order_index}</span>
+        <span className="text-gray-400 text-xs w-4 dark:text-gray-500">{rule.order_index}</span>
       ),
     },
     {
@@ -84,7 +84,7 @@ export function RoutingRules() {
       header: 'Name',
       render: (rule: RoutingRule) => (
         <div>
-          <p className="font-medium text-gray-900">{rule.name}</p>
+          <p className="font-medium text-gray-900 dark:text-white">{rule.name}</p>
         </div>
       ),
     },
@@ -92,13 +92,13 @@ export function RoutingRules() {
       key: 'match',
       header: 'Match Conditions',
       render: (rule: RoutingRule) => (
-        <div className="text-sm text-gray-600 space-y-0.5">
+        <div className="text-sm text-gray-600 space-y-0.5 dark:text-gray-400">
           {rule.source_network && <span>Src: {rule.source_network}</span>}
           {rule.dest_network && <span>Dst: {rule.dest_network}</span>}
           {rule.service && <span>Service: {rule.service}</span>}
           {rule.inbound_interface && <span>In: {rule.inbound_interface}</span>}
           {!rule.source_network && !rule.dest_network && !rule.service && !rule.inbound_interface && (
-            <span className="text-gray-400">Any</span>
+            <span className="text-gray-400 dark:text-gray-500">Any</span>
           )}
         </div>
       ),
@@ -107,7 +107,7 @@ export function RoutingRules() {
       key: 'action',
       header: 'Action',
       render: (rule: RoutingRule) => (
-        <div className="text-sm text-gray-600 space-y-0.5">
+        <div className="text-sm text-gray-600 space-y-0.5 dark:text-gray-400">
           {rule.gateway && <span>Gateway: {rule.gateway}</span>}
           {rule.outbound_interface && <span>Out: {rule.outbound_interface}</span>}
           {rule.mark && <span>Mark: {rule.mark}</span>}
@@ -118,7 +118,7 @@ export function RoutingRules() {
       key: 'status',
       header: 'Status',
       render: (rule: RoutingRule) => (
-        <span className={`px-2 py-0.5 rounded text-xs ${rule.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+        <span className={`px-2 py-0.5 rounded text-xs ${rule.enabled ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
           {rule.enabled ? 'Enabled' : 'Disabled'}
         </span>
       ),
@@ -148,7 +148,7 @@ export function RoutingRules() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Routing Rules</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Routing Rules</h2>
         <div className="flex items-center gap-2">
           <InstanceSelector />
         </div>
@@ -165,7 +165,7 @@ export function RoutingRules() {
         <button
           onClick={handleApply}
           disabled={applyMutation.isPending}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           <Upload className="w-4 h-4" />
           {applyMutation.isPending ? 'Applying...' : 'Apply Rules'}
@@ -245,12 +245,12 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
     onSubmit(form)
   }
 
-  const inputClass = "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+  const inputClass = "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Name</label>
         <input
           type="text"
           value={form.name}
@@ -269,12 +269,12 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
           onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
           className="w-4 h-4"
         />
-        <label htmlFor="enabled" className="text-sm text-gray-700">Enabled</label>
+        <label htmlFor="enabled" className="text-sm text-gray-700 dark:text-gray-300">Enabled</label>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Source Network</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Source Network</label>
           <input
             type="text"
             value={form.source_network || ''}
@@ -284,7 +284,7 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Dest Network</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Dest Network</label>
           <input
             type="text"
             value={form.dest_network || ''}
@@ -297,7 +297,7 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Service</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Service</label>
           <input
             type="text"
             value={form.service || ''}
@@ -307,7 +307,7 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Inbound Interface</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Inbound Interface</label>
           <input
             type="text"
             value={form.inbound_interface || ''}
@@ -320,7 +320,7 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Gateway</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Gateway</label>
           <input
             type="text"
             value={form.gateway || ''}
@@ -330,7 +330,7 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Outbound Interface</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Outbound Interface</label>
           <input
             type="text"
             value={form.outbound_interface || ''}
@@ -342,7 +342,7 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Firewall Mark (fwmark)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Firewall Mark (fwmark)</label>
         <input
           type="number"
           value={form.mark || ''}
@@ -356,7 +356,7 @@ function RoutingRuleForm({ initial, onSubmit, onCancel, loading }: RoutingRuleFo
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg text-sm"
+          className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg text-sm dark:text-gray-400 dark:hover:bg-gray-800"
         >
           Cancel
         </button>

@@ -70,7 +70,7 @@ See `group_vars/all.yml` for common defaults. Override per-host or per-group as 
 |----------|---------|-------------|
 | `viswall_version` | `main` | Git branch/tag to deploy |
 | `viswall_install_dir` | `/opt/viswall` | Installation path on target |
-| `viswall_db_password` | `changeme` | PostgreSQL password |
-| `viswall_jwt_secret` | `changeme` | JWT signing key |
+| `viswall_db_password` | _(set via ansible-vault)_ | PostgreSQL password |
+| `viswall_jwt_secret` | _(set via ansible-vault)_ | JWT signing key |
 | `viswall_gateway_url` | `http://manager-01:8000` | API gateway URL for agents |
-| `viswall_instance_api_key` | `changeme` | Agent authentication key |
+| `viswall_instance_api_key` | _(set via ansible-vault)_ | Agent authentication key |

@@ -40,12 +40,12 @@ export function TrafficShaping() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Traffic Shaping</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Traffic Shaping</h2>
         <div className="flex items-center gap-3">
           <select
             value={selectedInstanceId || ''}
             onChange={(e) => setSelectedInstanceId(Number(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           >
             {instances.map((inst) => (
               <option key={inst.id} value={inst.id}>
@@ -67,15 +67,15 @@ export function TrafficShaping() {
       </div>
 
       {isLoading ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center dark:bg-gray-900 dark:border-gray-700">
           <RefreshCw className="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin" />
-          <p className="text-gray-600">Loading QoS policies...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading QoS policies...</p>
         </div>
       ) : policies.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <Gauge className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No QoS Policies</h3>
-          <p className="text-gray-600 mb-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center dark:bg-gray-900 dark:border-gray-700">
+          <Gauge className="w-16 h-16 text-gray-300 mx-auto mb-4 dark:text-gray-600" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2 dark:text-white">No QoS Policies</h3>
+          <p className="text-gray-600 mb-4 dark:text-gray-400">
             Configure traffic shaping to prioritize critical traffic and limit bandwidth usage.
           </p>
           <button
@@ -158,28 +158,28 @@ function PolicyCard({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden dark:bg-gray-900 dark:border-gray-700">
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={onToggleExpand} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onToggleExpand} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
             {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-medium text-gray-900">{policy.name}</h3>
+              <h3 className="font-medium text-gray-900 dark:text-white">{policy.name}</h3>
               <span
                 className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                   policy.enabled
                     ? policy.applied
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-yellow-100 text-yellow-800'
-                    : 'bg-gray-100 text-gray-800'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400'
+                      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400'
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
                 }`}
               >
                 {policy.enabled ? (policy.applied ? 'Active' : 'Pending') : 'Disabled'}
               </span>
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {policy.interface_name} · {policy.algorithm.toUpperCase()} · ↓{' '}
               {formatKbps(policy.download_kbps)} · ↑ {formatKbps(policy.upload_kbps)}
             </p>
@@ -188,21 +188,21 @@ function PolicyCard({
         <div className="flex items-center gap-2">
           <button
             onClick={onApply}
-            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-lg"
+            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-lg dark:text-gray-500 dark:hover:text-primary-400 dark:hover:bg-gray-800"
             title="Apply to instance"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={onEdit}
-            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-lg"
+            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-lg dark:text-gray-500 dark:hover:text-primary-400 dark:hover:bg-gray-800"
             title="Edit policy"
           >
             <Settings className="w-4 h-4" />
           </button>
           <button
             onClick={onDelete}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg dark:text-gray-500 dark:hover:text-red-400 dark:hover:bg-red-950/30"
             title="Delete policy"
           >
             <Trash2 className="w-4 h-4" />
@@ -211,27 +211,27 @@ function PolicyCard({
       </div>
 
       {isExpanded && (
-        <div className="border-t border-gray-200 p-4 space-y-4">
+        <div className="border-t border-gray-200 p-4 space-y-4 dark:border-gray-700">
           {policy.description && (
-            <p className="text-sm text-gray-600">{policy.description}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{policy.description}</p>
           )}
 
           {stats && <StatsPanel stats={stats} />}
 
           {policy.algorithm === 'htb' && policy.classes.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Traffic Classes</h4>
+              <h4 className="text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Traffic Classes</h4>
               <div className="space-y-2">
                 {policy.classes.map((cls) => (
                   <div
                     key={cls.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm"
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm dark:bg-gray-800"
                   >
                     <div>
-                      <span className="font-medium text-gray-900">{cls.name}</span>
-                      <span className="ml-2 text-gray-500">Priority {cls.priority}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{cls.name}</span>
+                      <span className="ml-2 text-gray-500 dark:text-gray-400">Priority {cls.priority}</span>
                     </div>
-                    <div className="text-gray-600">
+                    <div className="text-gray-600 dark:text-gray-300">
                       {formatKbps(cls.min_rate_kbps)} - {formatKbps(cls.max_rate_kbps)}
                     </div>
                   </div>
@@ -255,7 +255,7 @@ function StatsPanel({ stats }: { stats: QoSStats }) {
 
   if (stats.queues.length === 0) {
     return (
-      <div className="text-sm text-gray-500">
+      <div className="text-sm text-gray-500 dark:text-gray-400">
         No statistics available yet.
       </div>
     )
@@ -263,15 +263,15 @@ function StatsPanel({ stats }: { stats: QoSStats }) {
 
   return (
     <div>
-      <h4 className="text-sm font-medium text-gray-700 mb-2">Live Statistics</h4>
+      <h4 className="text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Live Statistics</h4>
       <div className="grid grid-cols-4 gap-4">
         {stats.queues.map((queue, idx) => (
-          <div key={idx} className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 mb-1">{queue.qdisc || `Queue ${idx + 1}`}</p>
-            <p className="text-lg font-medium text-gray-900">{formatBytes(queue.sent_bytes)}</p>
-            <p className="text-xs text-gray-500">{queue.sent_pkts} pkts</p>
+          <div key={idx} className="bg-gray-50 rounded-lg p-3 dark:bg-gray-800">
+            <p className="text-xs text-gray-500 mb-1 dark:text-gray-400">{queue.qdisc || `Queue ${idx + 1}`}</p>
+            <p className="text-lg font-medium text-gray-900 dark:text-white">{formatBytes(queue.sent_bytes)}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{queue.sent_pkts} pkts</p>
             {queue.dropped_pkts > 0 && (
-              <p className="text-xs text-red-600">{queue.dropped_pkts} dropped</p>
+              <p className="text-xs text-red-600 dark:text-red-400">{queue.dropped_pkts} dropped</p>
             )}
           </div>
         ))}
@@ -334,52 +334,52 @@ function PolicyFormModal({ instanceId, policy, onClose, onSuccess }: PolicyFormM
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 dark:bg-black/70">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 dark:bg-gray-900 dark:border dark:border-gray-700 dark:text-white">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">
           {policy ? 'Edit QoS Policy' : 'New QoS Policy'}
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Policy Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Policy Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Description</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Interface</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Interface</label>
             <input
               type="text"
               value={interfaceName}
               onChange={(e) => setInterfaceName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
               disabled={!!policy}
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Algorithm</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Algorithm</label>
             <select
               value={algorithm}
               onChange={(e) => setAlgorithm(e.target.value as any)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
               <option value="cake">CAKE (Recommended)</option>
               <option value="fq_codel">FQ-CoDel</option>
@@ -389,25 +389,25 @@ function PolicyFormModal({ instanceId, policy, onClose, onSuccess }: PolicyFormM
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
                 Download (Kbps)
               </label>
               <input
                 type="number"
                 value={downloadKbps}
                 onChange={(e) => setDownloadKbps(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                 min={1}
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Upload (Kbps)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Upload (Kbps)</label>
               <input
                 type="number"
                 value={uploadKbps}
                 onChange={(e) => setUploadKbps(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                 min={1}
                 required
               />
@@ -422,7 +422,7 @@ function PolicyFormModal({ instanceId, policy, onClose, onSuccess }: PolicyFormM
               onChange={(e) => setEnabled(e.target.checked)}
               className="h-4 w-4 text-primary-600 border-gray-300 rounded"
             />
-            <label htmlFor="enabled" className="text-sm text-gray-700">
+            <label htmlFor="enabled" className="text-sm text-gray-700 dark:text-gray-300">
               Enable policy immediately
             </label>
           </div>
@@ -431,7 +431,7 @@ function PolicyFormModal({ instanceId, policy, onClose, onSuccess }: PolicyFormM
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg dark:text-gray-400 dark:hover:bg-gray-800"
             >
               Cancel
             </button>

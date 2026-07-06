@@ -31,63 +31,63 @@ export function InstanceDetail() {
   return (
     <div>
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate('/instances')} className="p-2 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        <button onClick={() => navigate('/instances')} className="p-2 hover:bg-gray-100 rounded-lg dark:hover:bg-gray-800">
+          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-gray-900">{instance.name}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{instance.name}</h2>
             <StatusBadge status={instance.status} />
           </div>
-          <p className="text-sm text-gray-500">{instance.hostname}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{instance.hostname}</p>
         </div>
         <button
           onClick={() => setShowDelete(true)}
-          className="px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+          className="px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 dark:text-red-400 dark:border-red-900 dark:hover:bg-red-950/30"
         >
           Delete
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Overview</h3>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Overview</h3>
           <dl className="space-y-3">
             <div className="flex justify-between">
-              <dt className="text-sm text-gray-500">Hostname</dt>
-              <dd className="text-sm font-medium text-gray-900">{instance.hostname}</dd>
+              <dt className="text-sm text-gray-500 dark:text-gray-400">Hostname</dt>
+              <dd className="text-sm font-medium text-gray-900 dark:text-white">{instance.hostname}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-sm text-gray-500">Status</dt>
+              <dt className="text-sm text-gray-500 dark:text-gray-400">Status</dt>
               <dd><StatusBadge status={instance.status} /></dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-sm text-gray-500">Last Seen</dt>
-              <dd className="text-sm text-gray-900">
+              <dt className="text-sm text-gray-500 dark:text-gray-400">Last Seen</dt>
+              <dd className="text-sm text-gray-900 dark:text-white">
                 {instance.last_seen
                   ? formatDistanceToNow(new Date(instance.last_seen), { addSuffix: true })
                   : 'Never'}
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-sm text-gray-500">Created</dt>
-              <dd className="text-sm text-gray-900">
+              <dt className="text-sm text-gray-500 dark:text-gray-400">Created</dt>
+              <dd className="text-sm text-gray-900 dark:text-white">
                 {new Date(instance.created_at).toLocaleDateString()}
               </dd>
             </div>
           </dl>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Connection</h3>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Connection</h3>
           <dl className="space-y-3">
             <div>
-              <dt className="text-sm text-gray-500 mb-1">API Endpoint</dt>
+              <dt className="text-sm text-gray-500 mb-1 dark:text-gray-400">API Endpoint</dt>
               <dd className="flex items-center gap-2">
-                <code className="text-sm bg-gray-100 px-2 py-1 rounded flex-1 truncate">
+                <code className="text-sm bg-gray-100 px-2 py-1 rounded flex-1 truncate dark:bg-gray-800 dark:text-gray-300">
                   {instance.api_endpoint}
                 </code>
-                <button onClick={copyApiKey} className="p-1.5 hover:bg-gray-100 rounded" title="Copy">
+                <button onClick={copyApiKey} className="p-1.5 hover:bg-gray-100 rounded dark:hover:bg-gray-800" title="Copy">
                   <Copy className="w-4 h-4 text-gray-400" />
                 </button>
                 {copied && <span className="text-xs text-green-600">Copied!</span>}
@@ -96,44 +96,44 @@ export function InstanceDetail() {
           </dl>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Capabilities</h3>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Capabilities</h3>
           <div className="flex flex-wrap gap-2">
             {instance.capabilities.length > 0 ? (
               instance.capabilities.map((cap) => (
                 <span
                   key={cap}
-                  className="px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium"
+                  className="px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium dark:bg-primary-950/30 dark:text-primary-400"
                 >
                   {cap}
                 </span>
               ))
             ) : (
-              <p className="text-gray-400 text-sm">No capabilities assigned</p>
+              <p className="text-gray-400 text-sm dark:text-gray-500">No capabilities assigned</p>
             )}
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Links</h3>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Quick Links</h3>
           <div className="space-y-2">
             <a
               href={`/firewall?instance=${instance.id}`}
-              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 text-sm text-gray-700"
+              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 text-sm text-gray-700 dark:hover:bg-gray-800 dark:text-gray-300"
             >
               <ExternalLink className="w-4 h-4" />
               Firewall Rules
             </a>
             <a
               href={`/vpn?instance=${instance.id}`}
-              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 text-sm text-gray-700"
+              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 text-sm text-gray-700 dark:hover:bg-gray-800 dark:text-gray-300"
             >
               <ExternalLink className="w-4 h-4" />
               VPN Servers
             </a>
             <a
               href={`/mail?instance=${instance.id}`}
-              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 text-sm text-gray-700"
+              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 text-sm text-gray-700 dark:hover:bg-gray-800 dark:text-gray-300"
             >
               <ExternalLink className="w-4 h-4" />
               Mail Domains
