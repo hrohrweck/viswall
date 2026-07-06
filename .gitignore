@@ -80,3 +80,11 @@ files/
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets and keys
+deployments/docker/.env
+dkim/
+*.private
+*.key
+*.pem
+*.p12

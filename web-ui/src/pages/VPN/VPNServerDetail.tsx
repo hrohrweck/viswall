@@ -62,8 +62,8 @@ export function VPNServerDetail() {
       header: 'Client',
       render: (client: VPNClient) => (
         <div>
-          <p className="font-medium text-gray-900">{client.name}</p>
-          {client.assigned_ip && <p className="text-xs text-gray-500">IP: {client.assigned_ip}</p>}
+          <p className="font-medium text-gray-900 dark:text-white">{client.name}</p>
+          {client.assigned_ip && <p className="text-xs text-gray-500 dark:text-gray-400">IP: {client.assigned_ip}</p>}
         </div>
       ),
     },
@@ -75,13 +75,13 @@ export function VPNServerDetail() {
     {
       key: 'connections',
       header: 'Connections',
-      render: (client: VPNClient) => <span className="text-sm text-gray-600">{client.connection_count}</span>,
+      render: (client: VPNClient) => <span className="text-sm text-gray-600 dark:text-gray-400">{client.connection_count}</span>,
     },
     {
       key: 'traffic',
       header: 'Traffic',
       render: (client: VPNClient) => (
-        <span className="text-sm text-gray-600">{formatBytes(client.bytes_received + client.bytes_sent)}</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">{formatBytes(client.bytes_received + client.bytes_sent)}</span>
       ),
     },
     {
@@ -101,67 +101,67 @@ export function VPNServerDetail() {
   return (
     <div>
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate('/vpn')} className="p-2 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        <button onClick={() => navigate('/vpn')} className="p-2 hover:bg-gray-100 rounded-lg dark:hover:bg-gray-800">
+          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-gray-900">{server.name}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{server.name}</h2>
             <ProtocolBadge protocol={server.protocol} />
             <StatusBadge status={server.status} />
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             {server.listen_address}:{server.listen_port} | {server.network_cidr}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => handleAction('start')} disabled={actionMutation.isPending} className="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Start">
+          <button onClick={() => handleAction('start')} disabled={actionMutation.isPending} className="p-2 text-green-600 hover:bg-green-50 rounded-lg dark:hover:bg-gray-800" title="Start">
             <Play className="w-5 h-5" />
           </button>
-          <button onClick={() => handleAction('stop')} disabled={actionMutation.isPending} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Stop">
+          <button onClick={() => handleAction('stop')} disabled={actionMutation.isPending} className="p-2 text-red-600 hover:bg-red-50 rounded-lg dark:hover:bg-gray-800" title="Stop">
             <Square className="w-5 h-5" />
           </button>
-          <button onClick={() => handleAction('restart')} disabled={actionMutation.isPending} className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg" title="Restart">
+          <button onClick={() => handleAction('restart')} disabled={actionMutation.isPending} className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg dark:hover:bg-gray-800" title="Restart">
             <RotateCcw className="w-5 h-5" />
           </button>
-          <button onClick={() => setShowDeleteServer(true)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Delete">
+          <button onClick={() => setShowDeleteServer(true)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg dark:hover:bg-gray-800" title="Delete">
             <Trash2 className="w-5 h-5" />
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <Users className="w-5 h-5 text-primary-600" />
             <div>
-              <p className="text-sm text-gray-500">Connected Clients</p>
-              <p className="text-2xl font-bold">{server.connected_clients}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Connected Clients</p>
+              <p className="text-2xl font-bold dark:text-white">{server.connected_clients}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <Activity className="w-5 h-5 text-green-600" />
             <div>
-              <p className="text-sm text-gray-500">Total Traffic</p>
-              <p className="text-2xl font-bold">{formatBytes(server.bytes_received + server.bytes_sent)}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Traffic</p>
+              <p className="text-2xl font-bold dark:text-white">{formatBytes(server.bytes_received + server.bytes_sent)}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <Activity className="w-5 h-5 text-indigo-600" />
             <div>
-              <p className="text-sm text-gray-500">DNS Servers</p>
-              <p className="text-sm font-medium">{server.dns_servers.join(', ')}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">DNS Servers</p>
+              <p className="text-sm font-medium dark:text-white">{server.dns_servers.join(', ')}</p>
             </div>
           </div>
         </div>
       </div>
 
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Clients</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Clients</h3>
         <button
           onClick={() => setShowCreateClient(true)}
           className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
@@ -181,17 +181,17 @@ export function VPNServerDetail() {
       <Modal open={showCreateClient} onClose={() => setShowCreateClient(false)} title="Add VPN Client">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Client Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Client Name</label>
             <input
               type="text"
               value={newClientName}
               onChange={(e) => setNewClientName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
               placeholder="e.g. John's Laptop"
             />
           </div>
           <div className="flex justify-end gap-3">
-            <button onClick={() => setShowCreateClient(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+            <button onClick={() => setShowCreateClient(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">Cancel</button>
             <button onClick={handleCreateClient} disabled={!newClientName || createClientMutation.isPending} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
               {createClientMutation.isPending ? 'Creating...' : 'Create'}
             </button>

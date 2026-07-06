@@ -19,13 +19,13 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  important: 'bg-emerald-100 text-emerald-800',
-  newsletter: 'bg-blue-100 text-blue-800',
-  promotional: 'bg-amber-100 text-amber-800',
-  social: 'bg-violet-100 text-violet-800',
-  spam: 'bg-red-100 text-red-800',
-  phishing: 'bg-red-200 text-red-900',
-  legitimate: 'bg-gray-100 text-gray-800',
+  important: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400',
+  newsletter: 'bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400',
+  promotional: 'bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400',
+  social: 'bg-violet-100 text-violet-800 dark:bg-violet-950/30 dark:text-violet-400',
+  spam: 'bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400',
+  phishing: 'bg-red-200 text-red-900 dark:bg-red-950/40 dark:text-red-300',
+  legitimate: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
 }
 
 export function MailClassificationView({ domainId }: MailClassificationViewProps) {
@@ -45,8 +45,8 @@ export function MailClassificationView({ domainId }: MailClassificationViewProps
       header: 'From',
       render: (msg: MailMessage) => (
         <div>
-          <p className="font-medium text-gray-900 text-sm">{msg.sender}</p>
-          <p className="text-xs text-gray-500 truncate max-w-[200px]">{msg.subject || '(no subject)'}</p>
+          <p className="font-medium text-gray-900 text-sm dark:text-white">{msg.sender}</p>
+          <p className="text-xs text-gray-500 truncate max-w-[200px] dark:text-gray-400">{msg.subject || '(no subject)'}</p>
         </div>
       ),
     },
@@ -56,7 +56,7 @@ export function MailClassificationView({ domainId }: MailClassificationViewProps
       render: (msg: MailMessage) => (
         <div className="flex items-center gap-2">
           {msg.llm_category && CATEGORY_ICONS[msg.llm_category]}
-          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${msg.llm_category ? CATEGORY_COLORS[msg.llm_category] || 'bg-gray-100 text-gray-800' : 'bg-gray-100 text-gray-500'}`}>
+          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${msg.llm_category ? CATEGORY_COLORS[msg.llm_category] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
             {msg.llm_category || 'Pending'}
           </span>
         </div>
@@ -68,16 +68,16 @@ export function MailClassificationView({ domainId }: MailClassificationViewProps
       render: (msg: MailMessage) => (
         msg.llm_confidence ? (
           <div className="w-full max-w-[100px]">
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
               <div
                 className={`h-1.5 rounded-full ${msg.llm_confidence > 0.8 ? 'bg-green-600' : msg.llm_confidence > 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
                 style={{ width: `${msg.llm_confidence * 100}%` }}
               />
             </div>
-            <span className="text-xs text-gray-500">{Math.round(msg.llm_confidence * 100)}%</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{Math.round(msg.llm_confidence * 100)}%</span>
           </div>
         ) : (
-          <span className="text-xs text-gray-400">-</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
         )
       ),
     },
@@ -86,10 +86,10 @@ export function MailClassificationView({ domainId }: MailClassificationViewProps
       header: 'Action',
       render: (msg: MailMessage) => (
         <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-          msg.action_taken === 'deliver' ? 'bg-green-100 text-green-800' :
-          msg.action_taken === 'quarantine' ? 'bg-yellow-100 text-yellow-800' :
-          msg.action_taken === 'reject' ? 'bg-red-100 text-red-800' :
-          'bg-gray-100 text-gray-800'
+          msg.action_taken === 'deliver' ? 'bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400' :
+          msg.action_taken === 'quarantine' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400' :
+          msg.action_taken === 'reject' ? 'bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400' :
+          'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
         }`}>
           {msg.action_taken}
         </span>
@@ -99,7 +99,7 @@ export function MailClassificationView({ domainId }: MailClassificationViewProps
       key: 'received',
       header: 'Received',
       render: (msg: MailMessage) => (
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-500 dark:text-gray-400">
           {new Date(msg.received_at).toLocaleString()}
         </span>
       ),
@@ -153,7 +153,7 @@ export function MailClassificationView({ domainId }: MailClassificationViewProps
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           >
             <option value="">All Categories</option>
             <option value="important">Important</option>
@@ -165,7 +165,7 @@ export function MailClassificationView({ domainId }: MailClassificationViewProps
             <option value="legitimate">Legitimate</option>
           </select>
         </div>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           {messages?.length || 0} messages
         </p>
       </div>

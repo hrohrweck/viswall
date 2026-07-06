@@ -19,10 +19,9 @@ import {
   useTestLDAPConnection,
 } from '../hooks/useApi'
 import { useAuthStore } from '../stores/auth'
+import { useThemeStore, Theme } from '../stores/theme'
 import { LoadingSpinner, EmptyState } from '../components/ui'
 import type { LLMConfig, LDAPConfig } from '../types'
-
-type Theme = 'light' | 'dark' | 'system'
 
 export function Settings() {
   const { user } = useAuthStore()
@@ -36,9 +35,7 @@ export function Settings() {
   const deleteLDAP = useDeleteLDAPConfig()
   const testLDAP = useTestLDAPConnection()
 
-  const [theme, setTheme] = useState<Theme>(() => {
-    return (localStorage.getItem('viswall-theme') as Theme) || 'system'
-  })
+  const { theme, setTheme } = useThemeStore()
 
   const [llmForm, setLlmForm] = useState<LLMConfig | null>(null)
   const [ldapForm, setLdapForm] = useState<LDAPConfig | null>(null)
@@ -66,22 +63,6 @@ export function Settings() {
       })
     }
   }, [ldapConfig])
-
-  useEffect(() => {
-    localStorage.setItem('viswall-theme', theme)
-    const root = document.documentElement
-    if (theme === 'dark') {
-      root.classList.add('dark')
-    } else if (theme === 'light') {
-      root.classList.remove('dark')
-    } else {
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        root.classList.add('dark')
-      } else {
-        root.classList.remove('dark')
-      }
-    }
-  }, [theme])
 
   const handleSaveLLM = async () => {
     if (!llmForm) return

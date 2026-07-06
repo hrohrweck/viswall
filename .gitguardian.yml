@@ -1,0 +1,12 @@
+version: 2
+
+paths-ignore:
+  - ".*\\.tmpl$"
+  - ".*dovecot-sql.*"
+
+secret:
+  ignored-matches:
+    - name: "Dovecot template variable"
+      match: "@@DB_PASS@@"
+    - name: "Dovecot template variable (alt)"
+      match: "password=@@DB_PASS@@"

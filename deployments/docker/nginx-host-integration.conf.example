@@ -1,0 +1,21 @@
+# Viswall behind the EXISTING host nginx (D3) — example server block.
+# The host nginx runs as a container, so it must reach the viswall services by name:
+#   docker network connect viswall <host-nginx-container>
+# Then reload the host nginx. Adjust server_name / cert paths to your setup.
+
+upstream viswall_api  { server api-gateway:8000; }
+upstream viswall_ui   { server web-ui:80; }
+upstream viswall_sogo { server sogo:20000; }
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name mail.example.com;   # or a dedicated admin hostname
+
+    ssl_certificate     /etc/letsencrypt/live/mail.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mail.example.com/privkey.pem;
+
+    location /api/    { proxy_pass http://viswall_api; proxy_set_header Host $host; proxy_set_header X-Forwarded-For $remote_addr; proxy_set_header X-Forwarded-Proto $scheme; }
+    location /SOGo    { proxy_pass http://viswall_sogo; proxy_set_header Host $host; proxy_set_header X-Forwarded-For $remote_addr; proxy_set_header X-Forwarded-Proto $scheme; }
+    location /        { proxy_pass http://viswall_ui;  proxy_set_header Host $host; }
+}

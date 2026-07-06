@@ -34,37 +34,37 @@ export function InstanceCreateForm({ onSubmit, onCancel, loading }: InstanceCrea
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm dark:bg-red-950/20 dark:border-red-900 dark:text-red-400">
           {error}
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Name</label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Main Office"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Hostname</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Hostname</label>
         <input
           type="text"
           value={hostname}
           onChange={(e) => setHostname(e.target.value)}
           placeholder="e.g. viswall.example.com"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Capabilities</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Capabilities</label>
         <div className="flex flex-wrap gap-2">
           {capabilities.map((cap) => (
             <button
@@ -73,8 +73,8 @@ export function InstanceCreateForm({ onSubmit, onCancel, loading }: InstanceCrea
               onClick={() => toggleCap(cap)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                 selectedCaps.includes(cap)
-                  ? 'bg-primary-50 border-primary-300 text-primary-700'
-                  : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                  ? 'bg-primary-50 border-primary-300 text-primary-700 dark:bg-primary-950/30 dark:border-primary-500 dark:text-primary-400'
+                  : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
               }`}
             >
               {cap}
@@ -87,7 +87,7 @@ export function InstanceCreateForm({ onSubmit, onCancel, loading }: InstanceCrea
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
         >
           Cancel
         </button>

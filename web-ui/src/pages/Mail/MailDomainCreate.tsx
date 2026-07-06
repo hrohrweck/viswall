@@ -48,7 +48,7 @@ export function MailDomainCreate() {
   const renderStep1 = () => (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
           Domain Name
         </label>
         <input
@@ -56,19 +56,19 @@ export function MailDomainCreate() {
           value={config.domain}
           onChange={(e) => setConfig({ ...config, domain: e.target.value })}
           placeholder="example.com"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
         />
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
           The domain you want to receive email for
         </p>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-950/20 dark:border-blue-900 dark:text-blue-300">
         <div className="flex items-start gap-3">
-          <Mail className="w-5 h-5 text-blue-600 mt-0.5" />
+          <Mail className="w-5 h-5 text-blue-600 mt-0.5 dark:text-blue-400" />
           <div>
-            <h4 className="font-medium text-blue-900">What happens next?</h4>
-            <ul className="text-sm text-blue-800 mt-2 space-y-1">
+            <h4 className="font-medium text-blue-900 dark:text-blue-200">What happens next?</h4>
+            <ul className="text-sm text-blue-800 mt-2 space-y-1 dark:text-blue-300">
               <li>• Mail server configured for {config.domain || 'your domain'}</li>
               <li>• DKIM keys generated for email signing</li>
               <li>• DNS records provided for SPF, DKIM, DMARC</li>
@@ -82,11 +82,11 @@ export function MailDomainCreate() {
 
   const renderStep2 = () => (
     <div className="space-y-6">
-      <p className="text-gray-600">Configure security features for this domain:</p>
+      <p className="text-gray-600 dark:text-gray-400">Configure security features for this domain:</p>
 
       <div className="space-y-4">
         {/* Spam Filter */}
-        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer">
+        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer dark:border-gray-700 dark:hover:border-gray-600">
           <input
             type="checkbox"
             checked={config.spam_filter_enabled}
@@ -96,9 +96,9 @@ export function MailDomainCreate() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-purple-600" />
-              <span className="font-medium">SpamAssassin Filter</span>
+              <span className="font-medium dark:text-white">SpamAssassin Filter</span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
               Bayesian filtering, Pyzor, Razor, and DCC network checks. 
               Blocks 95%+ of spam.
             </p>
@@ -106,7 +106,7 @@ export function MailDomainCreate() {
         </label>
 
         {/* Virus Scanning */}
-        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer">
+        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer dark:border-gray-700 dark:hover:border-gray-600">
           <input
             type="checkbox"
             checked={config.virus_scan_enabled}
@@ -116,16 +116,16 @@ export function MailDomainCreate() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-red-600" />
-              <span className="font-medium">ClamAV Virus Scanning</span>
+              <span className="font-medium dark:text-white">ClamAV Virus Scanning</span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
               Real-time virus and malware scanning with automatic signature updates.
             </p>
           </div>
         </label>
 
         {/* DKIM */}
-        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer">
+        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer dark:border-gray-700 dark:hover:border-gray-600">
           <input
             type="checkbox"
             checked={config.dkim_enabled}
@@ -135,9 +135,9 @@ export function MailDomainCreate() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Check className="w-5 h-5 text-green-600" />
-              <span className="font-medium">DKIM Signing</span>
+              <span className="font-medium dark:text-white">DKIM Signing</span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
               Cryptographic email signing to prove authenticity. 
               Required for good deliverability.
             </p>
@@ -145,7 +145,7 @@ export function MailDomainCreate() {
         </label>
 
         {/* DMARC */}
-        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer">
+        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer dark:border-gray-700 dark:hover:border-gray-600">
           <input
             type="checkbox"
             checked={config.dmarc_enabled}
@@ -155,9 +155,9 @@ export function MailDomainCreate() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-blue-600" />
-              <span className="font-medium">DMARC Policy</span>
+              <span className="font-medium dark:text-white">DMARC Policy</span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
               Domain-based Message Authentication. 
               Protects against domain spoofing.
             </p>
@@ -165,7 +165,7 @@ export function MailDomainCreate() {
         </label>
 
         {/* LLM Classification */}
-        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer">
+        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer dark:border-gray-700 dark:hover:border-gray-600">
           <input
             type="checkbox"
             checked={config.llm_enabled}
@@ -175,16 +175,16 @@ export function MailDomainCreate() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Brain className="w-5 h-5 text-blue-600" />
-              <span className="font-medium">AI Email Classification (LLM)</span>
+              <span className="font-medium dark:text-white">AI Email Classification (LLM)</span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
               Advanced email categorization using GPT-4 or Claude.
               Can classify emails as important, newsletter, social, promotional, etc.
             </p>
           </div>
         </label>
 
-        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer">
+        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer dark:border-gray-700 dark:hover:border-gray-600">
           <input
             type="checkbox"
             checked={config.groupware_enabled}
@@ -194,9 +194,9 @@ export function MailDomainCreate() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Globe className="w-5 h-5 text-indigo-600" />
-              <span className="font-medium">SOGo Groupware</span>
+              <span className="font-medium dark:text-white">SOGo Groupware</span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
               Enable CalDAV, CardDAV, and ActiveSync for this domain.
               Users can access calendars and contacts via SOGo.
             </p>
@@ -211,8 +211,8 @@ export function MailDomainCreate() {
       return (
         <div className="text-center py-8">
           <Check className="w-16 h-16 text-green-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium">Ready to create!</h3>
-          <p className="text-gray-600 mt-2">
+          <h3 className="text-lg font-medium dark:text-white">Ready to create!</h3>
+          <p className="text-gray-600 mt-2 dark:text-gray-400">
             Your mail domain {config.domain} will be configured with the selected security features.
           </p>
         </div>
@@ -221,11 +221,11 @@ export function MailDomainCreate() {
 
     return (
       <div className="space-y-6">
-        <p className="text-gray-600">Configure LLM email classification:</p>
+        <p className="text-gray-600 dark:text-gray-400">Configure LLM email classification:</p>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
               Provider
             </label>
             <select
@@ -234,7 +234,7 @@ export function MailDomainCreate() {
                 ...config,
                 llm_config: { ...config.llm_config, provider: e.target.value }
               })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
               <option value="openai">OpenAI</option>
               <option value="anthropic">Anthropic Claude</option>
@@ -243,7 +243,7 @@ export function MailDomainCreate() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
               Model
             </label>
             <select
@@ -252,7 +252,7 @@ export function MailDomainCreate() {
                 ...config,
                 llm_config: { ...config.llm_config, model: e.target.value }
               })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
               <option value="gpt-4">GPT-4</option>
               <option value="gpt-4-turbo">GPT-4 Turbo</option>
@@ -261,8 +261,8 @@ export function MailDomainCreate() {
           </div>
         </div>
 
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-sm text-yellow-800">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-900 dark:text-yellow-300">
+          <p className="text-sm text-yellow-800 dark:text-yellow-300">
             <strong>Note:</strong> LLM classification requires an API key to be configured 
             in the instance settings. Emails are processed securely and not stored by the LLM provider.
           </p>
@@ -275,25 +275,25 @@ export function MailDomainCreate() {
     <div>
       <button
         onClick={() => navigate('/mail')}
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 dark:text-gray-400 dark:hover:text-white"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Mail
       </button>
 
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Mail Domain</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6 dark:text-white">Add Mail Domain</h2>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
         <div className="flex items-center gap-4 mb-6">
           {[1, 2, 3].map((s) => (
             <div
               key={s}
               className={`flex items-center gap-2 ${
-                s < step ? 'text-green-600' : s === step ? 'text-primary-600' : 'text-gray-400'
+                s < step ? 'text-green-600 dark:text-green-400' : s === step ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400 dark:text-gray-500'
               }`}
             >
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                s < step ? 'bg-green-100' : s === step ? 'bg-primary-100' : 'bg-gray-100'
+                s < step ? 'bg-green-100 dark:bg-green-950/30' : s === step ? 'bg-primary-100 dark:bg-primary-950/30' : 'bg-gray-100 dark:bg-gray-800'
               }`}>
                 {s < step ? <Check className="w-5 h-5" /> : s}
               </div>
@@ -310,10 +310,10 @@ export function MailDomainCreate() {
         {step === 2 && renderStep2()}
         {step === 3 && renderStep3()}
 
-        <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
+        <div className="flex justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={() => step > 1 ? setStep(step - 1) : navigate('/mail')}
-            className="px-4 py-2 text-gray-700 hover:text-gray-900"
+            className="px-4 py-2 text-gray-700 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
           >
             {step > 1 ? 'Back' : 'Cancel'}
           </button>

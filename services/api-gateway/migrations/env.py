@@ -26,6 +26,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Prefer DATABASE_URL from the environment over the (empty) sqlalchemy.url in
+# alembic.ini so no credentials live in the repo.
+_db_url = os.getenv("DATABASE_URL")
+if _db_url:
+    config.set_main_option("sqlalchemy.url", _db_url)
+
 # add your model's MetaData object here
 # for 'autogenerate' support
 target_metadata = Base.metadata

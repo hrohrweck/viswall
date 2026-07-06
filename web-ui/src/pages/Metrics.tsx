@@ -106,7 +106,7 @@ export function Metrics() {
   if (!selectedInstanceId) {
     return (
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Metrics</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 dark:text-white">Metrics</h2>
         <EmptyState
           icon={BarChart3}
           title="Select an Instance"
@@ -162,42 +162,42 @@ export function Metrics() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Metrics</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Metrics</h2>
         <InstanceSelector />
       </div>
 
       {/* Count Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Activity className="w-5 h-5 text-blue-600" />
+            <div className="p-2 bg-blue-100 rounded-lg dark:bg-gray-800">
+              <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Firewall Rules</p>
-              <p className="text-2xl font-bold">{counts?.firewall_rule_count ?? 0}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Firewall Rules</p>
+              <p className="text-2xl font-bold dark:text-white">{counts?.firewall_rule_count ?? 0}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Mail className="w-5 h-5 text-purple-600" />
+            <div className="p-2 bg-purple-100 rounded-lg dark:bg-gray-800">
+              <Mail className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Mail Domains</p>
-              <p className="text-2xl font-bold">{counts?.mail_domain_count ?? 0}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Mail Domains</p>
+              <p className="text-2xl font-bold dark:text-white">{counts?.mail_domain_count ?? 0}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 rounded-lg">
-              <Network className="w-5 h-5 text-indigo-600" />
+            <div className="p-2 bg-indigo-100 rounded-lg dark:bg-gray-800">
+              <Network className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">VPN Servers</p>
-              <p className="text-2xl font-bold">{counts?.vpn_server_count ?? 0}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">VPN Servers</p>
+              <p className="text-2xl font-bold dark:text-white">{counts?.vpn_server_count ?? 0}</p>
             </div>
           </div>
         </div>
@@ -206,15 +206,15 @@ export function Metrics() {
       {/* System Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {statCards.map(({ label, value, icon: Icon, color, detail }) => (
-          <div key={label} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <div key={label} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
             <div className="flex items-center gap-3">
-              <div className={`p-2 bg-${color}-100 rounded-lg`}>
-                <Icon className={`w-5 h-5 text-${color}-600`} />
+              <div className={`p-2 bg-${color}-100 rounded-lg dark:bg-gray-800`}>
+                <Icon className={`w-5 h-5 text-${color}-600 dark:text-gray-300`} />
               </div>
               <div>
-                <p className="text-sm text-gray-600">{label}</p>
-                <p className="text-2xl font-bold">{value}</p>
-                <p className="text-xs text-gray-400">{detail}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{label}</p>
+                <p className="text-2xl font-bold dark:text-white">{value}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">{detail}</p>
               </div>
             </div>
           </div>
@@ -223,7 +223,7 @@ export function Metrics() {
 
       {/* Time Range Selector */}
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-sm text-gray-600">Time Range:</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">Time Range:</span>
         {(['1h', '24h', '7d'] as const).map((range) => (
           <button
             key={range}
@@ -231,7 +231,7 @@ export function Metrics() {
             className={`px-3 py-1 text-sm rounded-lg ${
               timeRange === range
                 ? 'bg-primary-600 text-white'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700'
             }`}
           >
             {range === '1h' ? '1 Hour' : range === '24h' ? '24 Hours' : '7 Days'}
@@ -242,8 +242,8 @@ export function Metrics() {
       {/* Charts */}
       {chartData.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">
               System Resources
             </h3>
             <ResponsiveContainer width="100%" height={250}>
@@ -277,8 +277,8 @@ export function Metrics() {
             </ResponsiveContainer>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">
               Mail Activity
             </h3>
             <ResponsiveContainer width="100%" height={250}>
@@ -296,7 +296,7 @@ export function Metrics() {
           </div>
         </div>
       ) : (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6 dark:bg-gray-900 dark:border-gray-700">
           <EmptyState
             icon={BarChart3}
             title="No Historical Data"
@@ -307,13 +307,13 @@ export function Metrics() {
 
       {/* Network Interfaces */}
       {system?.interface_stats && system.interface_stats.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 dark:bg-gray-900 dark:border-gray-700">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Network Interfaces
             </h3>
           </div>
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {system.interface_stats.map((iface) => (
               <div
                 key={iface.name}
@@ -321,9 +321,9 @@ export function Metrics() {
               >
                 <div className="flex items-center gap-3">
                   <Network className="w-5 h-5 text-gray-400" />
-                  <span className="font-medium text-gray-900">{iface.name}</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{iface.name}</span>
                 </div>
-                <div className="flex items-center gap-6 text-sm text-gray-600">
+                <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400">
                   <div className="flex items-center gap-1">
                     <ArrowUpDown className="w-4 h-4 text-green-500" />
                     <span>RX: {formatBytes(iface.rx_bytes)}</span>

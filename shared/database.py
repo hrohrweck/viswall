@@ -1,24 +1,39 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 import os
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://viswall:viswall@localhost/viswall"
-)
+# Environment variable is read lazily so that importing this module (e.g. for
+# OpenAPI export or SDK generation) does not crash when DATABASE_URL is unset.
+# The check fires on first real DB access instead.
+engine = None
+AsyncSessionLocal = None
 
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=os.getenv("SQL_DEBUG", "false").lower() == "true",
-    future=True
-)
 
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
+def _get_database_url() -> str:
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL environment variable is required")
+    return url
+
+
+def _ensure_engine():
+    """Create the async engine and session factory on first use."""
+    global engine, AsyncSessionLocal
+    if engine is None:
+        url = _get_database_url()
+        engine = create_async_engine(
+            url,
+            echo=os.getenv("SQL_DEBUG", "false").lower() == "true",
+            future=True,
+        )
+        AsyncSessionLocal = async_sessionmaker(
+            engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+
 
 async def get_db():
+    _ensure_engine()
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -27,16 +42,23 @@ async def get_db():
 
 async def init_db():
     """Initialize database by running Alembic migrations."""
+    _ensure_engine()
     from alembic.config import Config
     from alembic import command
-    import os
 
-    api_gateway_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "services", "api-gateway"
+    here = os.path.dirname(os.path.abspath(__file__))
+    app_root = os.path.dirname(here)
+    _candidates = [
+        os.path.join(app_root, "services", "api-gateway"),
+        app_root,
+    ]
+    api_gateway_dir = next(
+        (d for d in _candidates if os.path.exists(os.path.join(d, "alembic.ini"))),
+        app_root,
     )
     alembic_cfg = Config(os.path.join(api_gateway_dir, "alembic.ini"))
     alembic_cfg.set_main_option("script_location", os.path.join(api_gateway_dir, "migrations"))
+    alembic_cfg.set_main_option("sqlalchemy.url", _get_database_url())
 
     # Use sync API since Alembic doesn't have async API
     def run_upgrade():

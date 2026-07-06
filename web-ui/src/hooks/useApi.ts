@@ -359,7 +359,7 @@ export function useMailDomains(instanceId: number) {
   return useQuery<MailDomain[]>({
     queryKey: queryKeys.mailDomains(instanceId),
     queryFn: async () => {
-      const { data } = await api.get(`/mail/${instanceId}/domains`)
+      const { data } = await api.get(`/mail/domains/${instanceId}`)
       return data
     },
     enabled: !!instanceId,
@@ -370,7 +370,7 @@ export function useMailDomain(instanceId: number, domainId: number) {
   return useQuery<MailDomain>({
     queryKey: queryKeys.mailDomain(instanceId, domainId),
     queryFn: async () => {
-      const { data } = await api.get(`/mail/${instanceId}/domains/${domainId}`)
+      const { data } = await api.get(`/mail/domains/detail/${domainId}`)
       return data
     },
     enabled: !!instanceId && !!domainId,
@@ -381,7 +381,7 @@ export function useCreateMailDomain(instanceId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (body: MailDomainCreate) => {
-      const { data } = await api.post(`/mail/${instanceId}/domains`, body)
+      const { data } = await api.post(`/mail/domains/${instanceId}`, body)
       return data as MailDomain
     },
     onSuccess: () => {
@@ -394,7 +394,7 @@ export function useUpdateMailDomain(instanceId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...body }: MailDomainUpdate & { id: number }) => {
-      const { data } = await api.patch(`/mail/${instanceId}/domains/${id}`, body)
+      const { data } = await api.patch(`/mail/domains/${id}`, body)
       return data as MailDomain
     },
     onSuccess: (_, variables) => {
@@ -408,7 +408,7 @@ export function useDeleteMailDomain(instanceId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (domainId: number) => {
-      await api.delete(`/mail/${instanceId}/domains/${domainId}`)
+      await api.delete(`/mail/domains/${domainId}`)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.mailDomains(instanceId) })
@@ -532,7 +532,7 @@ export function useMailUsers(instanceId: number, domainId: number) {
   return useQuery<MailUser[]>({
     queryKey: queryKeys.mailUsers(instanceId, domainId),
     queryFn: async () => {
-      const { data } = await api.get(`/mail/${instanceId}/domains/${domainId}/users`)
+      const { data } = await api.get(`/mail/users/${domainId}`)
       return data
     },
     enabled: !!instanceId && !!domainId,
@@ -543,7 +543,7 @@ export function useCreateMailUser(instanceId: number, domainId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (body: MailUserCreate) => {
-      const { data } = await api.post(`/mail/${instanceId}/domains/${domainId}/users`, body)
+      const { data } = await api.post(`/mail/users/${domainId}`, body)
       return data as MailUser
     },
     onSuccess: () => {
@@ -556,7 +556,7 @@ export function useUpdateMailUser(instanceId: number, domainId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...body }: MailUserUpdate & { id: number }) => {
-      const { data } = await api.patch(`/mail/${instanceId}/domains/${domainId}/users/${id}`, body)
+      const { data } = await api.patch(`/mail/users/${id}`, body)
       return data as MailUser
     },
     onSuccess: () => {
@@ -569,7 +569,7 @@ export function useDeleteMailUser(instanceId: number, domainId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (userId: number) => {
-      await api.delete(`/mail/${instanceId}/domains/${domainId}/users/${userId}`)
+      await api.delete(`/mail/users/${userId}`)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.mailUsers(instanceId, domainId) })
@@ -581,7 +581,7 @@ export function useRegenerateDkim(instanceId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (domainId: number) => {
-      const { data } = await api.post(`/mail/${instanceId}/domains/${domainId}/regenerate-dkim`)
+      const { data } = await api.post(`/mail/domains/${domainId}/dkim/regenerate`)
       return data
     },
     onSuccess: () => {

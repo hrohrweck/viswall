@@ -21,27 +21,27 @@ export function DataTable<T>({ columns, data, keyExtractor, onRowClick, emptyCon
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden dark:bg-gray-900 dark:border-gray-700">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
+            <tr className="border-b border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.className || ''}`}
+                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400 ${col.className || ''}`}
                 >
                   {col.header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700 dark:text-gray-300">
             {data.map((item) => (
               <tr
                 key={keyExtractor(item)}
                 onClick={() => onRowClick?.(item)}
-                className={onRowClick ? 'hover:bg-gray-50 cursor-pointer' : 'hover:bg-gray-50'}
+                className={onRowClick ? 'hover:bg-gray-50 cursor-pointer dark:hover:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}
               >
                 {columns.map((col) => (
                   <td key={col.key} className={`px-6 py-4 text-sm ${col.className || ''}`}>
@@ -71,22 +71,22 @@ export function Pagination({
   if (totalPages <= 1) return null
 
   return (
-    <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200">
-      <p className="text-sm text-gray-600">
+    <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 dark:border-gray-700">
+      <p className="text-sm text-gray-600 dark:text-gray-400">
         Page {page} of {totalPages}
       </p>
       <div className="flex gap-2">
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
         >
           Previous
         </button>
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
         >
           Next
         </button>

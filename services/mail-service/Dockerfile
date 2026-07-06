@@ -3,93 +3,64 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DEBCONF_NONINTERACTIVE_SEEN=true
 
-# Install core packages
-RUN apt-get update && apt-get upgrade -y && apt-get install -y \
-    # Exim MTA
+# Exim MTA + Dovecot IMAP/POP3/LMTP (Postgres auth) + spam/virus (D2: single Postgres)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     exim4-daemon-heavy \
     exim4-config \
-    # Courier IMAP/POP3
-    courier-base \
-    courier-authdaemon \
-    courier-authlib \
-    courier-authlib-mysql \
-    courier-pop \
-    courier-imap \
-    # Spam/Virus scanning
+    dovecot-core \
+    dovecot-imapd \
+    dovecot-pop3d \
+    dovecot-lmtpd \
+    dovecot-pgsql \
     spamassassin \
     spamc \
+    spamd \
     clamav-daemon \
     clamav-freshclam \
-    # Python for agent
-    python3.12 \
+    python3 \
     python3-pip \
-    python3-venv \
-    # Mail utilities
-    mailutils \
-    bsd-mailx \
-    # Database
-    libdbd-mysql-perl \
-    # SSL/TLS
+    postgresql-client \
     openssl \
     ca-certificates \
-    # System tools
     supervisor \
-    cron \
     rsyslog \
+    cron \
     curl \
     netcat-traditional \
-    # Build deps
-    gcc \
-    libffi-dev \
-    libssl-dev \
-    libmariadb-dev \
+    gettext-base \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-RUN pip3 install --break-system-packages \
+RUN pip3 install --break-system-packages --no-cache-dir \
+    fastapi \
+    "uvicorn[standard]" \
     aiohttp \
-    asyncio-mqtt \
     psycopg2-binary \
     sqlalchemy \
-    asyncpg \
-    pymysql
+    asyncpg
 
-# Configure SpamAssassin
-RUN mkdir -p /var/lib/spamassassin \
-    && chmod 755 /var/lib/spamassassin
+# Virtual mail user for maildir storage
+RUN groupadd -g 5000 vmail && \
+    useradd -g 5000 -u 5000 -d /var/mail/vhosts -m -s /usr/sbin/nologin vmail
+RUN usermod -aG Debian-exim clamav
 
-# Configure ClamAV
-RUN mkdir -p /var/run/clamav /var/lib/clamav \
-    && chown -R clamav:clamav /var/run/clamav /var/lib/clamav /var/log/clamav
+RUN mkdir -p /var/lib/spamassassin && chmod 755 /var/lib/spamassassin && \
+    mkdir -p /var/run/clamav /var/lib/clamav && \
+    (chown -R clamav:clamav /var/run/clamav /var/lib/clamav /var/log/clamav || true) && \
+    mkdir -p /var/spool/exim4 /var/log/exim4 && \
+    chown -R Debian-exim:Debian-exim /var/spool/exim4 /var/log/exim4 && \
+    mkdir -p /var/mail/vhosts && chown vmail:vmail /var/mail/vhosts && \
+    mkdir -p /etc/dovecot/ssl /var/run/dovecot
 
-# Setup Exim directories
-RUN mkdir -p /var/spool/exim4 /var/log/exim4 /etc/exim4/dkim \
-    && chown -R Debian-exim:Debian-exim /var/spool/exim4 /var/log/exim4
-
-# Setup Courier directories
-RUN mkdir -p /var/run/courier/authdaemon \
-    && chown -R daemon:daemon /var/run/courier
-
-# Create mail storage
-RUN mkdir -p /var/mail \
-    && chown mail:mail /var/mail
-
-# Copy agent code
 COPY services/mail-service/mail_agent.py /opt/viswall/
+COPY services/mail-service/config/ /opt/viswall/config/
 COPY services/mail-service/entrypoint.sh /opt/viswall/
 RUN chmod +x /opt/viswall/entrypoint.sh
+COPY services/mail-service/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Copy supervisor config
-COPY services/mail-service/supervisord.conf /etc/supervisor/conf.d/
+# SMTP + IMAP/POP3 (POP3 kept per D4)
+EXPOSE 25 465 587 110 995 143 993
 
-# Expose ports
-# SMTP
-EXPOSE 25 465 587
-# POP3/IMAP
-EXPOSE 110 995 143 993
-
-# Volume for persistent data
-VOLUME ["/var/mail", "/var/log", "/etc/exim4/dkim"]
+VOLUME ["/var/mail", "/var/log/exim4"]
 
 ENTRYPOINT ["/opt/viswall/entrypoint.sh"]
 CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

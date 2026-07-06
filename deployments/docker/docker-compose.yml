@@ -1,15 +1,16 @@
+name: viswall
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: viswall
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-viswall}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       POSTGRES_DB: viswall
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U viswall"]
       interval: 5s
@@ -17,6 +18,7 @@ services:
       retries: 5
     networks:
       - viswall
+    restart: unless-stopped
 
   # Redis Cache & Queue
   redis:
@@ -24,9 +26,10 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     networks:
       - viswall
+    restart: unless-stopped
 
   # API Gateway
   api-gateway:
@@ -34,12 +37,13 @@ services:
       context: ../..
       dockerfile: services/api-gateway/Dockerfile
     environment:
-      DATABASE_URL: postgresql+asyncpg://viswall:${DB_PASSWORD:-viswall}@postgres/viswall
+      DATABASE_URL: postgresql+asyncpg://viswall:${DB_PASSWORD:?DB_PASSWORD is required}@postgres/viswall
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
-    # No direct port binding — accessed via nginx reverse proxy
+    ports:
+      - "127.0.0.1:8010:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,29 +53,33 @@ services:
       - viswall
     volumes:
       - ../../shared:/app/shared:ro
+    restart: unless-stopped
 
   # Web UI
   web-ui:
     build:
-      context: ../..
-      dockerfile: web-ui/Dockerfile
+      context: ../../web-ui
+      dockerfile: Dockerfile
     environment:
       VITE_API_URL: /api/v1
-    # No direct port binding — accessed via nginx reverse proxy
+    ports:
+      - "127.0.0.1:8088:80"
     depends_on:
       - api-gateway
     networks:
       - viswall
+    restart: unless-stopped
 
-  # nginx Reverse Proxy (TLS termination)
+  # nginx Reverse Proxy (TLS termination) — DISABLED (D3: integrate behind existing host nginx)
   nginx:
+    profiles: ["disabled"]
     build:
       context: ../..
       dockerfile: deployments/docker/nginx/Dockerfile
     environment:
       SSL_MODE: ${SSL_MODE:-selfsigned}
-      DOMAIN: ${DOMAIN:-localhost}
-      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:-admin@localhost}
+      DOMAIN: ${DOMAIN:?DOMAIN is required}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL is required}
     ports:
       - "80:80"
       - "443:443"
@@ -94,14 +102,16 @@ services:
       SOGO_DB_HOST: postgres
       SOGO_DB_NAME: viswall
       SOGO_DB_USER: viswall
-      SOGO_DB_PASS: ${DB_PASSWORD:-viswall}
+      SOGO_DB_PASS: ${DB_PASSWORD:?DB_PASSWORD is required}
       SOGO_TIMEZONE: ${TZ:-UTC}
-    # No direct port binding — accessed via nginx reverse proxy
+    ports:
+      - "127.0.0.1:20000:20000"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - viswall
+    restart: unless-stopped
 
   # Prometheus
   prometheus:
@@ -110,28 +120,30 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9091:9090"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
     networks:
       - viswall
+    restart: unless-stopped
 
   # Grafana
   grafana:
     image: grafana/grafana:latest
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD is required}
     volumes:
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
       - grafana_data:/var/lib/grafana
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     depends_on:
       - prometheus
     networks:
       - viswall
+    restart: unless-stopped
 
   # Ollama LLM (local inference)
   ollama:
@@ -144,11 +156,12 @@ services:
     networks:
       - viswall
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
+    restart: unless-stopped
 
   # ============================================================================
   # SERVICE AGENTS (optional — uncomment to run agents in docker-compose)
@@ -158,22 +171,40 @@ services:
   # networking to manipulate system network settings.
   # ============================================================================
 
-  # mail-service:
-  #   build:
-  #     context: ../..
-  #     dockerfile: services/mail-service/Dockerfile
-  #   environment:
-  #     DATABASE_URL: postgresql+asyncpg://viswall:${DB_PASSWORD:-viswall}@postgres/viswall
-  #     REDIS_URL: redis://redis:6379/1
-  #   privileged: true
-  #   ports:
-  #     - "25:25"
-  #     - "465:465"
-  #     - "587:587"
-  #     - "143:143"
-  #     - "993:993"
-  #   networks:
-  #     - viswall
+  # Mail service (Exim MTA + Dovecot IMAP/POP3/LMTP, Postgres-backed).
+  # Under the "mail" profile so normal `up` does NOT bind mail ports while the
+  # legacy exim container still runs. Cutover: docker compose --profile mail up -d mail-service
+  mail-service:
+    profiles: ["mail"]
+    build:
+      context: ../..
+      dockerfile: services/mail-service/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: viswall
+      DB_USER: viswall
+      DB_PASS: ${DB_PASSWORD:?DB_PASSWORD is required}
+      EXIM_HOSTNAME: ${MAIL_HOSTNAME:?MAIL_HOSTNAME is required}
+    ports:
+      - "25:25"
+      - "465:465"
+      - "587:587"
+      - "110:110"
+      - "143:143"
+      - "993:993"
+      - "995:995"
+    volumes:
+      - ${LETSENCRYPT_LIVE:?LETSENCRYPT_LIVE is required}/fullchain.pem:/viswall/certs/server.crt:ro
+      - ${LETSENCRYPT_LIVE:?LETSENCRYPT_LIVE is required}/privkey.pem:/viswall/certs/server.key:ro
+      - /opt/viswall/dkim:/opt/viswall/dkim-staging:ro
+      - mail_data:/var/mail
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - viswall
 
   # firewall-service:
   #   build:
@@ -259,6 +290,9 @@ volumes:
   certbot_data:
   certbot_www:
   ollama_data:
+  mail_data:
+    external: true
+    name: viswall_mail_data
 
 networks:
   viswall:

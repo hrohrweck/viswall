@@ -27,7 +27,7 @@ export function NatRules() {
   if (!selectedInstanceId) {
     return (
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">NAT Rules</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 dark:text-white">NAT Rules</h2>
         <EmptyState
           icon={Globe}
           title="Select an Instance"
@@ -48,8 +48,8 @@ export function NatRules() {
       header: 'Rule',
       render: (rule: NATRule) => (
         <div>
-          <p className="font-medium text-gray-900">{rule.name}</p>
-          {rule.description && <p className="text-xs text-gray-500">{rule.description}</p>}
+          <p className="font-medium text-gray-900 dark:text-white">{rule.name}</p>
+          {rule.description && <p className="text-xs text-gray-500 dark:text-gray-400">{rule.description}</p>}
         </div>
       ),
     },
@@ -57,7 +57,7 @@ export function NatRules() {
       key: 'type',
       header: 'Type',
       render: (rule: NATRule) => (
-        <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+        <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
           {rule.type.toUpperCase()}
         </span>
       ),
@@ -66,28 +66,28 @@ export function NatRules() {
       key: 'interface',
       header: 'Interface',
       render: (rule: NATRule) => (
-        <span className="text-sm text-gray-600">{rule.interface || 'Any'}</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">{rule.interface || 'Any'}</span>
       ),
     },
     {
       key: 'source',
       header: 'Source',
       render: (rule: NATRule) => (
-        <span className="text-sm text-gray-600">{rule.source_network || 'Any'}</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">{rule.source_network || 'Any'}</span>
       ),
     },
     {
       key: 'dest',
       header: 'Destination',
       render: (rule: NATRule) => (
-        <span className="text-sm text-gray-600">{rule.dest_network || 'Any'}</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">{rule.dest_network || 'Any'}</span>
       ),
     },
     {
       key: 'translation',
       header: 'Translation',
       render: (rule: NATRule) => (
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-gray-600 dark:text-gray-400">
           {rule.to_source || rule.to_destination || '-'}
         </span>
       ),
@@ -99,8 +99,8 @@ export function NatRules() {
         <span
           className={`px-2 py-0.5 rounded text-xs font-medium ${
             rule.enabled
-              ? 'bg-green-100 text-green-800'
-              : 'bg-gray-100 text-gray-800'
+              ? 'bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400'
+              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
           }`}
         >
           {rule.enabled ? 'Enabled' : 'Disabled'}
@@ -112,7 +112,7 @@ export function NatRules() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">NAT Rules</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">NAT Rules</h2>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700"
@@ -173,22 +173,22 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Name</label>
         <input
           type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Type</label>
         <select
           value={formData.type}
           onChange={(e) => setFormData({ ...formData, type: e.target.value as NATType })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
         >
           <option value={NATType.SNAT}>Source NAT (SNAT)</option>
           <option value={NATType.DNAT}>Destination NAT (DNAT)</option>
@@ -197,35 +197,35 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Interface</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Interface</label>
         <input
           type="text"
           value={formData.interface}
           onChange={(e) => setFormData({ ...formData, interface: e.target.value })}
           placeholder="e.g. eth0"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Source Network</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Source Network</label>
           <input
             type="text"
             value={formData.source_network}
             onChange={(e) => setFormData({ ...formData, source_network: e.target.value })}
             placeholder="e.g. 192.168.1.0/24"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Destination Network</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Destination Network</label>
           <input
             type="text"
             value={formData.dest_network}
             onChange={(e) => setFormData({ ...formData, dest_network: e.target.value })}
             placeholder="e.g. 10.0.0.0/8"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
         </div>
       </div>
@@ -233,7 +233,7 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
       {formData.type !== 'masquerade' && (
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
               {formData.type === 'snat' ? 'To Source' : 'To Destination'}
             </label>
             <input
@@ -248,7 +248,7 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
                 })
               }
               placeholder="e.g. 203.0.113.1"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             />
           </div>
         </div>
@@ -256,11 +256,11 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Protocol</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Protocol</label>
           <select
             value={formData.service_protocol}
             onChange={(e) => setFormData({ ...formData, service_protocol: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           >
             <option value="any">Any</option>
             <option value="tcp">TCP</option>
@@ -269,13 +269,13 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Ports</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Ports</label>
           <input
             type="text"
             value={formData.service_ports}
             onChange={(e) => setFormData({ ...formData, service_ports: e.target.value })}
             placeholder="e.g. 80,443"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
         </div>
       </div>
@@ -288,7 +288,7 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
           onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
           className="h-4 w-4 text-primary-600 border-gray-300 rounded"
         />
-        <label htmlFor="nat-enabled" className="text-sm text-gray-700">
+        <label htmlFor="nat-enabled" className="text-sm text-gray-700 dark:text-gray-300">
           Enable rule
         </label>
       </div>
@@ -297,7 +297,7 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+          className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg dark:text-gray-400 dark:hover:bg-gray-800"
         >
           Cancel
         </button>

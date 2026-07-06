@@ -1,0 +1,6 @@
+7640af3a53ba7a26067496dea2ea03206cb278fc:services/mail-service/config/dovecot-sql.conf.ext.tmpl:password-assignment:2
+7640af3a53ba7a26067496dea2ea03206cb278fc:deployments/docker/docker-compose.yml:password-assignment:8
+7640af3a53ba7a26067496dea2ea03206cb278fc:scripts/migrate_legacy_mail.py:password-assignment:62
+7640af3a53ba7a26067496dea2ea03206cb278fc:scripts/migrate_legacy_mail.py:password-assignment:65
+7640af3a53ba7a26067496dea2ea03206cb278fc:deployments/docker/docker-compose.yml:password-assignment:135
+2c8d4320ca37cbee7e0c7651efd8381e062369e2:.gitguardian.yml:password-assignment:3
