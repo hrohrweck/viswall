@@ -65,6 +65,12 @@
      exim submission 587 (STARTTLS required — AUTH is advertised only under TLS). */
   SOGoSMTPAuthenticationType = "plain";
 
+  /* Two-factor auth (TOTP): enable the offering explicitly. Note: on sogo
+     5.8.0-2+deb12u3 the UI persists General.totpKey while the login check
+     requires General.PrivateSalt — profile rows were backfilled (2026-09-03)
+     so both keys exist; without that, every login self-disables 2FA. */
+  SOGoTOTPEnabled = YES;
+
   /* Language */
   SOGoLanguage = English;
 }
