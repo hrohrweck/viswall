@@ -30,7 +30,7 @@
   WOPort = 20000;
   WOLogFile = /var/log/sogo/sogo.log;
   WOPidFile = /var/run/sogo/sogo.pid;
-  WOServerURL = "https://mail.example.com";
+  WOServerURL = "https://mail.webmasters.co.at";
 
   /* DAV access */
   SOGoCalendarDAVAccessEnabled = YES;
@@ -55,6 +55,15 @@
       name (mail-service) doesn't match the TLS cert CN (mail.example.com). */
   SOGoIMAPServer = "imap://mail-service:143/?tls=YES&tlsVerifyMode=none";
   SOGoSMTPServer = "smtp://mail-service:587/?tls=YES&tlsVerifyMode=none";
+  /* Mailing mechanism: SOGo <=5.8 compiled-in default is "sendmail" when this key is
+     unset (SOGoDefaults.plist) — this image ships no MTA, so every send failed with
+     "cannot send message: no sendmail binary!". Force SMTP delivery through the
+     SOGoSMTPServer above (SOGoMailer.m dispatches on this key). */
+  SOGoMailingMechanism = "smtp";
+  /* Per-user SMTP AUTH: SOGoMailer._smtpSendData only authenticates when this is
+     "plain"; it then uses the web session's login (full email) + password against
+     exim submission 587 (STARTTLS required — AUTH is advertised only under TLS). */
+  SOGoSMTPAuthenticationType = "plain";
 
   /* Language */
   SOGoLanguage = English;
