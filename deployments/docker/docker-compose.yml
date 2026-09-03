@@ -104,6 +104,7 @@ services:
       SOGO_DB_USER: viswall
       SOGO_DB_PASS: ${DB_PASSWORD:?DB_PASSWORD is required}
       SOGO_TIMEZONE: ${TZ:-UTC}
+      SOGO_SERVER_URL: ${SOGO_SERVER_URL:-mail.example.com}
     ports:
       - "127.0.0.1:20000:20000"
     depends_on:

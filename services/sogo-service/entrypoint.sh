@@ -6,12 +6,14 @@ set -euo pipefail
 : "${SOGO_DB_USER:=viswall}"
 : "${SOGO_DB_PASS:?SOGO_DB_PASS is required}"
 : "${SOGO_TIMEZONE:=UTC}"
+: "${SOGO_SERVER_URL:=mail.example.com}"
 
 sed -e "s|\${SOGO_DB_HOST}|${SOGO_DB_HOST}|g" \
     -e "s|\${SOGO_DB_NAME}|${SOGO_DB_NAME}|g" \
     -e "s|\${SOGO_DB_USER}|${SOGO_DB_USER}|g" \
     -e "s|\${SOGO_DB_PASS}|${SOGO_DB_PASS}|g" \
     -e "s|\${SOGO_TIMEZONE}|${SOGO_TIMEZONE}|g" \
+    -e "s|\${SOGO_SERVER_URL}|${SOGO_SERVER_URL}|g" \
     /etc/sogo/sogo.conf.template > /etc/sogo/sogo.conf
 
 mkdir -p /var/run/sogo /var/log/sogo /var/spool/sogo
