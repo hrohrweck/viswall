@@ -349,7 +349,7 @@ export function useNetworkInterfaces(instanceId: number) {
 export function useDeployFirewall(instanceId: number) {
   return useMutation({
     mutationFn: async () => {
-      const { data } = await api.post(`/firewall/deploy/${instanceId}`)
+      const { data } = await api.post(`/firewall/apply/${instanceId}`)
       return data
     },
   })
