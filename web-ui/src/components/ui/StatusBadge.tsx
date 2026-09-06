@@ -1,87 +1,148 @@
+import {
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Info,
+  MinusCircle,
+  type LucideIcon,
+} from 'lucide-react'
+import { cn } from '../../lib/utils'
 import { InstanceStatus, VPNStatus, UserRole, AuthBackend } from '../../types'
+
+/* ------------------------------------------------------------------ */
+/* Badge — token-driven base component with optional icon pairing      */
+/* ------------------------------------------------------------------ */
 
 type BadgeVariant = 'success' | 'danger' | 'warning' | 'info' | 'neutral'
 
-function getBadgeClasses(variant: BadgeVariant): string {
-  const map: Record<BadgeVariant, string> = {
-    success: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-    danger: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-    warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-    info: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    neutral: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-  }
-  return map[variant]
+const variantClasses: Record<BadgeVariant, string> = {
+  success: 'bg-success-subtle text-success',
+  danger: 'bg-danger-subtle text-danger',
+  warning: 'bg-warning-subtle text-warning',
+  info: 'bg-info-subtle text-info',
+  neutral: 'bg-neutral-subtle text-on-surface-muted',
+}
+
+interface BadgeProps {
+  variant: BadgeVariant
+  icon?: LucideIcon
+  children: React.ReactNode
+  className?: string
+}
+
+export function Badge({ variant, icon: Icon, children, className }: BadgeProps) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+        variantClasses[variant],
+        className,
+      )}
+    >
+      {Icon && <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+      {children}
+    </span>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Icon lookup by variant (used by status badges)                      */
+/* ------------------------------------------------------------------ */
+
+const variantIcon: Record<BadgeVariant, LucideIcon> = {
+  success: CheckCircle2,
+  danger: XCircle,
+  warning: AlertTriangle,
+  info: Info,
+  neutral: MinusCircle,
+}
+
+/* ------------------------------------------------------------------ */
+/* StatusBadge — icon + colour paired, label capitalised               */
+/* ------------------------------------------------------------------ */
+
+const statusVariants: Record<string, BadgeVariant> = {
+  active: 'success',
+  running: 'success',
+  online: 'success',
+  inactive: 'neutral',
+  stopped: 'neutral',
+  offline: 'neutral',
+  error: 'danger',
+  maintenance: 'warning',
+  restarting: 'warning',
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const variants: Record<string, BadgeVariant> = {
-    active: 'success',
-    running: 'success',
-    online: 'success',
-    inactive: 'neutral',
-    stopped: 'neutral',
-    offline: 'neutral',
-    error: 'danger',
-    maintenance: 'warning',
-    restarting: 'warning',
-  }
-
+  const variant = statusVariants[status] ?? 'neutral'
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getBadgeClasses(variants[status] || 'neutral')}`}>
-      {status}
-    </span>
+    <Badge variant={variant} icon={variantIcon[variant]}>
+      <span className="capitalize">{status}</span>
+    </Badge>
   )
+}
+
+/* ------------------------------------------------------------------ */
+/* RoleBadge — text-only (roles are not operational statuses)           */
+/* ------------------------------------------------------------------ */
+
+const roleVariants: Record<string, BadgeVariant> = {
+  superadmin: 'danger',
+  admin: 'warning',
+  user: 'info',
+  readonly: 'neutral',
 }
 
 export function RoleBadge({ role }: { role: UserRole | string }) {
-  const variants: Record<string, BadgeVariant> = {
-    superadmin: 'danger',
-    admin: 'warning',
-    user: 'info',
-    readonly: 'neutral',
-  }
+  const variant = roleVariants[role] ?? 'neutral'
+  return <Badge variant={variant}>{role}</Badge>
+}
 
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getBadgeClasses(variants[role] || 'neutral')}`}>
-      {role}
-    </span>
-  )
+/* ------------------------------------------------------------------ */
+/* AuthBackendBadge — variant + label mapping (no icon)                */
+/* ------------------------------------------------------------------ */
+
+const authBackendVariants: Record<string, BadgeVariant> = {
+  local: 'info',
+  ldap: 'warning',
+  ad: 'success',
+}
+
+const authBackendLabels: Record<string, string> = {
+  local: 'Local',
+  ldap: 'LDAP',
+  ad: 'Active Directory',
 }
 
 export function AuthBackendBadge({ backend }: { backend: AuthBackend | string }) {
-  const variants: Record<string, BadgeVariant> = {
-    local: 'info',
-    ldap: 'warning',
-    ad: 'success',
-  }
-  const labels: Record<string, string> = {
-    local: 'Local',
-    ldap: 'LDAP',
-    ad: 'Active Directory',
-  }
+  const variant = authBackendVariants[backend] ?? 'neutral'
+  return <Badge variant={variant}>{authBackendLabels[backend] || backend}</Badge>
+}
 
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getBadgeClasses(variants[backend] || 'neutral')}`}>
-      {labels[backend] || backend}
-    </span>
-  )
+/* ------------------------------------------------------------------ */
+/* ProtocolBadge — variant + capitalize (no icon)                      */
+/* ------------------------------------------------------------------ */
+
+const protocolVariants: Record<string, BadgeVariant> = {
+  wireguard: 'success',
+  ipsec: 'info',
+  openvpn: 'warning',
+  l2tp: 'warning',
+  pptp: 'danger',
 }
 
 export function ProtocolBadge({ protocol }: { protocol: string }) {
-  const variants: Record<string, BadgeVariant> = {
-    wireguard: 'success',
-    ipsec: 'info',
-    openvpn: 'warning',
-    l2tp: 'warning',
-    pptp: 'danger',
-  }
-
+  const variant = protocolVariants[protocol] ?? 'neutral'
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getBadgeClasses(variants[protocol] || 'neutral')}`}>
-      {protocol}
-    </span>
+    <Badge variant={variant}>
+      <span className="capitalize">{protocol}</span>
+    </Badge>
   )
 }
+
+/* ------------------------------------------------------------------ */
+/* Thin delegates — unchanged prop signatures                          */
+/* ------------------------------------------------------------------ */
 
 export function InstanceStatusBadge({ status }: { status: InstanceStatus }) {
   return <StatusBadge status={status} />
