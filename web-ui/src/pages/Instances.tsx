@@ -1,14 +1,28 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Eye, Pencil, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useInstances, useCreateInstance, useDeleteInstance } from '../hooks/useApi'
-import { DataTable, StatusBadge, Modal, ConfirmDialog, LoadingSpinner, EmptyState } from '../components/ui'
+import {
+  PageHeader,
+  Button,
+  DataTable,
+  InstanceStatusBadge,
+  Modal,
+  ConfirmDialog,
+  EmptyState,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  toast,
+} from '../components/ui'
 import type { Instance, InstanceCreate } from '../types'
 import { formatDistanceToNow } from 'date-fns'
 import { InstanceCreateForm } from '../components/forms/InstanceCreateForm'
 
 export function Instances() {
-  const { data: instances, isLoading } = useInstances()
+  const { data: instances, isLoading, isError, refetch } = useInstances()
   const createMutation = useCreateInstance()
   const deleteMutation = useDeleteInstance()
   const navigate = useNavigate()
@@ -24,27 +38,26 @@ export function Instances() {
   const handleDelete = async () => {
     if (deleteTarget) {
       await deleteMutation.mutateAsync(deleteTarget.id)
+      toast.success('Instance deleted')
       setDeleteTarget(null)
     }
   }
 
-  if (isLoading) return <LoadingSpinner />
-
   const columns = [
     {
       key: 'name',
-      header: 'Name',
+      header: 'Instance',
       render: (item: Instance) => (
         <div>
-          <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{item.hostname}</p>
+          <p className="font-medium text-on-surface">{item.name}</p>
+          <p className="font-mono text-xs text-on-surface-muted">{item.hostname}</p>
         </div>
       ),
     },
     {
       key: 'status',
       header: 'Status',
-      render: (item: Instance) => <StatusBadge status={item.status} />,
+      render: (item: Instance) => <InstanceStatusBadge status={item.status} />,
     },
     {
       key: 'capabilities',
@@ -53,66 +66,83 @@ export function Instances() {
         <div className="flex flex-wrap gap-1">
           {item.capabilities.length > 0
             ? item.capabilities.map((c) => (
-                <span key={c} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs dark:bg-gray-800 dark:text-gray-300">
+                <span key={c} className="inline-flex items-center rounded-md bg-surface-elevated px-2 py-0.5 text-xs font-medium text-on-surface-muted">
                   {c}
                 </span>
               ))
-            : <span className="text-gray-400 text-xs dark:text-gray-500">None</span>}
+            : <span className="text-xs text-on-surface-muted">None</span>}
         </div>
       ),
     },
     {
       key: 'last_seen',
-      header: 'Last Seen',
+      header: 'Last seen',
       render: (item: Instance) => (
-        <span className="text-sm text-gray-500 dark:text-gray-400">
+        <span className="text-sm text-on-surface-muted">
           {item.last_seen
             ? formatDistanceToNow(new Date(item.last_seen), { addSuffix: true })
             : 'Never'}
         </span>
       ),
     },
-    {
-      key: 'actions',
-      header: '',
-      render: (item: Instance) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            setDeleteTarget(item)
-          }}
-          className="text-sm text-red-600 hover:text-red-700"
-        >
-          Delete
-        </button>
-      ),
-    },
   ]
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Instances</h2>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-        >
-          <Plus className="w-5 h-5" />
-          Add Instance
-        </button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Instances"
+        description="Manage your viswall instances and their configurations."
+        primaryAction={
+          <Button icon={Plus} onClick={() => setShowCreate(true)}>
+            Add instance
+          </Button>
+        }
+      />
 
       <DataTable
         columns={columns}
         data={instances || []}
         keyExtractor={(item) => item.id}
+        enableSorting
+        searchable
+        searchPlaceholder="Search instances..."
+        pagination
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={() => refetch()}
         onRowClick={(item) => navigate(`/instances/${item.id}`)}
+        rowActions={(item) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger label="Instance actions" />
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => navigate(`/instances/${item.id}`)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(`/instances/${item.id}`)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit instance
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                danger
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDeleteTarget(item)
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         emptyContent={
           <EmptyState
             icon={Plus}
             title="No instances yet"
             description="Add your first viswall instance to get started."
-            actionLabel="Add Instance"
+            actionLabel="Add instance"
             onAction={() => setShowCreate(true)}
           />
         }
@@ -131,7 +161,8 @@ export function Instances() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Delete Instance"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete "${deleteTarget?.name}"?`}
+        impact={deleteTarget ? `Removes ${deleteTarget.name} and disconnects it from the manager.` : undefined}
         loading={deleteMutation.isPending}
       />
     </div>

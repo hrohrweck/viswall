@@ -1,7 +1,21 @@
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Copy, ExternalLink } from 'lucide-react'
-import { useInstance, useDeleteInstance } from '../hooks/useApi'
-import { StatusBadge, ConfirmDialog, LoadingSpinner } from '../components/ui'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft, Copy, ExternalLink, Pencil, Trash2 } from 'lucide-react'
+import { useInstance, useDeleteInstance, useUpdateInstance } from '../hooks/useApi'
+import {
+  PageHeader,
+  Button,
+  IconButton,
+  Card,
+  InstanceStatusBadge,
+  ConfirmDialog,
+  PageSkeleton,
+  EmptyState,
+  Modal,
+  Field,
+  Input,
+  Textarea,
+  toast,
+} from '../components/ui'
 import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -11,16 +25,26 @@ export function InstanceDetail() {
   const instanceId = Number(id)
   const { data: instance, isLoading } = useInstance(instanceId)
   const deleteMutation = useDeleteInstance()
+  const updateMutation = useUpdateInstance()
   const [showDelete, setShowDelete] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
 
-  if (isLoading) return <LoadingSpinner />
-  if (!instance) return <p className="text-gray-600">Instance not found.</p>
+  if (isLoading) return <PageSkeleton />
+  if (!instance) return (
+    <EmptyState
+      icon={ExternalLink}
+      title="Instance not found"
+      description="The instance you are looking for does not exist or has been removed."
+      actionLabel="Back to instances"
+      actionTo="/instances"
+    />
+  )
 
-  const copyApiKey = () => {
-    navigator.clipboard.writeText(instance.api_endpoint)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const copyToClipboard = async (text: string) => {
+    await navigator.clipboard.writeText(text)
+    toast.success('Copied')
   }
 
   const handleDelete = async () => {
@@ -28,126 +52,164 @@ export function InstanceDetail() {
     navigate('/instances')
   }
 
+  const openEdit = () => {
+    setEditName(instance.name)
+    setEditDescription('')
+    setShowEdit(true)
+  }
+
+  const handleEdit = async () => {
+    await updateMutation.mutateAsync({ id: instance.id, name: editName })
+    toast.success('Instance updated')
+    setShowEdit(false)
+  }
+
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate('/instances')} className="p-2 hover:bg-gray-100 rounded-lg dark:hover:bg-gray-800">
-          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{instance.name}</h2>
-            <StatusBadge status={instance.status} />
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{instance.hostname}</p>
-        </div>
-        <button
-          onClick={() => setShowDelete(true)}
-          className="px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 dark:text-red-400 dark:border-red-900 dark:hover:bg-red-950/30"
-        >
-          Delete
-        </button>
-      </div>
+    <div className="space-y-6">
+      <Link to="/instances" className="inline-flex items-center gap-1 text-sm text-on-surface-muted hover:text-on-surface transition-colors">
+        <ArrowLeft className="w-4 h-4" />
+        Back to instances
+      </Link>
+
+      <PageHeader
+        title={instance.name}
+        description={`${instance.hostname}`}
+        primaryAction={
+          <Button icon={Pencil} onClick={openEdit}>
+            Edit
+          </Button>
+        }
+        secondaryActions={[
+          <Button key="delete" variant="destructive" icon={Trash2} onClick={() => setShowDelete(true)}>
+            Delete
+          </Button>,
+        ]}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Overview</h3>
+        {/* Overview Card */}
+        <Card title="Overview">
           <dl className="space-y-3">
             <div className="flex justify-between">
-              <dt className="text-sm text-gray-500 dark:text-gray-400">Hostname</dt>
-              <dd className="text-sm font-medium text-gray-900 dark:text-white">{instance.hostname}</dd>
+              <dt className="text-sm text-on-surface-muted">Status</dt>
+              <dd><InstanceStatusBadge status={instance.status} /></dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-sm text-gray-500 dark:text-gray-400">Status</dt>
-              <dd><StatusBadge status={instance.status} /></dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-sm text-gray-500 dark:text-gray-400">Last Seen</dt>
-              <dd className="text-sm text-gray-900 dark:text-white">
+              <dt className="text-sm text-on-surface-muted">Last Seen</dt>
+              <dd className="text-sm text-on-surface">
                 {instance.last_seen
                   ? formatDistanceToNow(new Date(instance.last_seen), { addSuffix: true })
                   : 'Never'}
               </dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-sm text-gray-500 dark:text-gray-400">Created</dt>
-              <dd className="text-sm text-gray-900 dark:text-white">
-                {new Date(instance.created_at).toLocaleDateString()}
+            <div>
+              <dt className="text-sm text-on-surface-muted mb-2">Capabilities</dt>
+              <dd className="flex flex-wrap gap-2">
+                {instance.capabilities.length > 0 ? (
+                  instance.capabilities.map((cap) => (
+                    <span
+                      key={cap}
+                      className="inline-flex items-center rounded-md bg-primary-subtle px-2.5 py-1 text-xs font-medium text-primary"
+                    >
+                      {cap}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-on-surface-muted">No capabilities assigned</span>
+                )}
               </dd>
             </div>
           </dl>
-        </div>
+        </Card>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Connection</h3>
+        {/* Connection Card */}
+        <Card title="Connection">
           <dl className="space-y-3">
             <div>
-              <dt className="text-sm text-gray-500 mb-1 dark:text-gray-400">API Endpoint</dt>
+              <dt className="text-sm text-on-surface-muted mb-1">Hostname</dt>
               <dd className="flex items-center gap-2">
-                <code className="text-sm bg-gray-100 px-2 py-1 rounded flex-1 truncate dark:bg-gray-800 dark:text-gray-300">
+                <code className="font-mono text-sm bg-surface-elevated px-2 py-1 rounded flex-1 truncate text-on-surface">
+                  {instance.hostname}
+                </code>
+                <IconButton icon={Copy} label="Copy hostname" onClick={() => copyToClipboard(instance.hostname)} />
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm text-on-surface-muted mb-1">API Endpoint</dt>
+              <dd className="flex items-center gap-2">
+                <code className="font-mono text-sm bg-surface-elevated px-2 py-1 rounded flex-1 truncate text-on-surface">
                   {instance.api_endpoint}
                 </code>
-                <button onClick={copyApiKey} className="p-1.5 hover:bg-gray-100 rounded dark:hover:bg-gray-800" title="Copy">
-                  <Copy className="w-4 h-4 text-gray-400" />
-                </button>
-                {copied && <span className="text-xs text-green-600">Copied!</span>}
+                <IconButton icon={Copy} label="Copy API endpoint" onClick={() => copyToClipboard(instance.api_endpoint)} />
               </dd>
             </div>
           </dl>
-        </div>
+        </Card>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Capabilities</h3>
-          <div className="flex flex-wrap gap-2">
-            {instance.capabilities.length > 0 ? (
-              instance.capabilities.map((cap) => (
-                <span
-                  key={cap}
-                  className="px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium dark:bg-primary-950/30 dark:text-primary-400"
-                >
-                  {cap}
-                </span>
-              ))
-            ) : (
-              <p className="text-gray-400 text-sm dark:text-gray-500">No capabilities assigned</p>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Quick Links</h3>
-          <div className="space-y-2">
-            <a
-              href={`/firewall?instance=${instance.id}`}
-              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 text-sm text-gray-700 dark:hover:bg-gray-800 dark:text-gray-300"
+        {/* Quick Links Card */}
+        <Card title="Quick Links" className="lg:col-span-2">
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to={`/firewall?instance=${instance.id}`}
+              className="inline-flex items-center gap-2 rounded-card border border-border bg-surface-card px-4 py-2 text-sm text-on-surface hover:bg-surface-elevated transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
               Firewall Rules
-            </a>
-            <a
-              href={`/vpn?instance=${instance.id}`}
-              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 text-sm text-gray-700 dark:hover:bg-gray-800 dark:text-gray-300"
+            </Link>
+            <Link
+              to={`/vpn?instance=${instance.id}`}
+              className="inline-flex items-center gap-2 rounded-card border border-border bg-surface-card px-4 py-2 text-sm text-on-surface hover:bg-surface-elevated transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
               VPN Servers
-            </a>
-            <a
-              href={`/mail?instance=${instance.id}`}
-              className="flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 text-sm text-gray-700 dark:hover:bg-gray-800 dark:text-gray-300"
+            </Link>
+            <Link
+              to={`/mail?instance=${instance.id}`}
+              className="inline-flex items-center gap-2 rounded-card border border-border bg-surface-card px-4 py-2 text-sm text-on-surface hover:bg-surface-elevated transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
               Mail Domains
-            </a>
+            </Link>
           </div>
-        </div>
+        </Card>
       </div>
 
+      {/* Edit Modal */}
+      <Modal open={showEdit} onClose={() => setShowEdit(false)} title="Edit Instance">
+        <div className="space-y-4">
+          <Field label="Name">
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Instance name"
+            />
+          </Field>
+          <Field label="Description" helper="Optional description for this instance">
+            <Textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="Optional description..."
+            />
+          </Field>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setShowEdit(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEdit} loading={updateMutation.isPending} disabled={!editName.trim()}>
+              Save
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirm Dialog */}
       <ConfirmDialog
         open={showDelete}
         onClose={() => setShowDelete(false)}
         onConfirm={handleDelete}
         title="Delete Instance"
-        message={`Are you sure you want to delete "${instance.name}"? This will remove all associated rules and configuration.`}
+        message={`Are you sure you want to delete "${instance.name}"?`}
+        impact={`Removes ${instance.name} and disconnects it from the manager.`}
         loading={deleteMutation.isPending}
       />
     </div>
