@@ -32,3 +32,8 @@ export { Badge } from './StatusBadge'
 export { Toaster, toast } from './Toaster'
 export { Skeleton, SkeletonText } from './Skeleton'
 export { QueryError } from './QueryError'
+
+// Wave-2 shell
+export { InstanceSwitcher } from './InstanceSwitcher'
+export { ErrorBoundary } from './ErrorBoundary'
+export { CommandPalette } from './CommandPalette'
