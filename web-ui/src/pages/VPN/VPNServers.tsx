@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Network } from 'lucide-react'
+import { Plus, Network, Info } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
 import { useVPNServers, useDeleteVPNServer } from '../../hooks/useApi'
 import {
-  InstanceSelector,
   VPNStatusBadge,
   ProtocolBadge,
   EmptyState,
   PageHeader,
+  Card,
   DataTable,
   ConfirmDialog,
   QueryError,
@@ -47,8 +47,12 @@ export function VPNServers() {
           title="VPN Servers"
           description="WireGuard, IPsec and OpenVPN servers across your instances"
         />
-        <EmptyState icon={Network} title="Select an Instance" description="Choose an instance to manage VPN servers." />
-        <div className="mt-4"><InstanceSelector /></div>
+        <Card className="mt-6">
+          <div className="flex items-center gap-3 text-on-surface-muted">
+            <Info className="h-5 w-5 shrink-0" />
+            <p className="text-sm">Select an instance from the top bar to manage its VPN servers.</p>
+          </div>
+        </Card>
       </div>
     )
   }
@@ -118,10 +122,6 @@ export function VPNServers() {
           </Link>
         }
       />
-
-      <div className="mt-6 mb-6">
-        <InstanceSelector />
-      </div>
 
       {isError ? (
         <QueryError onRetry={() => refetch()} />

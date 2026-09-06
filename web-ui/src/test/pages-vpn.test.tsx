@@ -110,10 +110,26 @@ describe('VPNServers subtitle', () => {
     expect(
       screen.getByText('WireGuard, IPsec and OpenVPN servers across your instances'),
     ).toBeInTheDocument()
-    // Must NOT show the old mail subtitle
     expect(
       screen.queryByText('Manage email domains, users, and security settings'),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('VPNServers no-instance notice', () => {
+  it('shows instance-notice Card when no instance selected', () => {
+    setInstance(null as unknown as number)
+    renderVPNServers()
+    expect(screen.getByText('VPN Servers')).toBeInTheDocument()
+    expect(
+      screen.getByText('Select an instance from the top bar to manage its VPN servers.'),
+    ).toBeInTheDocument()
+  })
+
+  it('does not render raw InstanceSelector when no instance selected', () => {
+    setInstance(null as unknown as number)
+    renderVPNServers()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })
 })
 
