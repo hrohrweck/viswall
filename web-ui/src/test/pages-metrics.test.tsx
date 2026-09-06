@@ -96,9 +96,9 @@ describe('Metrics', () => {
     const iconContainer = cpuCard?.querySelector('.rounded-lg')
 
     expect(iconContainer).toBeTruthy()
-    // Assert the literal static class, not a template interpolation
-    expect(iconContainer!.className).toContain('bg-blue-100')
-    expect(iconContainer!.className).toContain('dark:bg-gray-800')
+    // Assert the literal static token class, not a template interpolation
+    expect(iconContainer!.className).toContain('bg-primary-subtle')
+    expect(iconContainer!.querySelector('svg')?.getAttribute('class')).toContain('text-primary')
   })
 
   it('error state renders QueryError when query errors', async () => {

@@ -53,11 +53,11 @@ function formatPercent(value?: number): string {
 /* ------------------------------------------------------------------ */
 
 const CARD_COLORS: Record<string, { bg: string; icon: string }> = {
-  blue: { bg: 'bg-blue-100 dark:bg-gray-800', icon: 'text-blue-600 dark:text-gray-300' },
-  purple: { bg: 'bg-purple-100 dark:bg-gray-800', icon: 'text-purple-600 dark:text-gray-300' },
-  indigo: { bg: 'bg-indigo-100 dark:bg-gray-800', icon: 'text-indigo-600 dark:text-gray-300' },
-  orange: { bg: 'bg-orange-100 dark:bg-gray-800', icon: 'text-orange-600 dark:text-gray-300' },
-  green: { bg: 'bg-green-100 dark:bg-gray-800', icon: 'text-green-600 dark:text-gray-300' },
+  blue: { bg: 'bg-primary-subtle', icon: 'text-primary' },
+  purple: { bg: 'bg-info-subtle', icon: 'text-info' },
+  indigo: { bg: 'bg-info-subtle', icon: 'text-info' },
+  orange: { bg: 'bg-warning-subtle', icon: 'text-warning' },
+  green: { bg: 'bg-success-subtle', icon: 'text-success' },
 }
 
 /* ------------------------------------------------------------------ */
