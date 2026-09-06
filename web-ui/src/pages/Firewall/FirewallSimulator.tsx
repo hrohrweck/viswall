@@ -191,7 +191,7 @@ export function FirewallSimulator() {
           <button
             onClick={() => setIsPlaying(!isPlaying)}
             disabled={!simulation}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary-hover disabled:opacity-50"
           >
             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
             {isPlaying ? 'Pause' : 'Play'}
@@ -303,7 +303,7 @@ export function FirewallSimulator() {
 
             <button
               onClick={runSimulation}
-              className="w-full py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              className="w-full py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary-hover"
             >
               Run Simulation
             </button>

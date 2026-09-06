@@ -126,7 +126,7 @@ describe('LoadingSpinner', () => {
     const wrapper = container.firstElementChild as HTMLElement
     expect(wrapper).toHaveClass('flex', 'items-center', 'justify-center', 'py-12', 'min-h-40')
     const ring = wrapper.firstElementChild as HTMLElement
-    expect(ring).toHaveClass('animate-spin', 'rounded-full', 'border-t-primary-600')
+    expect(ring).toHaveClass('animate-spin', 'rounded-full', 'border-t-primary')
   })
 })
 
@@ -140,7 +140,7 @@ describe('EmptyState', () => {
       <EmptyState icon={Server} title="Nothing here" description="Pick an instance first." />,
     )
     expect(container.querySelector('svg')).toHaveClass('w-16')
-    expect(screen.getByRole('heading', { level: 3, name: 'Nothing here' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Nothing here' })).toBeInTheDocument()
     expect(screen.getByText('Pick an instance first.')).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()

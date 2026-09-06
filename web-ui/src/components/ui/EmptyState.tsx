@@ -18,7 +18,7 @@ export function EmptyState({ icon: Icon, title, description, actionLabel, action
     <div className={cn('bg-surface-card rounded-card border border-border', className)}>
       <div className="p-12 text-center">
         <Icon className="w-16 h-16 text-on-surface-muted mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-on-surface mb-2">{title}</h3>
+        <h2 className="text-lg font-medium text-on-surface mb-2">{title}</h2>
         <p className="text-on-surface-muted mb-6">{description}</p>
         {actionLabel && (actionTo ? (
           <Link to={actionTo} className={cn(buttonVariants({ variant: 'primary' }))}>

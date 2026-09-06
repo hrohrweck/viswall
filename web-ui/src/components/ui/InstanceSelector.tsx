@@ -59,7 +59,7 @@ export function InstanceSelector() {
                 setOpen(false)
               }}
               className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 dark:hover:bg-gray-700 ${
-                instance.id === selectedInstanceId ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400' : ''
+                instance.id === selectedInstanceId ? 'bg-primary-subtle text-primary' : ''
               }`}
             >
               <Server className="w-4 h-4" />

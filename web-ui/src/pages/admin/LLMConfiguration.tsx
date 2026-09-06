@@ -907,9 +907,9 @@ function UseCasesTab() {
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-sm font-semibold text-on-surface">
+                    <h2 className="text-sm font-semibold text-on-surface">
                       {useCaseLabels[config.use_case] || config.use_case}
-                    </h4>
+                    </h2>
                     <Badge
                       variant={config.is_enabled ? 'success' : 'neutral'}
                     >

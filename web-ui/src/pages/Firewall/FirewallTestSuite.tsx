@@ -150,7 +150,7 @@ export function FirewallTestSuite() {
           <button
             onClick={runTests}
             disabled={selectedSuites.length === 0 || isRunning}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary-hover disabled:opacity-50"
           >
             <Play className="w-4 h-4" />
             {isRunning ? 'Running...' : 'Run Tests'}
@@ -166,7 +166,7 @@ export function FirewallTestSuite() {
             onClick={() => setActiveTab(tab)}
             className={`pb-3 px-2 font-medium capitalize ${
               activeTab === tab 
-                ? 'text-primary-600 border-b-2 border-primary-600 dark:text-indigo-400 dark:border-indigo-400'
+                ? 'text-primary border-b-2 border-primary'
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
             }`}
           >
@@ -195,7 +195,7 @@ export function FirewallTestSuite() {
               }}
               className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
                 selectedSuites.includes(suite.id)
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/30'
+                  ? 'border-primary bg-primary-subtle'
                   : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
               }`}
             >
@@ -210,10 +210,10 @@ export function FirewallTestSuite() {
                 
                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
                   selectedSuites.includes(suite.id)
-                    ? 'bg-primary-600 border-primary-600'
-                    : 'border-gray-300 dark:border-gray-600'
-                }`}>
-                  {selectedSuites.includes(suite.id) && <CheckCircle className="w-4 h-4 text-white" />}
+                    ? 'bg-primary border-primary'
+                  : 'border-gray-300 dark:border-gray-600'
+              }`}>
+                  {selectedSuites.includes(suite.id) && <CheckCircle className="w-4 h-4 text-primary-fg" />}
                 </div>
               </div>
             </div>
