@@ -1,154 +1,293 @@
-import { Link } from 'react-router-dom'
-import { Server, Shield, Mail, Network, Plus, ArrowRight } from 'lucide-react'
-import { useInstances, useMetricsOverview } from '../hooks/useApi'
-import { LoadingSpinner, StatusBadge } from '../components/ui'
+import { Link, useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
+import {
+  Server,
+  Shield,
+  Network,
+  Mail,
+  RefreshCw,
+  MoreVertical,
+  CheckCircle2,
+  ExternalLink,
+} from 'lucide-react'
+import {
+  useInstances,
+  useMetricsOverview,
+  useAuditLogs,
+} from '../hooks/useApi'
+import { useAuthStore } from '../stores/auth'
+import {
+  PageHeader,
+  Card,
+  CardBody,
+  Button,
+  IconButton,
+  DataTable,
+  StatusBadge,
+  Skeleton,
+} from '../components/ui'
+import type { Column } from '../components/ui/DataTable'
+import type { Instance } from '../types'
+import { useQueryClient } from '@tanstack/react-query'
+import { cn } from '../lib/utils'
+
+/* -------------------------------------------------------------------------- */
+/*  Static status-class map — zero dynamic/template-literal classNames         */
+/* -------------------------------------------------------------------------- */
+
+const statusCardClasses: Record<string, { bg: string; text: string }> = {
+  primary: { bg: 'bg-primary-subtle', text: 'text-primary' },
+  success: { bg: 'bg-success-subtle', text: 'text-success' },
+  warning: { bg: 'bg-warning-subtle', text: 'text-warning' },
+  danger: { bg: 'bg-danger-subtle', text: 'text-danger' },
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Health table columns                                                       */
+/* -------------------------------------------------------------------------- */
+
+const healthColumns: Column<Instance>[] = [
+  {
+    key: 'name',
+    header: 'Instance',
+    render: (row) => (
+      <span className="font-medium text-on-surface">{row.name}</span>
+    ),
+  },
+  {
+    key: 'hostname',
+    header: 'Hostname',
+    className: 'font-mono text-xs',
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (row) => <StatusBadge status={row.status} />,
+  },
+  {
+    key: 'cpu',
+    header: 'CPU',
+    render: () => <span className="text-on-surface-muted">&mdash;</span>,
+  },
+  {
+    key: 'memory',
+    header: 'Memory',
+    render: () => <span className="text-on-surface-muted">&mdash;</span>,
+  },
+  {
+    key: 'last_seen',
+    header: 'Last seen',
+    render: (row) =>
+      row.last_seen ? (
+        formatDistanceToNow(new Date(row.last_seen), { addSuffix: true })
+      ) : (
+        <span className="text-on-surface-muted">Never</span>
+      ),
+  },
+]
+
+/* -------------------------------------------------------------------------- */
+/*  Dashboard                                                                  */
+/* -------------------------------------------------------------------------- */
 
 export function Dashboard() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: instances, isLoading: instancesLoading } = useInstances()
   const { data: overview, isLoading: overviewLoading } = useMetricsOverview()
+  const { data: auditLogs } = useAuditLogs({ limit: 3 })
+  const user = useAuthStore((s) => s.user)
+  const isAdmin = user?.role === 'superadmin' || user?.role === 'admin'
 
   const isLoading = instancesLoading || overviewLoading
 
-  if (isLoading) return <LoadingSpinner />
-
-  const instanceCount = instances?.length ?? 0
-  const activeInstances = instances?.filter((i) => i.status === 'active').length ?? 0
+  const activeCount = instances?.filter((i) => i.status === 'active').length ?? 0
 
   const stats = [
     {
-      label: 'Instances',
-      value: instanceCount,
+      label: 'Total instances',
+      value: overview?.instances ?? 0,
+      detail: `${activeCount} active`,
       icon: Server,
-      color: 'blue',
-      detail: `${activeInstances} active`,
+      color: 'primary',
+      to: '/instances',
     },
     {
-      label: 'Firewall Rules',
+      label: 'Firewall rules',
       value: overview?.firewall_rules ?? 0,
+      detail: 'Across all instances',
       icon: Shield,
-      color: 'green',
-      detail: 'Across all instances',
+      color: 'success',
+      to: '/firewall',
     },
     {
-      label: 'VPN Servers',
+      label: 'VPN servers',
       value: overview?.vpn_servers ?? 0,
-      icon: Network,
-      color: 'indigo',
       detail: 'Across all instances',
+      icon: Network,
+      color: 'warning',
+      to: '/vpn',
     },
     {
-      label: 'Mail Domains',
+      label: 'Mail domains',
       value: overview?.mail_domains ?? 0,
-      icon: Mail,
-      color: 'purple',
       detail: 'Across all instances',
+      icon: Mail,
+      color: 'danger',
+      to: '/mail',
     },
   ]
 
-  return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6 dark:text-white">Dashboard</h2>
+  /* Attention-needed: offline or maintenance instances */
+  const attentionInstances =
+    instances?.filter((i) => {
+      const s = i.status as string
+      return s === 'maintenance' || s === 'error' || s === 'offline'
+    }) ?? []
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map(({ label, value, icon: Icon, color, detail }) => (
-          <div key={label} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{label}</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1 dark:text-white">{value}</p>
-                <p className="text-xs text-gray-400 mt-1 dark:text-gray-500">{detail}</p>
+  return (
+    <div className="flex flex-col gap-6">
+      {/* ── Header ────────────────────────────────────────────────────── */}
+      <PageHeader
+        title="Dashboard"
+        description="Overview of your infrastructure and recent activity."
+        secondaryActions={[
+          <IconButton
+            key="refresh"
+            icon={RefreshCw}
+            label="Refresh"
+            variant="secondary"
+            onClick={() => queryClient.invalidateQueries()}
+          />,
+        ]}
+      />
+
+      {/* ── Stat cards ────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map(({ label, value, detail, icon: Icon, color, to }) => {
+          const cls = statusCardClasses[color]
+          return (
+            <Link
+              key={label}
+              to={to}
+              className="rounded-card border border-border bg-surface-card p-5 hover:bg-surface-elevated transition-colors"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <span className="text-sm text-on-surface-muted">{label}</span>
+                <div className={cn('flex h-9 w-9 items-center justify-center rounded-card', cls.bg)}>
+                  <Icon className={cn('h-4.5 w-4.5', cls.text)} />
+                </div>
               </div>
-              <div className={`p-3 bg-${color}-100 rounded-lg dark:bg-gray-800`}>
-                <Icon className={`w-6 h-6 text-${color}-600 dark:text-gray-300`} />
-              </div>
-            </div>
-          </div>
-        ))}
+              {isLoading ? (
+                <Skeleton className="h-7 w-16 mb-1" />
+              ) : (
+                <p className="text-2xl font-semibold text-on-surface">{value}</p>
+              )}
+              <p className="text-xs text-on-surface-muted mt-0.5">{detail}</p>
+            </Link>
+          )
+        })}
       </div>
 
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">System Status</h3>
-            <Link to="/instances" className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1">
-              View all <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-          {instances && instances.length > 0 ? (
-            <div className="space-y-3">
-              {instances.map((instance) => (
-                <Link
-                  key={instance.id}
-                  to={`/instances/${instance.id}`}
-                  className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <div className="flex items-center gap-3">
-                    <Server className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">{instance.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{instance.hostname}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {instance.last_seen && (
-                      <span className="text-xs text-gray-400">
-                        {formatDistanceToNow(new Date(instance.last_seen), { addSuffix: true })}
-                      </span>
-                    )}
-                    <StatusBadge status={instance.status} />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <Server className="w-12 h-12 text-gray-300 mx-auto mb-3 dark:text-gray-600" />
-              <p className="text-gray-600 dark:text-gray-400 mb-4">No instances connected yet.</p>
-              <Link
-                to="/instances"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Add Instance
-              </Link>
-            </div>
-          )}
-        </div>
+      {/* ── Instance health table ─────────────────────────────────────── */}
+      <Card title="Instance health">
+        <CardBody padding="p-0">
+          <DataTable
+            columns={healthColumns}
+            data={instances ?? []}
+            keyExtractor={(i) => i.id}
+            enableSorting
+            isLoading={instancesLoading}
+            onRowClick={(i) => navigate(`/instances/${i.id}`)}
+            rowActions={(i) => (
+              <IconButton
+                icon={MoreVertical}
+                label="Actions"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(`/instances/${i.id}`)
+                }}
+              />
+            )}
+          />
+        </CardBody>
+      </Card>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Quick Actions</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <Link
-              to="/instances"
-              className="flex flex-col items-center gap-2 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-primary-300 transition-colors dark:border-gray-700 dark:hover:bg-gray-800"
-            >
-              <Server className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Manage Instances</span>
-            </Link>
-            <Link
-              to="/firewall"
-              className="flex flex-col items-center gap-2 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-primary-300 transition-colors dark:border-gray-700 dark:hover:bg-gray-800"
-            >
-              <Shield className="w-6 h-6 text-green-600 dark:text-green-400" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Firewall Rules</span>
-            </Link>
-            <Link
-              to="/vpn"
-              className="flex flex-col items-center gap-2 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-primary-300 transition-colors dark:border-gray-700 dark:hover:bg-gray-800"
-            >
-              <Network className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">VPN Servers</span>
-            </Link>
-            <Link
-              to="/mail"
-              className="flex flex-col items-center gap-2 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-primary-300 transition-colors dark:border-gray-700 dark:hover:bg-gray-800"
-            >
-              <Mail className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Mail Domains</span>
-            </Link>
-          </div>
-        </div>
+      {/* ── Bottom row: Attention + Recent activity ───────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Attention needed */}
+        <Card title="Attention needed">
+          <CardBody>
+            {attentionInstances.length === 0 ? (
+              <div className="flex items-center gap-2 py-3 text-sm text-on-surface-muted">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                All systems nominal
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {attentionInstances.map((instance) => (
+                  <div
+                    key={instance.id}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <StatusBadge status={instance.status} />
+                      <span className="text-sm font-medium text-on-surface truncate">
+                        {instance.name}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={ExternalLink}
+                      onClick={() => navigate(`/instances/${instance.id}`)}
+                    >
+                      View
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardBody>
+        </Card>
+
+        {/* Recent activity — admin-only */}
+        {isAdmin && (
+          <Card title="Recent activity">
+            <CardBody>
+              {auditLogs && auditLogs.length > 0 ? (
+                <div className="flex flex-col gap-3">
+                  {auditLogs.slice(0, 3).map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm text-on-surface truncate">
+                          {log.action}
+                        </p>
+                        <p className="text-xs text-on-surface-muted">
+                          {log.resource_type}
+                          {log.resource_id ? ` #${log.resource_id}` : ''}
+                        </p>
+                      </div>
+                      <span className="text-xs text-on-surface-muted whitespace-nowrap">
+                        {formatDistanceToNow(new Date(log.timestamp), {
+                          addSuffix: true,
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-on-surface-muted py-3">
+                  No recent activity.
+                </p>
+              )}
+            </CardBody>
+          </Card>
+        )}
       </div>
     </div>
   )

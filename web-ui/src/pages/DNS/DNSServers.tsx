@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react'
-import { Database, Plus, Trash2, Play, Square, RotateCw } from 'lucide-react'
+import {
+  Info,
+  Plus,
+  Trash2,
+  Play,
+  Square,
+  RotateCw,
+  Search,
+} from 'lucide-react'
 
 import { useInstanceStore } from '../../stores/instance'
 import {
@@ -15,20 +23,27 @@ import {
   useDNSZones,
 } from '../../hooks/useApi'
 import {
+  Badge,
+  Button,
+  Card,
   ConfirmDialog,
-  EmptyState,
-  InstanceSelector,
-  LoadingSpinner,
+  IconButton,
+  Input,
   Modal,
+  PageHeader,
+  QueryError,
+  Skeleton,
+  SkeletonText,
   StatusBadge,
+  toast,
 } from '../../components/ui'
+import { DNSServerForm } from '../../components/forms/DNSServerForm'
+import { DNSZoneForm } from '../../components/forms/DNSZoneForm'
+import { DNSRecordForm } from '../../components/forms/DNSRecordForm'
 import type {
   DNSRecord,
-  DNSRecordCreate,
   DNSZone,
-  DNSZoneCreate,
   DNSServer,
-  DNSServerCreate,
 } from '../../types'
 import { DNSRecordType, DNSZoneType } from '../../types'
 
@@ -42,13 +57,37 @@ export function DNSServers() {
   const [createZoneOpen, setCreateZoneOpen] = useState(false)
   const [createRecordOpen, setCreateRecordOpen] = useState(false)
 
-  const [deleteServerTarget, setDeleteServerTarget] = useState<DNSServer | null>(null)
+  const [deleteServerTarget, setDeleteServerTarget] =
+    useState<DNSServer | null>(null)
   const [deleteZoneTarget, setDeleteZoneTarget] = useState<DNSZone | null>(null)
-  const [deleteRecordTarget, setDeleteRecordTarget] = useState<DNSRecord | null>(null)
+  const [deleteRecordTarget, setDeleteRecordTarget] =
+    useState<DNSRecord | null>(null)
 
-  const { data: servers, isLoading: serversLoading } = useDNSServers(selectedInstanceId || 0)
-  const { data: zones, isLoading: zonesLoading } = useDNSZones(selectedServer?.id || 0)
-  const { data: records, isLoading: recordsLoading } = useDNSRecords(selectedZone?.id || 0)
+  const [actionTarget, setActionTarget] = useState<{
+    server: DNSServer
+    action: 'start' | 'stop' | 'reload'
+  } | null>(null)
+
+  const [zoneSearch, setZoneSearch] = useState('')
+
+  const {
+    data: servers,
+    isLoading: serversLoading,
+    isError: serversError,
+    refetch: refetchServers,
+  } = useDNSServers(selectedInstanceId || 0)
+  const {
+    data: zones,
+    isLoading: zonesLoading,
+    isError: zonesError,
+    refetch: refetchZones,
+  } = useDNSZones(selectedServer?.id || 0)
+  const {
+    data: records,
+    isLoading: recordsLoading,
+    isError: recordsError,
+    refetch: refetchRecords,
+  } = useDNSRecords(selectedZone?.id || 0)
 
   const createServerMutation = useCreateDNSServer(selectedInstanceId || 0)
   const createZoneMutation = useCreateDNSZone(selectedServer?.id || 0)
@@ -78,443 +117,439 @@ export function DNSServers() {
     DNSRecordType.CAA,
   ]
 
-  const selectedServerFromList = useMemo(() => {
-    if (!servers || !selectedServer) return null
-    return servers.find((server) => server.id === selectedServer.id) || null
-  }, [servers, selectedServer])
+  const filteredZones = useMemo(() => {
+    if (!zones) return []
+    if (!zoneSearch.trim()) return zones
+    const q = zoneSearch.toLowerCase()
+    return zones.filter((z) => z.name.toLowerCase().includes(q))
+  }, [zones, zoneSearch])
 
+  /* ── No instance selected ── */
   if (!selectedInstanceId) {
     return (
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">DNS Servers</h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage authoritative and recursive BIND9 DNS servers</p>
+        <PageHeader title="DNS Servers" />
+        <Card className="mt-6">
+          <div className="flex items-center gap-3 text-on-surface-muted">
+            <Info className="h-5 w-5 shrink-0" />
+            <p className="text-sm">Select an instance from the top bar to manage its DNS servers.</p>
           </div>
-        </div>
-        <EmptyState icon={Database} title="Select an Instance" description="Choose an instance to manage DNS." />
-        <div className="mt-4"><InstanceSelector /></div>
+        </Card>
       </div>
     )
   }
 
-  if (serversLoading) return <LoadingSpinner />
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">DNS Servers</h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">Public/private zones, DNSSEC, forwarding, and reverse DNS</p>
-          </div>
-          <InstanceSelector />
-        </div>
-        <button
-          onClick={() => setCreateServerOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-        >
-          <Plus className="w-5 h-5" />
-          New DNS Server
-        </button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="DNS Servers"
+        description="Public/private zones, DNSSEC, forwarding, and reverse DNS"
+        primaryAction={
+          <Button onClick={() => setCreateServerOpen(true)}>
+            <Plus className="w-4 h-4" />
+            New DNS Server
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <div className="px-4 py-3 border-b border-gray-200 font-semibold dark:border-gray-700 dark:text-white">Servers</div>
-          <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {servers && servers.length > 0 ? servers.map((server) => (
-              <button
-                key={server.id}
-                onClick={() => {
-                  setSelectedServer(server)
-                  setSelectedZone(null)
-                }}
-                className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 ${selectedServer?.id === server.id ? 'bg-primary-50 dark:bg-primary-950/30' : ''}`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-gray-900 truncate dark:text-white">{server.name}</span>
-                  <StatusBadge status={server.status} />
-                </div>
-                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {server.zones_count} zones · {server.port}/tcp+udp
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      void actionMutation.mutateAsync({ serverId: server.id, action: 'start' })
-                    }}
-                    className="p-1 rounded text-green-700 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-950/30"
-                    title="Start"
-                  >
-                    <Play className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      void actionMutation.mutateAsync({ serverId: server.id, action: 'stop' })
-                    }}
-                    className="p-1 rounded text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                    title="Stop"
-                  >
-                    <Square className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      void actionMutation.mutateAsync({ serverId: server.id, action: 'reload' })
-                    }}
-                    className="p-1 rounded text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-950/30"
-                    title="Reload"
-                  >
-                    <RotateCw className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      setDeleteServerTarget(server)
-                    }}
-                    className="p-1 rounded text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/30"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </button>
-            )) : (
-              <div className="p-4 text-sm text-gray-500 dark:text-gray-400">No DNS servers yet.</div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <div className="px-4 py-3 border-b border-gray-200 font-semibold flex items-center justify-between dark:border-gray-700 dark:text-white">
-            <span>Zones</span>
-            <button
-              disabled={!selectedServer}
-              onClick={() => setCreateZoneOpen(true)}
-              className="text-sm px-2 py-1 rounded bg-primary-600 text-white disabled:opacity-40"
-            >
-              Add
-            </button>
-          </div>
-          {zonesLoading ? <div className="p-4"><LoadingSpinner /></div> : (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {zones && zones.length > 0 ? zones.map((zone) => (
-                <button
-                  key={zone.id}
-                  onClick={() => setSelectedZone(zone)}
-                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 ${selectedZone?.id === zone.id ? 'bg-primary-50 dark:bg-primary-950/30' : ''}`}
+        {/* ── Servers pane ─────────────────────────────────────────────── */}
+        <Card title="Servers" padding="p-0">
+          {serversLoading ? (
+            <div className="p-5 space-y-3">
+              {Array.from({ length: 3 }, (_, i) => (
+                <SkeletonText key={i} lines={2} />
+              ))}
+            </div>
+          ) : serversError ? (
+            <div className="p-5">
+              <QueryError onRetry={refetchServers} />
+            </div>
+          ) : servers && servers.length > 0 ? (
+            <div className="divide-y divide-border">
+              {servers.map((server) => (
+                <div
+                  key={server.id}
+                  className={`flex items-center gap-1 ${
+                    selectedServer?.id === server.id
+                      ? 'bg-primary/5 border-l-2 border-l-primary'
+                      : ''
+                  }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-gray-900 truncate dark:text-white">{zone.name}</span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 uppercase dark:bg-gray-800 dark:text-gray-300">{zone.zone_type}</span>
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    serial {zone.serial} · {zone.records_count} records
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    {zone.dnssec_enabled ? <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400">DNSSEC</span> : null}
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setDeleteZoneTarget(zone)
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedServer(server)
+                      setSelectedZone(null)
+                    }}
+                    className="flex-1 min-w-0 text-left px-5 py-3 hover:bg-surface-elevated transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-on-surface truncate">
+                        {server.name}
+                      </span>
+                      <StatusBadge status={server.status} />
+                    </div>
+                    <div className="mt-1 text-xs text-on-surface-muted">
+                      {server.zones_count} zones · {server.port}/tcp+udp
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-1 pr-4">
+                    <IconButton
+                      icon={Play}
+                      size="sm"
+                      variant="ghost"
+                      label="Start server"
+                      onClick={() => {
+                        setActionTarget({ server, action: 'start' })
                       }}
-                      className="p-1 rounded text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/30"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    />
+                    <IconButton
+                      icon={Square}
+                      size="sm"
+                      variant="ghost"
+                      label="Stop server"
+                      onClick={() => {
+                        setActionTarget({ server, action: 'stop' })
+                      }}
+                    />
+                    <IconButton
+                      icon={RotateCw}
+                      size="sm"
+                      variant="ghost"
+                      label="Reload server"
+                      onClick={() => {
+                        setActionTarget({ server, action: 'reload' })
+                      }}
+                    />
+                    <IconButton
+                      icon={Trash2}
+                      size="sm"
+                      variant="ghost"
+                      className="text-danger hover:text-danger"
+                      label="Delete server"
+                      onClick={() => {
+                        setDeleteServerTarget(server)
+                      }}
+                    />
                   </div>
-                </button>
-              )) : (
-                <div className="p-4 text-sm text-gray-500 dark:text-gray-400">No zones for this server.</div>
-              )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-5 text-sm text-on-surface-muted">
+              No DNS servers yet.
             </div>
           )}
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <div className="px-4 py-3 border-b border-gray-200 font-semibold flex items-center justify-between dark:border-gray-700 dark:text-white">
-            <span>Records</span>
-            <button
-              disabled={!selectedZone}
-              onClick={() => setCreateRecordOpen(true)}
-              className="text-sm px-2 py-1 rounded bg-primary-600 text-white disabled:opacity-40"
+        {/* ── Zones pane ──────────────────────────────────────────────── */}
+        <Card
+          title="Zones"
+          padding="p-0"
+          actions={
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!selectedServer}
+              onClick={() => setCreateZoneOpen(true)}
             >
               Add
-            </button>
+            </Button>
+          }
+        >
+          {/* Zone search */}
+          <div className="px-5 py-3 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-muted" />
+              <Input
+                value={zoneSearch}
+                onChange={(event) => setZoneSearch(event.target.value)}
+                placeholder="Search zones…"
+                className="pl-8"
+              />
+            </div>
           </div>
-          {recordsLoading ? <div className="p-4"><LoadingSpinner /></div> : (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[420px] overflow-y-auto">
-              {records && records.length > 0 ? records.map((record) => (
-                <div key={record.id} className="px-4 py-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium text-gray-900 truncate dark:text-white">{record.name}</div>
-                    <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">{record.record_type}</span>
+
+          {zonesLoading ? (
+            <div className="p-5 space-y-3">
+              {Array.from({ length: 3 }, (_, i) => (
+                <SkeletonText key={i} lines={2} />
+              ))}
+            </div>
+          ) : zonesError ? (
+            <div className="p-5">
+              <QueryError onRetry={refetchZones} />
+            </div>
+          ) : filteredZones.length > 0 ? (
+            <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
+              {filteredZones.map((zone) => (
+                <div
+                  key={zone.id}
+                  className={`flex items-center gap-1 ${
+                    selectedZone?.id === zone.id
+                      ? 'bg-primary/5 border-l-2 border-l-primary'
+                      : ''
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedZone(zone)}
+                    className="flex-1 min-w-0 text-left px-5 py-3 hover:bg-surface-elevated transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-on-surface truncate">
+                        {zone.name}
+                      </span>
+                      <Badge variant="neutral">{zone.zone_type}</Badge>
+                    </div>
+                    <div className="mt-1 text-xs text-on-surface-muted">
+                      serial {zone.serial} · {zone.records_count} records
+                    </div>
+                    <div className="mt-1">
+                      {zone.dnssec_enabled ? (
+                        <Badge variant="success">DNSSEC</Badge>
+                      ) : null}
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-2 pr-4">
+                    <IconButton
+                      icon={Trash2}
+                      size="sm"
+                      variant="ghost"
+                      className="text-danger hover:text-danger"
+                      label="Delete zone"
+                      onClick={() => {
+                        setDeleteZoneTarget(zone)
+                      }}
+                    />
                   </div>
-                  <div className="text-xs text-gray-600 mt-1 break-all dark:text-gray-400">{record.content}</div>
-                  <div className="text-xs text-gray-500 mt-1 flex items-center justify-between dark:text-gray-500">
-                    <span>TTL {record.ttl}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-5 text-sm text-on-surface-muted">
+              {selectedServer
+                ? 'No zones for this server.'
+                : 'Select a server to view zones.'}
+            </div>
+          )}
+        </Card>
+
+        {/* ── Records pane ────────────────────────────────────────────── */}
+        <Card
+          title="Records"
+          padding="p-0"
+          actions={
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!selectedZone}
+              onClick={() => setCreateRecordOpen(true)}
+            >
+              Add
+            </Button>
+          }
+        >
+          {recordsLoading ? (
+            <div className="p-5 space-y-3">
+              {Array.from({ length: 4 }, (_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : recordsError ? (
+            <div className="p-5">
+              <QueryError onRetry={refetchRecords} />
+            </div>
+          ) : records && records.length > 0 ? (
+            <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
+              {records.map((record) => (
+                <div
+                  key={record.id}
+                  className="px-5 py-3 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-medium text-on-surface truncate">
+                        {record.name}
+                      </span>
+                      <Badge variant="info">{record.record_type}</Badge>
+                    </div>
+                    <div className="text-xs text-on-surface-muted mt-1 flex items-center gap-3">
+                      <span className="font-mono">TTL {record.ttl}</span>
+                      <span className="font-mono truncate">
+                        {record.content}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
                     {!record.is_system ? (
-                      <button
+                      <IconButton
+                        icon={Trash2}
+                        size="sm"
+                        variant="ghost"
+                        className="text-danger hover:text-danger"
+                        label="Delete record"
                         onClick={() => setDeleteRecordTarget(record)}
-                        className="p-1 rounded text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/30"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      />
                     ) : (
-                      <span className="text-[11px] px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400">system</span>
+                      <Badge variant="info">system</Badge>
                     )}
                   </div>
                 </div>
-              )) : (
-                <div className="p-4 text-sm text-gray-500 dark:text-gray-400">No records in this zone.</div>
-              )}
+              ))}
+            </div>
+          ) : (
+            <div className="p-5 text-sm text-on-surface-muted">
+              {selectedZone
+                ? 'No records in this zone.'
+                : 'Select a zone to view records.'}
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
-      <Modal open={createServerOpen} onClose={() => setCreateServerOpen(false)} title="Create DNS Server">
-        <ServerForm
+      {/* ── Create Server modal ──────────────────────────────────────── */}
+      <Modal
+        open={createServerOpen}
+        onClose={() => setCreateServerOpen(false)}
+        title="Create DNS Server"
+      >
+        <DNSServerForm
           loading={createServerMutation.isPending}
           onSubmit={async (payload) => {
             await createServerMutation.mutateAsync(payload)
+            toast.success('DNS server created')
             setCreateServerOpen(false)
           }}
         />
       </Modal>
 
-      <Modal open={createZoneOpen} onClose={() => setCreateZoneOpen(false)} title="Create Zone">
-        <ZoneForm
+      {/* ── Create Zone modal ────────────────────────────────────────── */}
+      <Modal
+        open={createZoneOpen}
+        onClose={() => setCreateZoneOpen(false)}
+        title="Create Zone"
+      >
+        <DNSZoneForm
           zoneTypeOptions={zoneTypeOptions}
           loading={createZoneMutation.isPending}
           onSubmit={async (payload) => {
             await createZoneMutation.mutateAsync(payload)
+            toast.success('Zone created')
             setCreateZoneOpen(false)
           }}
         />
       </Modal>
 
-      <Modal open={createRecordOpen} onClose={() => setCreateRecordOpen(false)} title="Create Record">
-        <RecordForm
+      {/* ── Create Record modal ──────────────────────────────────────── */}
+      <Modal
+        open={createRecordOpen}
+        onClose={() => setCreateRecordOpen(false)}
+        title="Create Record"
+      >
+        <DNSRecordForm
           recordTypeOptions={recordTypeOptions}
           loading={createRecordMutation.isPending}
           onSubmit={async (payload) => {
             await createRecordMutation.mutateAsync(payload)
+            toast.success('Record created')
             setCreateRecordOpen(false)
           }}
         />
       </Modal>
 
+      {/* ── Server action ConfirmDialog (Start/Stop/Reload) ───────────── */}
+      <ConfirmDialog
+        open={!!actionTarget}
+        onClose={() => setActionTarget(null)}
+        variant="warning"
+        confirmLabel={actionTarget?.action === 'start' ? 'Start' : actionTarget?.action === 'stop' ? 'Stop' : 'Reload'}
+        title={`${actionTarget?.action === 'start' ? 'Start' : actionTarget?.action === 'stop' ? 'Stop' : 'Reload'} DNS Server`}
+        message={`${actionTarget?.action === 'start' ? 'Start' : actionTarget?.action === 'stop' ? 'Stop' : 'Reload'} ${actionTarget?.server.name}?`}
+        impact={
+          actionTarget?.action === 'stop'
+            ? 'Stopping the server will interrupt DNS resolution for all clients.'
+            : actionTarget?.action === 'reload'
+              ? 'Reloading applies pending configuration changes without dropping active queries.'
+              : undefined
+        }
+        loading={actionMutation.isPending}
+        onConfirm={() => {
+          if (!actionTarget) return
+          void actionMutation
+            .mutateAsync({
+              serverId: actionTarget.server.id,
+              action: actionTarget.action,
+            })
+            .then(() => {
+              toast.success(`Server ${actionTarget.action}ed`)
+              setActionTarget(null)
+            })
+        }}
+      />
+
+      {/* ── Delete Server ConfirmDialog ───────────────────────────────── */}
       <ConfirmDialog
         open={!!deleteServerTarget}
         onClose={() => setDeleteServerTarget(null)}
+        title="Delete DNS Server"
+        message={`Delete ${deleteServerTarget?.name}?`}
+        impact="This will remove all associated zones and records."
+        loading={deleteServerMutation.isPending}
         onConfirm={() => {
           if (!deleteServerTarget) return
-          void deleteServerMutation.mutateAsync(deleteServerTarget.id).then(() => {
-            if (selectedServerFromList?.id === deleteServerTarget.id) {
-              setSelectedServer(null)
-              setSelectedZone(null)
-            }
-            setDeleteServerTarget(null)
-          })
+          void deleteServerMutation
+            .mutateAsync(deleteServerTarget.id)
+            .then(() => {
+              if (selectedServer?.id === deleteServerTarget.id) {
+                setSelectedServer(null)
+                setSelectedZone(null)
+              }
+              toast.success('DNS server deleted')
+              setDeleteServerTarget(null)
+            })
         }}
-        title="Delete DNS Server"
-        message={`Delete ${deleteServerTarget?.name}? This will remove all associated zones and records.`}
-        loading={deleteServerMutation.isPending}
       />
 
+      {/* ── Delete Zone ConfirmDialog ────────────────────────────────── */}
       <ConfirmDialog
         open={!!deleteZoneTarget}
         onClose={() => setDeleteZoneTarget(null)}
-        onConfirm={() => {
-          if (!deleteZoneTarget) return
-          void deleteZoneMutation.mutateAsync(deleteZoneTarget.id).then(() => {
-            if (selectedZone?.id === deleteZoneTarget.id) {
-              setSelectedZone(null)
-            }
-            setDeleteZoneTarget(null)
-          })
-        }}
         title="Delete DNS Zone"
         message={`Delete zone ${deleteZoneTarget?.name}?`}
         loading={deleteZoneMutation.isPending}
+        onConfirm={() => {
+          if (!deleteZoneTarget) return
+          void deleteZoneMutation
+            .mutateAsync(deleteZoneTarget.id)
+            .then(() => {
+              if (selectedZone?.id === deleteZoneTarget.id) {
+                setSelectedZone(null)
+              }
+              toast.success('Zone deleted')
+              setDeleteZoneTarget(null)
+            })
+        }}
       />
 
+      {/* ── Delete Record ConfirmDialog ──────────────────────────────── */}
       <ConfirmDialog
         open={!!deleteRecordTarget}
         onClose={() => setDeleteRecordTarget(null)}
-        onConfirm={() => {
-          if (!deleteRecordTarget) return
-          void deleteRecordMutation.mutateAsync(deleteRecordTarget.id).then(() => {
-            setDeleteRecordTarget(null)
-          })
-        }}
         title="Delete DNS Record"
         message={`Delete record ${deleteRecordTarget?.name} ${deleteRecordTarget?.record_type}?`}
         loading={deleteRecordMutation.isPending}
+        onConfirm={() => {
+          if (!deleteRecordTarget) return
+          void deleteRecordMutation
+            .mutateAsync(deleteRecordTarget.id)
+            .then(() => {
+              toast.success('Record deleted')
+              setDeleteRecordTarget(null)
+            })
+        }}
       />
     </div>
-  )
-}
-
-function ServerForm({
-  loading,
-  onSubmit,
-}: {
-  loading: boolean
-  onSubmit: (payload: DNSServerCreate) => Promise<void>
-}) {
-  const [name, setName] = useState('dns-server-1')
-  const [isRecursive, setIsRecursive] = useState(true)
-  const [isAuthoritative, setIsAuthoritative] = useState(true)
-  const [forwarders, setForwarders] = useState('1.1.1.1,8.8.8.8')
-
-  return (
-    <form
-      className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void onSubmit({
-          name,
-          is_recursive: isRecursive,
-          is_authoritative: isAuthoritative,
-          forwarders: forwarders
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean),
-        })
-      }}
-    >
-      <label className="block">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</span>
-        <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Forwarders (comma separated)</span>
-        <input value={forwarders} onChange={(event) => setForwarders(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-      </label>
-      <div className="flex items-center gap-6 text-sm dark:text-gray-300">
-        <label className="inline-flex items-center gap-2">
-          <input type="checkbox" checked={isRecursive} onChange={(event) => setIsRecursive(event.target.checked)} />
-          Recursive
-        </label>
-        <label className="inline-flex items-center gap-2">
-          <input type="checkbox" checked={isAuthoritative} onChange={(event) => setIsAuthoritative(event.target.checked)} />
-          Authoritative
-        </label>
-      </div>
-      <div className="flex justify-end">
-        <button disabled={loading} className="px-4 py-2 rounded-lg bg-primary-600 text-white disabled:opacity-50">
-          {loading ? 'Creating...' : 'Create Server'}
-        </button>
-      </div>
-    </form>
-  )
-}
-
-function ZoneForm({
-  zoneTypeOptions,
-  loading,
-  onSubmit,
-}: {
-  zoneTypeOptions: DNSZoneType[]
-  loading: boolean
-  onSubmit: (payload: DNSZoneCreate) => Promise<void>
-}) {
-  const [name, setName] = useState('example.internal')
-  const [zoneType, setZoneType] = useState<DNSZoneType>(DNSZoneType.MASTER)
-  const [dnssecEnabled, setDnssecEnabled] = useState(false)
-
-  return (
-    <form
-      className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void onSubmit({
-          name,
-          zone_type: zoneType,
-          dnssec_enabled: dnssecEnabled,
-        })
-      }}
-    >
-      <label className="block">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Zone Name</span>
-        <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Zone Type</span>
-        <select value={zoneType} onChange={(event) => setZoneType(event.target.value as DNSZoneType)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
-          {zoneTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-        </select>
-      </label>
-      <label className="inline-flex items-center gap-2 text-sm dark:text-gray-300">
-        <input type="checkbox" checked={dnssecEnabled} onChange={(event) => setDnssecEnabled(event.target.checked)} />
-        Enable DNSSEC
-      </label>
-      <div className="flex justify-end">
-        <button disabled={loading} className="px-4 py-2 rounded-lg bg-primary-600 text-white disabled:opacity-50">
-          {loading ? 'Creating...' : 'Create Zone'}
-        </button>
-      </div>
-    </form>
-  )
-}
-
-function RecordForm({
-  recordTypeOptions,
-  loading,
-  onSubmit,
-}: {
-  recordTypeOptions: DNSRecordType[]
-  loading: boolean
-  onSubmit: (payload: DNSRecordCreate) => Promise<void>
-}) {
-  const [name, setName] = useState('@')
-  const [recordType, setRecordType] = useState<DNSRecordType>(DNSRecordType.A)
-  const [content, setContent] = useState('192.168.1.10')
-  const [ttl, setTtl] = useState(3600)
-
-  return (
-    <form
-      className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void onSubmit({
-          name,
-          record_type: recordType,
-          content,
-          ttl,
-        })
-      }}
-    >
-      <label className="block">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</span>
-        <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Type</span>
-        <select value={recordType} onChange={(event) => setRecordType(event.target.value as DNSRecordType)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
-          {recordTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-        </select>
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Content</span>
-        <input value={content} onChange={(event) => setContent(event.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">TTL</span>
-        <input type="number" min={0} value={ttl} onChange={(event) => setTtl(Number(event.target.value))} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-      </label>
-      <div className="flex justify-end">
-        <button disabled={loading} className="px-4 py-2 rounded-lg bg-primary-600 text-white disabled:opacity-50">
-          {loading ? 'Creating...' : 'Create Record'}
-        </button>
-      </div>
-    </form>
   )
 }

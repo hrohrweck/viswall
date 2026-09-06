@@ -1,43 +1,98 @@
-import { useState } from 'react'
-import { ClipboardList, Filter, RefreshCw } from 'lucide-react'
-import { useAuditLogs } from '../hooks/useApi'
+import { useState, useMemo } from 'react'
+import { ClipboardList, RefreshCw } from 'lucide-react'
+import { useAuditLogs, useUsers, useInstances } from '../hooks/useApi'
 import { useAuthStore } from '../stores/auth'
 import {
+  PageHeader,
+  Button,
   DataTable,
-  LoadingSpinner,
+  Select,
+  Input,
   EmptyState,
+  Badge,
 } from '../components/ui'
-import { formatDistanceToNow } from 'date-fns'
+import { format } from 'date-fns'
 import type { AuditLog } from '../types'
 
-const actionColors: Record<string, string> = {
-  create: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400',
-  update: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400',
-  delete: 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400',
-  deploy: 'bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400',
-  login: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+/* ── Action variant map ── */
+const actionVariant: Record<string, 'success' | 'danger' | 'warning' | 'info' | 'neutral'> = {
+  create: 'success',
+  update: 'info',
+  delete: 'danger',
+  deploy: 'warning',
+  login: 'neutral',
+}
+
+/* ── Resolve first token (e.g. "vpn.server.update" → "update") ── */
+function actionLabel(raw: string): string {
+  const last = raw.split('.').pop() ?? raw
+  return last.charAt(0).toUpperCase() + last.slice(1)
 }
 
 export function AuditLogs() {
   const { user } = useAuthStore()
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin'
 
-  const [filters, setFilters] = useState({
-    action: '',
-    resource_type: '',
-    limit: 50,
-  })
+  /* ── Filter state (client-side; hook has no date params) ── */
+  const [actionFilter, setActionFilter] = useState('')
+  const [resourceFilter, setResourceFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
-  const params: Record<string, unknown> = { limit: filters.limit }
-  if (filters.action) params.action = filters.action
-  if (filters.resource_type) params.resource_type = filters.resource_type
+  /* ── Data fetching ── */
+  const params: Record<string, unknown> = {}
+  if (actionFilter) params.action = actionFilter
+  if (resourceFilter) params.resource_type = resourceFilter
 
-  const { data: logs, isLoading, refetch } = useAuditLogs(params)
+  const { data: logs, isLoading, isError, refetch } = useAuditLogs(params)
+  const { data: users } = useUsers()
+  const { data: instances } = useInstances()
 
+  /* ── Resolution maps ── */
+  const userMap = useMemo(() => {
+    const m = new Map<number, string>()
+    if (users) {
+      for (const u of users) m.set(u.id, u.username)
+    }
+    return m
+  }, [users])
+
+  const instanceMap = useMemo(() => {
+    const m = new Map<number, string>()
+    if (instances) {
+      for (const inst of instances) m.set(inst.id, inst.name)
+    }
+    return m
+  }, [instances])
+
+  /* ── Client-side date filtering ── */
+  const filteredLogs = useMemo(() => {
+    if (!logs) return []
+    return logs.filter((log) => {
+      if (dateFrom) {
+        const ts = new Date(log.timestamp)
+        const from = new Date(dateFrom)
+        from.setHours(0, 0, 0, 0)
+        if (ts < from) return false
+      }
+      if (dateTo) {
+        const ts = new Date(log.timestamp)
+        const to = new Date(dateTo)
+        to.setHours(23, 59, 59, 999)
+        if (ts > to) return false
+      }
+      return true
+    })
+  }, [logs, dateFrom, dateTo])
+
+  /* ── Admin gate ── */
   if (!isAdmin) {
     return (
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 dark:text-white">Audit Logs</h2>
+      <div className="space-y-6">
+        <PageHeader
+          title="Audit Logs"
+          description="View system activity and change history."
+        />
         <EmptyState
           icon={ClipboardList}
           title="Access Denied"
@@ -47,89 +102,98 @@ export function AuditLogs() {
     )
   }
 
-  if (isLoading) return <LoadingSpinner />
-
+  /* ── Column defs ── */
   const columns = [
     {
       key: 'timestamp',
       header: 'Time',
+      className: 'whitespace-nowrap',
       render: (log: AuditLog) => (
-        <span className="text-sm text-gray-600 whitespace-nowrap dark:text-gray-400">
-          {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}
+        <span className="font-mono text-xs text-on-surface-muted">
+          {format(new Date(log.timestamp), 'yyyy-MM-dd HH:mm:ss')}
         </span>
-      ),
-    },
-    {
-      key: 'action',
-      header: 'Action',
-      render: (log: AuditLog) => (
-        <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${actionColors[log.action] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
-          {log.action}
-        </span>
-      ),
-    },
-    {
-      key: 'resource',
-      header: 'Resource',
-      render: (log: AuditLog) => (
-        <div>
-          <span className="text-sm font-medium text-gray-900 dark:text-white">{log.resource_type}</span>
-          {log.resource_id && (
-            <span className="text-xs text-gray-500 ml-1 dark:text-gray-500">#{log.resource_id}</span>
-          )}
-        </div>
       ),
     },
     {
       key: 'user',
       header: 'User',
+      render: (log: AuditLog) => {
+        if (!log.user_id) return <span className="text-sm text-on-surface-muted">System</span>
+        const name = userMap.get(log.user_id)
+        return (
+          <span className="text-sm text-on-surface">
+            {name ?? `User #${log.user_id} (unknown)`}
+          </span>
+        )
+      },
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      render: (log: AuditLog) => {
+        const leaf = log.action.split('.').pop() ?? log.action
+        const variant = actionVariant[leaf] ?? 'neutral'
+        return <Badge variant={variant}>{actionLabel(log.action)}</Badge>
+      },
+    },
+    {
+      key: 'resource',
+      header: 'Resource',
       render: (log: AuditLog) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          {log.user_id ? `User #${log.user_id}` : 'System'}
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-medium text-on-surface">{log.resource_type}</span>
+          {log.resource_id && (
+            <span className="font-mono text-xs text-on-surface-muted">#{log.resource_id}</span>
+          )}
+        </div>
       ),
     },
     {
       key: 'instance',
       header: 'Instance',
-      render: (log: AuditLog) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          {log.instance_id ? `#${log.instance_id}` : '-'}
-        </span>
-      ),
+      render: (log: AuditLog) => {
+        if (!log.instance_id) return <span className="text-sm text-on-surface-muted">-</span>
+        const name = instanceMap.get(log.instance_id)
+        return (
+          <span className="text-sm text-on-surface">
+            {name ?? `Instance #${log.instance_id} (unknown)`}
+          </span>
+        )
+      },
     },
     {
-      key: 'ip',
-      header: 'IP Address',
-      render: (log: AuditLog) => (
-        <span className="text-sm text-gray-500 font-mono dark:text-gray-500">{log.ip_address || '-'}</span>
-      ),
+      key: 'summary',
+      header: 'Summary',
+      render: (log: AuditLog) => {
+        const text = `${log.action} on ${log.resource_type}${log.resource_id ? ` #${log.resource_id}` : ''}`
+        return (
+          <span className="text-sm text-on-surface-muted truncate block max-w-xs" title={text}>
+            {text}
+          </span>
+        )
+      },
     },
   ]
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Audit Logs</h2>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => refetch()}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
-          >
-            <RefreshCw className="w-4 h-4" />
+    <div className="space-y-6">
+      <PageHeader
+        title="Audit Logs"
+        description="View system activity and change history."
+        secondaryActions={[
+          <Button key="refresh" variant="secondary" icon={RefreshCw} onClick={() => refetch()}>
             Refresh
-          </button>
-        </div>
-      </div>
+          </Button>,
+        ]}
+      />
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6 dark:bg-gray-900 dark:border-gray-700">
-        <div className="flex items-center gap-4">
-          <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-          <select
-            value={filters.action}
-            onChange={(e) => setFilters({ ...filters, action: e.target.value })}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+      {/* ── Filter toolbar ── */}
+      <div className="rounded-card border border-border bg-surface-card p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <Select
+            value={actionFilter}
+            onChange={(e) => setActionFilter(e.target.value)}
+            aria-label="Filter by action"
           >
             <option value="">All Actions</option>
             <option value="create">Create</option>
@@ -137,11 +201,11 @@ export function AuditLogs() {
             <option value="delete">Delete</option>
             <option value="deploy">Deploy</option>
             <option value="login">Login</option>
-          </select>
-          <select
-            value={filters.resource_type}
-            onChange={(e) => setFilters({ ...filters, resource_type: e.target.value })}
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+          </Select>
+          <Select
+            value={resourceFilter}
+            onChange={(e) => setResourceFilter(e.target.value)}
+            aria-label="Filter by resource"
           >
             <option value="">All Resources</option>
             <option value="firewall_rule">Firewall Rule</option>
@@ -150,14 +214,35 @@ export function AuditLogs() {
             <option value="mail_domain">Mail Domain</option>
             <option value="vpn_server">VPN Server</option>
             <option value="routing_rule">Routing Rule</option>
-          </select>
+          </Select>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            aria-label="Date from"
+            className="w-auto"
+          />
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            aria-label="Date to"
+            className="w-auto"
+          />
         </div>
       </div>
 
       <DataTable
         columns={columns}
-        data={logs || []}
+        data={filteredLogs}
         keyExtractor={(log) => log.id}
+        enableSorting
+        searchable
+        searchPlaceholder="Search audit logs..."
+        pagination={{ pageSize: 25 }}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={() => refetch()}
         emptyContent={
           <EmptyState
             icon={ClipboardList}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Plus, Trash2, Shield, Key, Brain, Users, Globe } from 'lucide-react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { Key, Trash2, Users, Brain, Globe } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
 import {
   useMailDomain,
@@ -14,17 +14,37 @@ import {
   useDisableGroupware,
   useGroupwareStats,
 } from '../../hooks/useApi'
-import { StatusBadge, Modal, ConfirmDialog, LoadingSpinner, EmptyState, DataTable } from '../../components/ui'
+import {
+  PageHeader,
+  Tabs,
+  Card,
+  DataTable,
+  Modal,
+  ConfirmDialog,
+  EmptyState,
+  Skeleton,
+  QueryError,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  Badge,
+  Switch,
+  toast,
+  buttonVariants,
+} from '../../components/ui'
+import { TabsContent } from '../../components/ui/Tabs'
 import type { MailUser } from '../../types'
 import { formatBytes } from '../../utils/format'
 import { MailClassificationView } from './MailClassificationView'
+import { MailboxForm } from '../../components/forms/MailboxForm'
 
 export function MailDomainDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { selectedInstanceId } = useInstanceStore()
   const domainId = Number(id)
-  const { data: domain, isLoading } = useMailDomain(selectedInstanceId!, domainId)
+  const { data: domain, isLoading, isError, refetch } = useMailDomain(selectedInstanceId!, domainId)
   const { data: users } = useMailUsers(selectedInstanceId!, domainId)
   const deleteDomainMutation = useDeleteMailDomain(selectedInstanceId!)
   const createMutation = useCreateMailUser(selectedInstanceId!, domainId)
@@ -38,309 +58,233 @@ export function MailDomainDetail() {
   const [showDeleteDomain, setShowDeleteDomain] = useState(false)
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [deleteUserTarget, setDeleteUserTarget] = useState<MailUser | null>(null)
-  const [newUsername, setNewUsername] = useState('')
-  const [newFullName, setNewFullName] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [activeTab, setActiveTab] = useState<'users' | 'classification' | 'groupware'>('users')
+  const [showDkimConfirm, setShowDkimConfirm] = useState(false)
+  const [showGroupwareConfirm, setShowGroupwareConfirm] = useState(false)
+  const [activeTab, setActiveTab] = useState('users')
 
-  if (isLoading) return <LoadingSpinner />
-  if (!domain) return <p className="text-gray-600">Domain not found.</p>
+  if (isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-64" /><Skeleton className="h-48" /></div>
+  if (!domain) {
+    return (
+      <div>
+        <Link to="/mail" className={buttonVariants({ variant: 'ghost', size: 'sm' }) + ' mb-4'}>
+          ← Back to Mail Domains
+        </Link>
+        <EmptyState icon={Users} title="Domain not found" description="The mail domain you're looking for doesn't exist or has been removed." actionLabel="Back to Mail Domains" actionTo="/mail" />
+      </div>
+    )
+  }
 
-  const handleCreateUser = async () => {
-    await createMutation.mutateAsync({
-      username: newUsername,
-      full_name: newFullName || undefined,
-      password: newPassword || undefined,
-    })
-    setNewUsername('')
-    setNewFullName('')
-    setNewPassword('')
+  const handleCreateUser = async (values: { username: string; full_name?: string; password?: string }) => {
+    await createMutation.mutateAsync(values)
+    toast.success(`Mailbox "${values.username}@${domain.domain}" created`)
     setShowCreateUser(false)
   }
 
   const handleDeleteDomain = async () => {
     await deleteDomainMutation.mutateAsync(domain.id)
+    toast.success(`Domain "${domain.domain}" deleted`)
     navigate('/mail')
   }
 
   const handleDeleteUser = async () => {
-    if (deleteUserTarget) {
-      await deleteMutation.mutateAsync(deleteUserTarget.id)
-      setDeleteUserTarget(null)
-    }
+    if (!deleteUserTarget) return
+    await deleteMutation.mutateAsync(deleteUserTarget.id)
+    toast.success(`Mailbox "${deleteUserTarget.username}" deleted`)
+    setDeleteUserTarget(null)
   }
 
-  const securityFeatures = [
-    { label: 'Spam Filter', enabled: domain.spam_filter_enabled },
-    { label: 'Virus Scan', enabled: domain.virus_scan_enabled },
-    { label: 'DKIM', enabled: domain.dkim_enabled },
-    { label: 'DMARC', enabled: domain.dmarc_enabled },
-    { label: 'SPF', enabled: domain.spf_enabled },
-    { label: 'LLM Classify', enabled: domain.llm_enabled },
-    { label: 'Groupware', enabled: domain.groupware_enabled },
-  ]
+  const handleDkimRegenerate = async () => {
+    await dkimMutation.mutateAsync(domain.id)
+    toast.success('DKIM key regenerated — update your DNS record')
+    setShowDkimConfirm(false)
+  }
+
+  const handleGroupwareToggle = async () => {
+    if (domain.groupware_enabled) {
+      await disableGroupware.mutateAsync()
+      toast.success('SOGo groupware disabled')
+    } else {
+      await enableGroupware.mutateAsync()
+      toast.success('SOGo groupware enabled')
+    }
+    setShowGroupwareConfirm(false)
+  }
 
   const userColumns = [
     {
       key: 'username',
-      header: 'User',
+      header: 'Address',
+      className: 'font-mono',
       render: (user: MailUser) => (
-        <div>
-          <p className="font-medium text-gray-900 dark:text-white">{user.username}@{domain.domain}</p>
-          {user.full_name && <p className="text-xs text-gray-500 dark:text-gray-400">{user.full_name}</p>}
-        </div>
+        <span className="font-medium text-on-surface">{user.username}@{domain.domain}</span>
       ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (user: MailUser) => <StatusBadge status={user.enabled ? 'active' : 'inactive'} />,
     },
     {
       key: 'quota',
       header: 'Quota',
       render: (user: MailUser) => (
-        <div className="text-sm">
-          <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-            <div
-              className="bg-primary-600 h-1.5 rounded-full"
-              style={{ width: `${Math.min((user.quota_used / user.quota_bytes) * 100, 100)}%` }}
-            />
-          </div>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {formatBytes(user.quota_used)} / {formatBytes(user.quota_bytes)}
-          </span>
-        </div>
+        <span className="text-sm text-on-surface-muted">{formatBytes(user.quota_used)} / {formatBytes(user.quota_bytes)}</span>
       ),
     },
     {
-      key: 'forwarding',
-      header: 'Forwarding',
-      render: (user: MailUser) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          {user.forward_to.length > 0 ? user.forward_to.join(', ') : '-'}
-        </span>
-      ),
+      key: 'enabled',
+      header: 'Active',
+      render: (user: MailUser) => <Switch checked={user.enabled} disabled aria-label={`Active: ${user.username}`} />,
     },
-    {
-      key: 'actions',
-      header: '',
-      render: (user: MailUser) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); setDeleteUserTarget(user) }}
-          className="text-sm text-red-600 hover:text-red-700"
-        >
-          Delete
-        </button>
-      ),
-    },
+  ]
+
+  const tabItems = [
+    { value: 'users', label: `Mailboxes (${users?.length ?? 0})` },
+    { value: 'classification', label: 'Classification' },
+    { value: 'groupware', label: 'Groupware' },
   ]
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate('/mail')} className="p-2 hover:bg-gray-100 rounded-lg dark:hover:bg-gray-800">
-          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{domain.domain}</h2>
-            <StatusBadge status={domain.enabled ? 'active' : 'inactive'} />
-          </div>
-        </div>
-        <button
-          onClick={() => dkimMutation.mutate(domain.id)}
-          disabled={dkimMutation.isPending}
-          className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-        >
-          <Key className="w-4 h-4" />
-          Regenerate DKIM
-        </button>
-        <button
-          onClick={() => setShowDeleteDomain(true)}
-          className="p-2 text-red-600 hover:bg-red-50 rounded-lg dark:hover:bg-red-950/30"
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
-      </div>
+      <Link to="/mail" className={buttonVariants({ variant: 'ghost', size: 'sm' }) + ' mb-4'}>
+        ← Back to Mail Domains
+      </Link>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {securityFeatures.map(({ label, enabled }) => (
-          <div key={label} className={`p-4 rounded-lg border ${enabled ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900' : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700'}`}>
-            <div className="flex items-center gap-2">
-              <Shield className={`w-4 h-4 ${enabled ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`} />
-              <span className={`text-sm font-medium ${enabled ? 'text-green-700 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>{label}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="border-b border-gray-200 mb-6 dark:border-gray-700">
-        <nav className="flex gap-6">
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'users'
-                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            Mailboxes ({users?.length || 0})
-          </button>
-          <button
-            onClick={() => setActiveTab('classification')}
-            className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'classification'
-                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
-            }`}
-          >
-            <Brain className="w-4 h-4" />
-            Classification
-          </button>
-          <button
-            onClick={() => setActiveTab('groupware')}
-            className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'groupware'
-                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
-            }`}
-          >
-            <Globe className="w-4 h-4" />
-            Groupware
-          </button>
-        </nav>
-      </div>
-
-      {activeTab === 'users' && (
-        <>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Mailboxes</h3>
-            <button
-              onClick={() => setShowCreateUser(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              Add Mailbox
-            </button>
-          </div>
-
-          <DataTable
-            columns={userColumns}
-            data={users || []}
-            keyExtractor={(u) => u.id}
-            emptyContent={<EmptyState icon={Mail} title="No mailboxes" description="Create the first mailbox for this domain." actionLabel="Add Mailbox" onAction={() => setShowCreateUser(true)} />}
-          />
-        </>
-      )}
-
-      {activeTab === 'classification' && <MailClassificationView domainId={domainId} />}
-
-      {activeTab === 'groupware' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">SOGo Groupware</h3>
-            <div className="flex items-center gap-3">
-              <span className={`text-sm font-medium ${domain.groupware_enabled ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                {domain.groupware_enabled ? 'Enabled' : 'Disabled'}
-              </span>
-              <button
-                onClick={() => {
-                  if (domain.groupware_enabled) {
-                    disableGroupware.mutate()
-                  } else {
-                    enableGroupware.mutate()
-                  }
-                }}
-                disabled={enableGroupware.isPending || disableGroupware.isPending}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  domain.groupware_enabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    domain.groupware_enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-
-          {groupwareStatus?.sogo_url && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-950/20 dark:border-blue-900 dark:text-blue-300">
-              <p className="text-sm text-blue-800 dark:text-blue-300">
-                SOGo is accessible at <a href={groupwareStatus.sogo_url} className="font-medium underline dark:text-blue-200">{groupwareStatus.sogo_url}</a>
-              </p>
-            </div>
-          )}
-
-          {groupwareStats && domain.groupware_enabled && (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white rounded-lg border border-gray-200 p-4 dark:bg-gray-900 dark:border-gray-700">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Calendars</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{(groupwareStats.calendars as number) || 0}</p>
+      <PageHeader
+        title={domain.domain}
+        description={`Instance ${domain.instance_id}`}
+        primaryAction={
+          <DropdownMenu>
+            <DropdownMenuTrigger label="Domain actions" />
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setShowDkimConfirm(true)}>
+                <Key className="w-4 h-4 mr-2" />
+                Regenerate DKIM
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowGroupwareConfirm(true)}>
+                <Globe className="w-4 h-4 mr-2" />
+                {domain.groupware_enabled ? 'Disable' : 'Enable'} Groupware
+              </DropdownMenuItem>
+              <DropdownMenuItem danger onClick={() => setShowDeleteDomain(true)}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Domain
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+        tabs={
+          <Tabs items={tabItems} value={activeTab} onValueChange={setActiveTab}>
+            <TabsContent value="users">
+              <div className="flex items-center justify-between mb-4 mt-4">
+                <div />
+                <button
+                  onClick={() => setShowCreateUser(true)}
+                  className={buttonVariants({ size: 'sm' })}
+                >
+                  <Users className="w-4 h-4" />
+                  Add Mailbox
+                </button>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4 dark:bg-gray-900 dark:border-gray-700">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Contacts</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{(groupwareStats.contacts as number) || 0}</p>
+              <DataTable
+                columns={userColumns}
+                data={users || []}
+                keyExtractor={(u) => u.id}
+                searchable
+                searchPlaceholder="Search mailboxes…"
+                rowActions={(user) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger />
+                    <DropdownMenuContent>
+                      <DropdownMenuItem danger onClick={() => setDeleteUserTarget(user)}>
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                emptyContent={<EmptyState icon={Users} title="No mailboxes" description="Create the first mailbox for this domain." actionLabel="Add Mailbox" onAction={() => setShowCreateUser(true)} />}
+              />
+            </TabsContent>
+
+            <TabsContent value="classification">
+              <div className="mt-4">
+                <MailClassificationView domainId={domainId} />
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4 dark:bg-gray-900 dark:border-gray-700">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Active Users</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{(groupwareStats.active_users as number) || 0}</p>
+            </TabsContent>
+
+            <TabsContent value="groupware">
+              <div className="space-y-6 mt-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-on-surface">SOGo Groupware</h3>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-medium ${domain.groupware_enabled ? 'text-success' : 'text-on-surface-muted'}`}>
+                      {domain.groupware_enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    <Switch
+                      checked={domain.groupware_enabled}
+                      onCheckedChange={() => setShowGroupwareConfirm(true)}
+                      aria-label="Toggle groupware"
+                    />
+                  </div>
+                </div>
+
+                {groupwareStatus?.sogo_url && (
+                  <Card>
+                    <p className="text-sm text-on-surface-muted">
+                      SOGo is accessible at <a href={groupwareStatus.sogo_url} className="font-medium text-primary underline">{groupwareStatus.sogo_url}</a>
+                    </p>
+                  </Card>
+                )}
+
+                {groupwareStats && domain.groupware_enabled && (
+                  <div className="grid grid-cols-3 gap-4">
+                    <Card>
+                      <p className="text-sm text-on-surface-muted">Calendars</p>
+                      <p className="text-2xl font-semibold text-on-surface">{(groupwareStats.calendars as number) || 0}</p>
+                    </Card>
+                    <Card>
+                      <p className="text-sm text-on-surface-muted">Contacts</p>
+                      <p className="text-2xl font-semibold text-on-surface">{(groupwareStats.contacts as number) || 0}</p>
+                    </Card>
+                    <Card>
+                      <p className="text-sm text-on-surface-muted">Active Users</p>
+                      <p className="text-2xl font-semibold text-on-surface">{(groupwareStats.active_users as number) || 0}</p>
+                    </Card>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            </TabsContent>
+          </Tabs>
+        }
+      />
 
       <Modal open={showCreateUser} onClose={() => setShowCreateUser(false)} title="Add Mailbox">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Username</label>
-            <div className="flex">
-              <input
-                type="text"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                placeholder="user"
-              />
-              <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-500 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400">
-                @{domain.domain}
-              </span>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Full Name</label>
-            <input
-              type="text"
-              value={newFullName}
-              onChange={(e) => setNewFullName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Password</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-              placeholder="Leave empty to auto-generate"
-            />
-          </div>
-          <div className="flex justify-end gap-3">
-            <button onClick={() => setShowCreateUser(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">Cancel</button>
-            <button onClick={handleCreateUser} disabled={!newUsername || createMutation.isPending} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
-              {createMutation.isPending ? 'Creating...' : 'Create'}
-            </button>
-          </div>
-        </div>
+        <MailboxForm
+          domain={domain.domain}
+          loading={createMutation.isPending}
+          onSubmit={handleCreateUser}
+          onCancel={() => setShowCreateUser(false)}
+        />
       </Modal>
 
-      <ConfirmDialog open={!!deleteUserTarget} onClose={() => setDeleteUserTarget(null)} onConfirm={handleDeleteUser} title="Delete Mailbox" message={`Delete "${deleteUserTarget?.username}@${domain.domain}"? All mail data will be permanently lost.`} loading={deleteMutation.isPending} />
-      <ConfirmDialog open={showDeleteDomain} onClose={() => setShowDeleteDomain(false)} onConfirm={handleDeleteDomain} title="Delete Domain" message={`Delete "${domain.domain}"? All mailboxes and data will be permanently removed.`} loading={deleteDomainMutation.isPending} />
+      <ConfirmDialog open={!!deleteUserTarget} onClose={() => setDeleteUserTarget(null)} onConfirm={handleDeleteUser} title="Delete Mailbox" message={`Delete "${deleteUserTarget?.username}@${domain.domain}"?`} impact="All mail data will be permanently lost." loading={deleteMutation.isPending} />
+      <ConfirmDialog open={showDeleteDomain} onClose={() => setShowDeleteDomain(false)} onConfirm={handleDeleteDomain} title="Delete Domain" message={`Are you sure you want to delete "${domain.domain}"?`} impact={`Removes ${domain.domain} including mailboxes and DNS records.`} loading={deleteDomainMutation.isPending} />
+      <ConfirmDialog
+        open={showDkimConfirm}
+        onClose={() => setShowDkimConfirm(false)}
+        onConfirm={handleDkimRegenerate}
+        title="Regenerate DKIM Key"
+        message={`Generates a new DKIM key for ${domain.domain}.`}
+        impact="DNS record must be updated; mail may fail DKIM checks until then."
+        variant="warning"
+        confirmLabel="Regenerate"
+        loading={dkimMutation.isPending}
+      />
+      <ConfirmDialog
+        open={showGroupwareConfirm}
+        onClose={() => setShowGroupwareConfirm(false)}
+        onConfirm={handleGroupwareToggle}
+        title={domain.groupware_enabled ? 'Disable Groupware' : 'Enable Groupware'}
+        message={domain.groupware_enabled ? `Disable SOGo groupware for ${domain.domain}?` : `Enable SOGo groupware for ${domain.domain}?`}
+        impact={domain.groupware_enabled ? 'Users will lose access to calendars and contacts.' : 'SOGo CalDAV/CardDAV/ActiveSync will be available.'}
+        variant="warning"
+        confirmLabel={domain.groupware_enabled ? 'Disable' : 'Enable'}
+        loading={enableGroupware.isPending || disableGroupware.isPending}
+      />
     </div>
   )
 }

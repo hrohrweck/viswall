@@ -1,12 +1,76 @@
-/* Tailwind CSS directives */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------ */
+/* Semantic design tokens — SPACE-SEPARATED RGB TRIPLETS, never hex.   */
+/* Consumed by tailwind.config.js via rgb(var(--token) / <alpha-value>) */
+/* ------------------------------------------------------------------ */
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --surface: 248 250 252;
+  --surface-card: 255 255 255;
+  --surface-elevated: 255 255 255;
+  --border: 226 232 240;
+  --on-surface: 15 23 42;
+  --on-surface-muted: 100 116 139;
+  --primary: 79 70 229;
+  --primary-hover: 67 56 202;
+  --primary-subtle: 238 242 255;
+  --primary-fg: 255 255 255;
+  --success: 4 120 87;
+  --success-subtle: 236 253 245;
+  --success-fg: 255 255 255;
+  --warning: 217 119 6;
+  --warning-subtle: 255 251 235;
+  --warning-fg: 255 255 255;
+  --danger: 190 18 60;
+  --danger-subtle: 255 241 242;
+  --danger-fg: 255 255 255;
+  --info: 3 105 161;
+  --info-subtle: 240 249 255;
+  --info-fg: 255 255 255;
+  --neutral: 100 116 139;
+  --neutral-subtle: 241 245 249;
+  --radius-card: 8px;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo,
+    Consolas, 'Liberation Mono', monospace;
+}
+
+.dark {
+  --surface: 11 18 32;
+  --surface-card: 17 26 46;
+  --surface-elevated: 24 35 58;
+  --border: 36 48 73;
+  --on-surface: 226 232 240;
+  --on-surface-muted: 148 163 184;
+  --primary: 129 140 248;
+  --primary-hover: 165 180 252;
+  --primary-subtle: 30 27 75;
+  --primary-fg: 30 27 75;
+  --success: 52 211 153;
+  --success-subtle: 5 46 22;
+  --success-fg: 5 46 22;
+  --warning: 251 191 36;
+  --warning-subtle: 62 47 8;
+  --warning-fg: 69 26 3;
+  --danger: 253 164 175;
+  --danger-subtle: 80 7 36;
+  --danger-fg: 80 7 36;
+  --info: 56 189 248;
+  --info-subtle: 8 47 73;
+  --info-fg: 240 249 255;
+  --neutral: 148 163 184;
+  --neutral-subtle: 26 32 44;
 }
 
 body {

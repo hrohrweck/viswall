@@ -24,3 +24,9 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 )
+
+// MSW mock worker: dev-only (`VITE_ENABLE_MSW=1 npm run dev`). Keep the
+// static import.meta.env.DEV gate — it is what tree-shakes MSW from prod builds.
+if (import.meta.env.DEV && import.meta.env.VITE_ENABLE_MSW) {
+  void import('./test/msw/browser').then(({ startMockWorker }) => startMockWorker())
+}

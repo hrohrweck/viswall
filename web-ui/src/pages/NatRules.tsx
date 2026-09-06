@@ -1,55 +1,70 @@
 import { useState } from 'react'
-import { Plus, Globe, ArrowRightLeft } from 'lucide-react'
+import { Plus, Globe, ArrowRightLeft, Info } from 'lucide-react'
 import { useInstanceStore } from '../stores/instance'
 import { useNATRules, useCreateNATRule } from '../hooks/useApi'
 import {
-  InstanceSelector,
+  Badge,
+  Button,
+  Card,
+  Checkbox,
   DataTable,
-  Modal,
   EmptyState,
-  LoadingSpinner,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
 } from '../components/ui'
+import { toast } from '../components/ui/Toaster'
+import { getErrMsg } from '../lib/utils'
 import type { NATRule, NATRuleCreate } from '../types'
 import { NATType } from '../types'
 
+/* ------------------------------------------------------------------ */
+/*  NatRules                                                            */
+/* ------------------------------------------------------------------ */
+
 export function NatRules() {
   const { selectedInstanceId } = useInstanceStore()
-  const { data: rules, isLoading } = useNATRules(selectedInstanceId || 0)
+  const { data: rules, isLoading, isError, refetch } = useNATRules(selectedInstanceId || 0)
   const createMutation = useCreateNATRule(selectedInstanceId || 0)
 
   const [showCreate, setShowCreate] = useState(false)
 
   const handleCreate = async (data: NATRuleCreate) => {
-    await createMutation.mutateAsync(data)
-    setShowCreate(false)
+    createMutation.mutate(data, {
+      onSuccess: () => {
+        toast.success('NAT rule created')
+        setShowCreate(false)
+      },
+      onError: (e) => toast.error(getErrMsg(e)),
+    })
   }
 
+  /* ── No instance selected ── */
   if (!selectedInstanceId) {
     return (
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 dark:text-white">NAT Rules</h2>
-        <EmptyState
-          icon={Globe}
-          title="Select an Instance"
-          description="Choose an instance from the dropdown above to manage its NAT rules."
-        />
-        <div className="mt-4">
-          <InstanceSelector />
-        </div>
+        <PageHeader title="NAT Rules" />
+        <Card className="mt-6">
+          <div className="flex items-center gap-3 text-on-surface-muted">
+            <Info className="h-5 w-5 shrink-0" />
+            <p className="text-sm">Select an instance from the top bar to manage its NAT rules.</p>
+          </div>
+        </Card>
       </div>
     )
   }
 
-  if (isLoading) return <LoadingSpinner />
-
+  /* ── Columns ── */
   const columns = [
     {
       key: 'name',
       header: 'Rule',
       render: (rule: NATRule) => (
         <div>
-          <p className="font-medium text-gray-900 dark:text-white">{rule.name}</p>
-          {rule.description && <p className="text-xs text-gray-500 dark:text-gray-400">{rule.description}</p>}
+          <p className="font-medium text-on-surface">{rule.name}</p>
+          {rule.description && <p className="text-xs text-on-surface-muted">{rule.description}</p>}
         </div>
       ),
     },
@@ -57,37 +72,37 @@ export function NatRules() {
       key: 'type',
       header: 'Type',
       render: (rule: NATRule) => (
-        <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
-          {rule.type.toUpperCase()}
-        </span>
+        <Badge variant="info">{rule.type.toUpperCase()}</Badge>
       ),
     },
     {
       key: 'interface',
       header: 'Interface',
       render: (rule: NATRule) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">{rule.interface || 'Any'}</span>
+        <span className="text-sm text-on-surface-muted">{rule.interface || 'Any'}</span>
       ),
     },
     {
       key: 'source',
       header: 'Source',
+      className: 'font-mono',
       render: (rule: NATRule) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">{rule.source_network || 'Any'}</span>
+        <span className="text-sm text-on-surface-muted">{rule.source_network || 'Any'}</span>
       ),
     },
     {
       key: 'dest',
       header: 'Destination',
+      className: 'font-mono',
       render: (rule: NATRule) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">{rule.dest_network || 'Any'}</span>
+        <span className="text-sm text-on-surface-muted">{rule.dest_network || 'Any'}</span>
       ),
     },
     {
       key: 'translation',
       header: 'Translation',
       render: (rule: NATRule) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="text-sm text-on-surface-muted">
           {rule.to_source || rule.to_destination || '-'}
         </span>
       ),
@@ -96,42 +111,46 @@ export function NatRules() {
       key: 'status',
       header: 'Status',
       render: (rule: NATRule) => (
-        <span
-          className={`px-2 py-0.5 rounded text-xs font-medium ${
-            rule.enabled
-              ? 'bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400'
-              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-          }`}
-        >
+        <Badge variant={rule.enabled ? 'success' : 'neutral'}>
           {rule.enabled ? 'Enabled' : 'Disabled'}
-        </span>
+        </Badge>
       ),
     },
   ]
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">NAT Rules</h2>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700"
-        >
-          <Plus className="w-4 h-4" />
-          Add NAT Rule
-        </button>
+      <PageHeader
+        title="NAT Rules"
+        description="Manage source and destination NAT rules"
+        primaryAction={
+          <Button icon={Plus} onClick={() => setShowCreate(true)}>
+            Add NAT Rule
+          </Button>
+        }
+      />
+
+      <div className="mt-6">
+        <DataTable
+          columns={columns}
+          data={rules || []}
+          keyExtractor={(rule) => rule.id}
+          searchable
+          searchPlaceholder="Search NAT rules…"
+          isLoading={isLoading}
+          isError={isError}
+          onRetry={() => refetch()}
+          emptyContent={
+            <EmptyState
+              icon={ArrowRightLeft}
+              title="No NAT Rules"
+              description="Create NAT rules to translate source or destination addresses for traffic flowing through this instance."
+            />
+          }
+        />
       </div>
 
-      {rules && rules.length > 0 ? (
-        <DataTable columns={columns} data={rules} keyExtractor={(rule) => rule.id} />
-      ) : (
-        <EmptyState
-          icon={ArrowRightLeft}
-          title="No NAT Rules"
-          description="Create NAT rules to translate source or destination addresses for traffic flowing through this instance."
-        />
-      )}
-
+      {/* Create modal */}
       {showCreate && (
         <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create NAT Rule">
           <NATRuleForm
@@ -144,6 +163,10 @@ export function NatRules() {
     </div>
   )
 }
+
+/* ------------------------------------------------------------------ */
+/*  NATRuleForm — visual refresh with kit components                   */
+/* ------------------------------------------------------------------ */
 
 interface NATRuleFormProps {
   onSubmit: (data: NATRuleCreate) => void
@@ -172,71 +195,59 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Name</label>
-        <input
+      <Field label="Name" required>
+        <Input
           type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+          placeholder="Rule name"
           required
         />
-      </div>
+      </Field>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Type</label>
-        <select
+      <Field label="Type">
+        <Select
           value={formData.type}
           onChange={(e) => setFormData({ ...formData, type: e.target.value as NATType })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
         >
           <option value={NATType.SNAT}>Source NAT (SNAT)</option>
           <option value={NATType.DNAT}>Destination NAT (DNAT)</option>
           <option value={NATType.MASQUERADE}>Masquerade</option>
-        </select>
-      </div>
+        </Select>
+      </Field>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Interface</label>
-        <input
+      <Field label="Interface">
+        <Input
           type="text"
           value={formData.interface}
           onChange={(e) => setFormData({ ...formData, interface: e.target.value })}
           placeholder="e.g. eth0"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
         />
-      </div>
+      </Field>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Source Network</label>
-          <input
+        <Field label="Source Network">
+          <Input
             type="text"
             value={formData.source_network}
             onChange={(e) => setFormData({ ...formData, source_network: e.target.value })}
             placeholder="e.g. 192.168.1.0/24"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Destination Network</label>
-          <input
+        </Field>
+        <Field label="Destination Network">
+          <Input
             type="text"
             value={formData.dest_network}
             onChange={(e) => setFormData({ ...formData, dest_network: e.target.value })}
             placeholder="e.g. 10.0.0.0/8"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
-        </div>
+        </Field>
       </div>
 
       {formData.type !== 'masquerade' && (
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
-              {formData.type === 'snat' ? 'To Source' : 'To Destination'}
-            </label>
-            <input
+          <Field label={formData.type === 'snat' ? 'To Source' : 'To Destination'}>
+            <Input
               type="text"
               value={formData.type === 'snat' ? formData.to_source : formData.to_destination}
               onChange={(e) =>
@@ -248,66 +259,49 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
                 })
               }
               placeholder="e.g. 203.0.113.1"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             />
-          </div>
+          </Field>
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Protocol</label>
-          <select
+        <Field label="Protocol">
+          <Select
             value={formData.service_protocol}
             onChange={(e) => setFormData({ ...formData, service_protocol: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           >
             <option value="any">Any</option>
             <option value="tcp">TCP</option>
             <option value="udp">UDP</option>
             <option value="icmp">ICMP</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Ports</label>
-          <input
+          </Select>
+        </Field>
+        <Field label="Ports">
+          <Input
             type="text"
             value={formData.service_ports}
             onChange={(e) => setFormData({ ...formData, service_ports: e.target.value })}
             placeholder="e.g. 80,443"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
-        </div>
+        </Field>
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="nat-enabled"
+      <label htmlFor="nat-rule-enabled" className="flex items-center gap-2 cursor-pointer">
+        <Checkbox
+          id="nat-rule-enabled"
           checked={formData.enabled}
           onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-          className="h-4 w-4 text-primary-600 border-gray-300 rounded"
         />
-        <label htmlFor="nat-enabled" className="text-sm text-gray-700 dark:text-gray-300">
-          Enable rule
-        </label>
-      </div>
+        <span className="text-sm text-on-surface">Enable rule</span>
+      </label>
 
       <div className="flex justify-end gap-3 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg dark:text-gray-400 dark:hover:bg-gray-800"
-        >
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
-        >
-          {isSubmitting ? 'Creating...' : 'Create'}
-        </button>
+        </Button>
+        <Button type="submit" loading={isSubmitting}>
+          Create
+        </Button>
       </div>
     </form>
   )

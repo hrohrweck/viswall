@@ -1,69 +1,98 @@
 import { useState } from 'react'
-import { Plus, UserPlus } from 'lucide-react'
+import { Plus, UserPlus, Pencil, Trash2 } from 'lucide-react'
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useInstances } from '../hooks/useApi'
 import {
-  useUsers,
-  useCreateUser,
-  useUpdateUser,
-  useDeleteUser,
-  useInstances,
-} from '../hooks/useApi'
-import {
+  PageHeader,
+  Button,
   DataTable,
   Modal,
   ConfirmDialog,
   RoleBadge,
   AuthBackendBadge,
-  StatusBadge,
-  LoadingSpinner,
+  Switch,
   EmptyState,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  toast,
 } from '../components/ui'
 import { UserCreateForm } from '../components/forms/UserCreateForm'
 import type { User, UserCreate, UserUpdate } from '../types'
 import { formatDistanceToNow } from 'date-fns'
+import { getErrMsg } from '../lib/utils'
 
 export function Users() {
-  const { data: users, isLoading } = useUsers()
+  const { data: users, isLoading, isError, refetch } = useUsers()
   const { data: instances } = useInstances()
   const createMutation = useCreateUser()
   const updateMutation = useUpdateUser()
   const deleteMutation = useDeleteUser()
+
   const [showCreate, setShowCreate] = useState(false)
   const [editTarget, setEditTarget] = useState<User | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
+  const [toggleTarget, setToggleTarget] = useState<User | null>(null)
 
+  /* ── Confirm-before-fire: toggle active ── */
+  const handleToggleConfirm = () => {
+    if (!toggleTarget) return
+    updateMutation.mutate(
+      { id: toggleTarget.id, is_active: !toggleTarget.is_active },
+      {
+        onSuccess: () => {
+          toast.success(`User ${toggleTarget.username} ${toggleTarget.is_active ? 'deactivated' : 'activated'}`)
+          setToggleTarget(null)
+        },
+        onError: (e) => {
+          toast.error(getErrMsg(e))
+          setToggleTarget(null)
+        },
+      },
+    )
+  }
+
+  /* ── Create ── */
   const handleCreate = async (data: UserCreate | UserUpdate) => {
     await createMutation.mutateAsync(data as UserCreate)
+    toast.success('User created')
     setShowCreate(false)
   }
 
+  /* ── Edit ── */
   const handleUpdate = async (data: UserUpdate) => {
     if (editTarget) {
       await updateMutation.mutateAsync({ id: editTarget.id, ...data })
+      toast.success('User updated')
       setEditTarget(null)
     }
   }
 
-  const handleDelete = async () => {
-    if (deleteTarget) {
-      await deleteMutation.mutateAsync(deleteTarget.id)
-      setDeleteTarget(null)
-    }
+  /* ── Delete ── */
+  const handleDelete = () => {
+    if (!deleteTarget) return
+    deleteMutation.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        toast.success('User deleted')
+        setDeleteTarget(null)
+      },
+      onError: (e) => {
+        toast.error(getErrMsg(e))
+        setDeleteTarget(null)
+      },
+    })
   }
 
-  const handleToggleActive = async (user: User) => {
-    await updateMutation.mutateAsync({ id: user.id, is_active: !user.is_active })
-  }
-
-  if (isLoading) return <LoadingSpinner />
-
+  /* ── Column defs ── */
   const columns = [
     {
       key: 'username',
       header: 'User',
       render: (user: User) => (
         <div>
-          <p className="font-medium text-gray-900 dark:text-white">{user.username}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+          <p className="font-medium text-on-surface">{user.username}</p>
+          <p className="text-xs text-on-surface-muted">{user.email}</p>
         </div>
       ),
     },
@@ -78,80 +107,86 @@ export function Users() {
       render: (user: User) => <AuthBackendBadge backend={user.auth_backend} />,
     },
     {
-      key: 'status',
-      header: 'Status',
+      key: 'active',
+      header: 'Active',
       render: (user: User) => (
-        <button onClick={() => handleToggleActive(user)}>
-          <StatusBadge status={user.is_active ? 'active' : 'inactive'} />
-        </button>
-      ),
-    },
-    {
-      key: 'instances',
-      header: 'Instances',
-      render: (user: User) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          {user.instances.length > 0
-            ? `${user.instances.length} assigned`
-            : 'None'}
-        </span>
+        <Switch
+          checked={user.is_active}
+          onCheckedChange={() => setToggleTarget(user)}
+          aria-label={`Toggle active for ${user.username}`}
+        />
       ),
     },
     {
       key: 'last_login',
       header: 'Last Login',
       render: (user: User) => (
-        <span className="text-sm text-gray-500 dark:text-gray-400">
+        <span className="text-sm text-on-surface-muted">
           {user.last_login
             ? formatDistanceToNow(new Date(user.last_login), { addSuffix: true })
             : 'Never'}
         </span>
       ),
     },
-    {
-      key: 'actions',
-      header: '',
-      render: (user: User) => (
-        <div className="flex items-center gap-2">
-          <button onClick={() => setEditTarget(user)} className="text-sm text-primary-600 hover:text-primary-700">
-            Edit
-          </button>
-          <button onClick={() => setDeleteTarget(user)} className="text-sm text-red-600 hover:text-red-700">
-            Delete
-          </button>
-        </div>
-      ),
-    },
   ]
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Users</h2>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-        >
-          <UserPlus className="w-5 h-5" />
-          Add User
-        </button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Users"
+        description="Manage user accounts and access permissions."
+        primaryAction={
+          <Button icon={UserPlus} onClick={() => setShowCreate(true)}>
+            Add user
+          </Button>
+        }
+      />
 
       <DataTable
         columns={columns}
         data={users || []}
         keyExtractor={(user) => user.id}
+        enableSorting
+        searchable
+        searchPlaceholder="Search users..."
+        pagination
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={() => refetch()}
+        rowActions={(user) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger label="User actions" />
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setEditTarget(user)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                danger
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDeleteTarget(user)
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         emptyContent={
           <EmptyState
             icon={Plus}
             title="No users"
             description="Create your first user to get started."
-            actionLabel="Add User"
+            actionLabel="Add user"
             onAction={() => setShowCreate(true)}
           />
         }
       />
 
+      {/* ── Create modal ── */}
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create User" size="lg">
         <UserCreateForm
           instances={instances || []}
@@ -161,6 +196,7 @@ export function Users() {
         />
       </Modal>
 
+      {/* ── Edit modal ── */}
       <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit User" size="lg">
         {editTarget && (
           <UserCreateForm
@@ -174,12 +210,27 @@ export function Users() {
         )}
       </Modal>
 
+      {/* ── Toggle confirm ── */}
+      <ConfirmDialog
+        open={!!toggleTarget}
+        onClose={() => setToggleTarget(null)}
+        onConfirm={handleToggleConfirm}
+        title={toggleTarget?.is_active ? 'Deactivate User' : 'Activate User'}
+        message={toggleTarget ? `Are you sure you want to ${toggleTarget.is_active ? 'deactivate' : 'activate'} "${toggleTarget.username}"?` : ''}
+        impact={toggleTarget ? `Changes whether ${toggleTarget.username} can sign in.` : undefined}
+        confirmLabel={toggleTarget?.is_active ? 'Deactivate' : 'Activate'}
+        variant="warning"
+        loading={updateMutation.isPending}
+      />
+
+      {/* ── Delete confirm ── */}
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Delete User"
         message={`Are you sure you want to delete "${deleteTarget?.username}"?`}
+        impact="This action permanently removes all user data and cannot be undone."
         loading={deleteMutation.isPending}
       />
     </div>

@@ -1,0 +1,7 @@
+# Agent-internal evidence (kept on disk, never tracked)
+.omo/
+
+# Playwright artifacts
+test-results/
+playwright-report/
+blob-report/

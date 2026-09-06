@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Plus, Shield, ArrowUp, ArrowDown, Upload } from 'lucide-react'
+import { Plus, Shield, ArrowUp, ArrowDown, Upload, MoreVertical, Pencil, Trash2, Info } from 'lucide-react'
 import { useInstanceStore } from '../stores/instance'
 import {
+  useInstances,
   useFirewallRules,
   useCreateFirewallRule,
   useUpdateFirewallRule,
@@ -10,19 +11,52 @@ import {
   useDeployFirewall,
 } from '../hooks/useApi'
 import {
-  InstanceSelector,
-  DataTable,
-  Modal,
+  Badge,
+  Button,
+  Card,
+  Checkbox,
   ConfirmDialog,
+  DataTable,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   EmptyState,
-  LoadingSpinner,
+  IconButton,
+  Modal,
+  PageHeader,
+  Switch,
 } from '../components/ui'
 import { FirewallRuleForm } from '../components/forms/FirewallRuleForm'
+import { toast } from '../components/ui/Toaster'
+import { getErrMsg } from '../lib/utils'
 import type { FirewallRule, FirewallRuleCreate, FirewallRuleUpdate } from '../types'
+import { FirewallAction } from '../types'
+import * as Dialog from '@radix-ui/react-dialog'
+import { cn } from '../lib/utils'
+
+/* ------------------------------------------------------------------ */
+/*  Action → Badge variant mapping                                     */
+/* ------------------------------------------------------------------ */
+
+const actionBadge: Record<string, 'success' | 'danger' | 'warning'> = {
+  accept: 'success',
+  drop: 'danger',
+  reject: 'warning',
+}
+
+/* ------------------------------------------------------------------ */
+/*  FirewallRules                                                       */
+/* ------------------------------------------------------------------ */
 
 export function FirewallRules() {
   const { selectedInstanceId } = useInstanceStore()
-  const { data: rules, isLoading } = useFirewallRules(selectedInstanceId!)
+  const { data: instances } = useInstances()
+  const instance = instances?.find((i) => i.id === selectedInstanceId)
+  const instanceName = instance?.name ?? ''
+
+  const { data: rules, isLoading, isError, refetch } = useFirewallRules(selectedInstanceId!)
   const createMutation = useCreateFirewallRule(selectedInstanceId!)
   const updateMutation = useUpdateFirewallRule(selectedInstanceId!)
   const deleteMutation = useDeleteFirewallRule(selectedInstanceId!)
@@ -32,6 +66,9 @@ export function FirewallRules() {
   const [showCreate, setShowCreate] = useState(false)
   const [editTarget, setEditTarget] = useState<FirewallRule | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FirewallRule | null>(null)
+  const [toggleTarget, setToggleTarget] = useState<FirewallRule | null>(null)
+  const [showDeploy, setShowDeploy] = useState(false)
+  const [deployReviewed, setDeployReviewed] = useState(false)
 
   const handleCreate = async (data: FirewallRuleCreate | FirewallRuleUpdate) => {
     await createMutation.mutateAsync(data as FirewallRuleCreate)
@@ -52,51 +89,75 @@ export function FirewallRules() {
     }
   }
 
+  const handleToggle = async () => {
+    if (toggleTarget) {
+      updateMutation.mutate(
+        { id: toggleTarget.id, enabled: !toggleTarget.enabled },
+        {
+          onSuccess: () => toast.success(`Rule ${toggleTarget.enabled ? 'disabled' : 'enabled'}`),
+          onError: (e) => toast.error(getErrMsg(e)),
+        },
+      )
+      setToggleTarget(null)
+    }
+  }
+
+  const handleDeploy = () => {
+    deployMutation.mutate(undefined, {
+      onSuccess: () => {
+        toast.success('Firewall rules deployed')
+        setShowDeploy(false)
+        setDeployReviewed(false)
+      },
+      onError: (e) => toast.error(getErrMsg(e)),
+    })
+  }
+
+  /* ── No instance selected ── */
   if (!selectedInstanceId) {
     return (
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 dark:text-white">Firewall Rules</h2>
-        <EmptyState
-          icon={Shield}
-          title="Select an Instance"
-          description="Choose an instance from the dropdown above to manage its firewall rules."
-        />
-        <div className="mt-4">
-          <InstanceSelector />
-        </div>
+        <PageHeader title="Firewall Rules" />
+        <Card className="mt-6">
+          <div className="flex items-center gap-3 text-on-surface-muted">
+            <Info className="h-5 w-5 shrink-0" />
+            <p className="text-sm">Select an instance from the top bar to manage its firewall.</p>
+          </div>
+        </Card>
       </div>
     )
   }
 
-  if (isLoading) return <LoadingSpinner />
-
+  /* ── Columns ── */
   const columns = [
     {
       key: 'order',
       header: '#',
       render: (rule: FirewallRule) => (
         <div className="flex items-center gap-1">
-          <span className="text-gray-400 text-xs w-4 dark:text-gray-500">{rule.order_index}</span>
-          <button
+          <span className="text-on-surface-muted text-xs w-4">{rule.order_index}</span>
+          <IconButton
+            icon={ArrowUp}
+            label="Move rule up"
+            size="sm"
+            variant="ghost"
             onClick={(e) => {
               e.stopPropagation()
               reorderMutation.mutate({ ruleId: rule.id, direction: 'up' })
             }}
-            className="p-0.5 hover:bg-gray-100 rounded dark:hover:bg-gray-800"
             disabled={reorderMutation.isPending}
-          >
-            <ArrowUp className="w-3 h-3 text-gray-400" />
-          </button>
-          <button
+          />
+          <IconButton
+            icon={ArrowDown}
+            label="Move rule down"
+            size="sm"
+            variant="ghost"
             onClick={(e) => {
               e.stopPropagation()
               reorderMutation.mutate({ ruleId: rule.id, direction: 'down' })
             }}
-            className="p-0.5 hover:bg-gray-100 rounded dark:hover:bg-gray-800"
             disabled={reorderMutation.isPending}
-          >
-            <ArrowDown className="w-3 h-3 text-gray-400" />
-          </button>
+          />
         </div>
       ),
     },
@@ -105,16 +166,17 @@ export function FirewallRules() {
       header: 'Rule',
       render: (rule: FirewallRule) => (
         <div>
-          <p className="font-medium text-gray-900 dark:text-white">{rule.name}</p>
-          {rule.description && <p className="text-xs text-gray-500 dark:text-gray-400">{rule.description}</p>}
+          <p className="font-medium text-on-surface">{rule.name}</p>
+          {rule.description && <p className="text-xs text-on-surface-muted">{rule.description}</p>}
         </div>
       ),
     },
     {
       key: 'source',
       header: 'Source',
+      className: 'font-mono',
       render: (rule: FirewallRule) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="text-sm text-on-surface-muted">
           {rule.source_type === 'any' ? 'Any' : rule.source_value || rule.source_type}
         </span>
       ),
@@ -122,8 +184,9 @@ export function FirewallRules() {
     {
       key: 'dest',
       header: 'Destination',
+      className: 'font-mono',
       render: (rule: FirewallRule) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="text-sm text-on-surface-muted">
           {rule.dest_type === 'any' ? 'Any' : rule.dest_value || rule.dest_type}
         </span>
       ),
@@ -131,8 +194,9 @@ export function FirewallRules() {
     {
       key: 'service',
       header: 'Service',
+      className: 'font-mono',
       render: (rule: FirewallRule) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="text-sm text-on-surface-muted">
           {rule.service_protocol.toUpperCase()}{rule.service_ports ? `:${rule.service_ports}` : ''}
         </span>
       ),
@@ -141,99 +205,102 @@ export function FirewallRules() {
       key: 'action',
       header: 'Action',
       render: (rule: FirewallRule) => (
-        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-          rule.action === 'accept'
-            ? 'bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400'
-            : rule.action === 'drop'
-              ? 'bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400'
-              : 'bg-orange-100 text-orange-800 dark:bg-orange-950/30 dark:text-orange-400'
-        }`}>
+        <Badge variant={actionBadge[rule.action] ?? 'neutral'}>
           {rule.action.toUpperCase()}
-        </span>
+        </Badge>
       ),
     },
     {
       key: 'enabled',
       header: 'Enabled',
       render: (rule: FirewallRule) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            updateMutation.mutate({ id: rule.id, enabled: !rule.enabled })
-          }}
-          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-            rule.enabled ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-700'
-          }`}
-        >
-          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-            rule.enabled ? 'translate-x-4.5' : 'translate-x-1'
-          }`} />
-        </button>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      render: (rule: FirewallRule) => (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => { e.stopPropagation(); setEditTarget(rule) }}
-            className="text-sm text-primary-600 hover:text-primary-700"
-          >
-            Edit
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); setDeleteTarget(rule) }}
-            className="text-sm text-red-600 hover:text-red-700"
-          >
-            Delete
-          </button>
-        </div>
+        <Switch
+          checked={rule.enabled}
+          aria-label={`${rule.enabled ? 'Disable' : 'Enable'} rule ${rule.name}`}
+          onCheckedChange={() => setToggleTarget(rule)}
+        />
       ),
     },
   ]
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Firewall Rules</h2>
-          <InstanceSelector />
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => deployMutation.mutate()}
-            disabled={deployMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 disabled:opacity-50 dark:border-primary-500 dark:text-primary-400 dark:hover:bg-primary-950/30"
+      <PageHeader
+        title="Firewall Rules"
+        description={`Managing rules for ${instanceName}`}
+        secondaryActions={[
+          <Button
+            key="deploy"
+            variant="secondary"
+            icon={Upload}
+            onClick={() => setShowDeploy(true)}
           >
-            <Upload className="w-4 h-4" />
             Deploy
-          </button>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-          >
-            <Plus className="w-5 h-5" />
+          </Button>,
+        ]}
+        primaryAction={
+          <Button icon={Plus} onClick={() => setShowCreate(true)}>
             Add Rule
-          </button>
-        </div>
-      </div>
-
-      <DataTable
-        columns={columns}
-        data={rules || []}
-        keyExtractor={(rule) => rule.id}
-        emptyContent={
-          <EmptyState
-            icon={Shield}
-            title="No firewall rules"
-            description="Create your first firewall rule for this instance."
-            actionLabel="Add Rule"
-            onAction={() => setShowCreate(true)}
-          />
+          </Button>
         }
       />
 
+      <div className="mt-6">
+        <DataTable
+          columns={columns}
+          data={rules || []}
+          keyExtractor={(rule) => rule.id}
+          enableSorting
+          searchable
+          searchPlaceholder="Search rules…"
+          isLoading={isLoading}
+          isError={isError}
+          onRetry={() => refetch()}
+          rowActions={(rule) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger />
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setEditTarget(rule)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    reorderMutation.mutate({ ruleId: rule.id, direction: 'up' })
+                  }
+                >
+                  <ArrowUp className="h-4 w-4 mr-2" />
+                  Move up
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    reorderMutation.mutate({ ruleId: rule.id, direction: 'down' })
+                  }
+                >
+                  <ArrowDown className="h-4 w-4 mr-2" />
+                  Move down
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem danger onClick={() => setDeleteTarget(rule)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          emptyContent={
+            <EmptyState
+              icon={Shield}
+              title="No firewall rules"
+              description="Create your first firewall rule for this instance."
+              actionLabel="Add Rule"
+              onAction={() => setShowCreate(true)}
+            />
+          }
+        />
+      </div>
+
+      {/* Create modal */}
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Add Firewall Rule" size="lg">
         <FirewallRuleForm
           onSubmit={handleCreate}
@@ -242,6 +309,7 @@ export function FirewallRules() {
         />
       </Modal>
 
+      {/* Edit modal */}
       <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit Firewall Rule" size="lg">
         {editTarget && (
           <FirewallRuleForm
@@ -259,14 +327,97 @@ export function FirewallRules() {
         )}
       </Modal>
 
+      {/* Delete confirm */}
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Delete Rule"
         message={`Are you sure you want to delete "${deleteTarget?.name}"?`}
+        confirmLabel="Delete"
         loading={deleteMutation.isPending}
+        variant="danger"
       />
+
+      {/* Enable/disable toggle confirm */}
+      <ConfirmDialog
+        open={!!toggleTarget}
+        onClose={() => setToggleTarget(null)}
+        onConfirm={handleToggle}
+        title={toggleTarget?.enabled ? 'Disable Rule' : 'Enable Rule'}
+        message={
+          toggleTarget?.enabled
+            ? `Disable rule '${toggleTarget?.name}'? Traffic matching this rule may be blocked/allowed differently.`
+            : `Enable rule '${toggleTarget?.name}'?`
+        }
+        confirmLabel={toggleTarget?.enabled ? 'Disable' : 'Enable'}
+        loading={updateMutation.isPending}
+        variant="warning"
+      />
+
+      {/* Deploy confirm — composed manually because ConfirmDialog has no checkbox.
+          Review checkbox gates the confirm button per the deploy-safety pattern. */}
+      <Dialog.Root
+        open={showDeploy}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setShowDeploy(false)
+            setDeployReviewed(false)
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
+          <Dialog.Content
+            aria-modal="true"
+            className={cn(
+              'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
+              'w-full max-w-md mx-4',
+              'bg-surface-card text-on-surface border border-border rounded-card shadow-xl',
+              'focus:outline-none',
+            )}
+          >
+            <div className="p-6">
+              <Dialog.Title className="text-lg font-semibold text-on-surface">
+                Deploy Firewall Rules
+              </Dialog.Title>
+              <Dialog.Description className="text-on-surface-muted mt-2">
+                Applies {rules?.length ?? 0} rules to {instanceName}. Connections not matching the
+                ruleset will be dropped.
+              </Dialog.Description>
+              <label htmlFor="deploy-reviewed" className="flex items-center gap-2 mt-4 cursor-pointer">
+                <Checkbox
+                  id="deploy-reviewed"
+                  checked={deployReviewed}
+                  onChange={(e) => setDeployReviewed(e.target.checked)}
+                />
+                <span className="text-sm text-on-surface">
+                  I have reviewed the pending changes
+                </span>
+              </label>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowDeploy(false)
+                    setDeployReviewed(false)
+                  }}
+                  disabled={deployMutation.isPending}
+                  className="px-4 py-2 text-on-surface-muted bg-surface-elevated border border-border rounded-lg hover:text-on-surface hover:bg-surface disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeploy}
+                  disabled={!deployReviewed || deployMutation.isPending}
+                  className="px-4 py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {deployMutation.isPending ? 'Deploying…' : 'Deploy'}
+                </button>
+              </div>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   )
 }

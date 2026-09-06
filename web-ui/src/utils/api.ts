@@ -21,11 +21,14 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle 401 responses
+// Handle 401 responses — except on /auth/ requests, where the caller
+// owns the error (redirecting on a failed login would reload the page
+// before its error banner can render).
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthRequest = error.config?.url?.startsWith('/auth/')
+    if (error.response?.status === 401 && !isAuthRequest) {
       localStorage.removeItem('viswall-auth')
       window.location.href = '/login'
     }

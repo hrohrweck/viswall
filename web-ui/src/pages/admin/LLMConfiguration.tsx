@@ -2,14 +2,16 @@ import { useState } from 'react'
 import {
   Bot,
   Plus,
-  Trash2,
   Pencil,
   TestTube,
+  Trash2,
   Save,
   X,
   Server,
   Cpu,
   Settings,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react'
 import {
   useLLMProviders,
@@ -24,7 +26,26 @@ import {
   useLLMUseCaseConfigs,
   useUpdateLLMUseCaseConfig,
 } from '../../hooks/useApi'
-import { LoadingSpinner, EmptyState } from '../../components/ui'
+import {
+  PageHeader,
+  Tabs,
+  TabsContent,
+  DataTable,
+  Modal,
+  ConfirmDialog,
+  Badge,
+  Button,
+  IconButton,
+  Field,
+  Input,
+  Select,
+  Card,
+  CardBody,
+  EmptyState,
+} from '../../components/ui'
+import { toast } from '../../components/ui/Toaster'
+import { getErrMsg } from '../../lib/utils'
+import type { Column } from '../../components/ui/DataTable'
 import type {
   LLMProvider,
   LLMProviderCreate,
@@ -33,50 +54,69 @@ import type {
   LLMUseCaseConfig,
 } from '../../types'
 
-type Tab = 'providers' | 'models' | 'use-cases'
+/* -------------------------------------------------------------------------- */
+/*  Provider type → Badge variant mapping                                     */
+/* -------------------------------------------------------------------------- */
+
+const providerTypeVariant: Record<
+  LLMProvider['provider_type'],
+  'success' | 'info' | 'warning' | 'neutral'
+> = {
+  openai: 'success',
+  anthropic: 'info',
+  ollama: 'warning',
+  custom: 'neutral',
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Main page                                                                  */
+/* -------------------------------------------------------------------------- */
 
 export function LLMConfiguration() {
-  const [activeTab, setActiveTab] = useState<Tab>('providers')
+  const [activeTab, setActiveTab] = useState('providers')
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-        LLM Configuration
-      </h2>
+    <div className="space-y-6">
+      <PageHeader
+        title="LLM Providers"
+        description="Manage AI providers, models, and use-case configurations for email classification and assistant features."
+      />
 
-      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav className="flex gap-6">
-          {[
-            { id: 'providers' as Tab, label: 'Providers', icon: Server },
-            { id: 'models' as Tab, label: 'Models', icon: Cpu },
-            { id: 'use-cases' as Tab, label: 'Use Cases', icon: Settings },
-          ].map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === id
-                  ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      {activeTab === 'providers' && <ProvidersTab />}
-      {activeTab === 'models' && <ModelsTab />}
-      {activeTab === 'use-cases' && <UseCasesTab />}
+      <Tabs
+        items={[
+          { value: 'providers', label: 'Providers' },
+          { value: 'models', label: 'Models' },
+          { value: 'use-cases', label: 'Use Cases' },
+        ]}
+        value={activeTab}
+        onValueChange={setActiveTab}
+      >
+        <TabsContent value="providers">
+          <ProvidersTab />
+        </TabsContent>
+        <TabsContent value="models">
+          <ModelsTab />
+        </TabsContent>
+        <TabsContent value="use-cases">
+          <UseCasesTab />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
 
-// ============================================================================
-// PROVIDERS TAB
-// ============================================================================
+/* ====================================================================== */
+/*  PROVIDERS TAB                                                          */
+/* ====================================================================== */
+
+const EMPTY_PROVIDER_FORM: LLMProviderCreate = {
+  name: '',
+  provider_type: 'ollama',
+  base_url: '',
+  api_key: '',
+  is_enabled: true,
+  is_default: false,
+}
 
 function ProvidersTab() {
   const { data: providers, isLoading } = useLLMProviders()
@@ -87,167 +127,336 @@ function ProvidersTab() {
 
   const [editing, setEditing] = useState<LLMProvider | null>(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState<LLMProviderCreate>({
-    name: '',
-    provider_type: 'ollama',
-    base_url: '',
-    api_key: '',
-    is_enabled: true,
-    is_default: false,
-  })
-  const [testResult, setTestResult] = useState<string | null>(null)
+  const [form, setForm] = useState<LLMProviderCreate>(EMPTY_PROVIDER_FORM)
+
+  /* Per-provider test result state */
+  const [testingId, setTestingId] = useState<number | null>(null)
+  const [testResult, setTestResult] = useState<{
+    id: number
+    success: boolean
+    message: string
+  } | null>(null)
+
+  /* Delete confirmation state */
+  const [deleteTarget, setDeleteTarget] = useState<LLMProvider | null>(null)
+
+  const handleOpenCreate = () => {
+    setEditing(null)
+    setForm(EMPTY_PROVIDER_FORM)
+    setShowForm(true)
+  }
+
+  const handleOpenEdit = (p: LLMProvider) => {
+    setEditing(p)
+    setForm({
+      name: p.name,
+      provider_type: p.provider_type,
+      base_url: p.base_url ?? '',
+      'api_key': p.api_key ?? '',
+      is_enabled: p.is_enabled,
+      is_default: p.is_default,
+    })
+    setShowForm(true)
+  }
 
   const handleSubmit = async () => {
-    if (editing) {
-      await updateProvider.mutateAsync({ id: editing.id, ...form })
+    try {
+      if (editing) {
+        await updateProvider.mutateAsync({ id: editing.id, ...form })
+        toast.success('Provider updated')
+      } else {
+        await createProvider.mutateAsync(form)
+        toast.success('Provider created')
+      }
+      setShowForm(false)
       setEditing(null)
-    } else {
-      await createProvider.mutateAsync(form)
+      setForm(EMPTY_PROVIDER_FORM)
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
-    setShowForm(false)
-    setForm({ name: '', provider_type: 'ollama', base_url: '', api_key: '', is_enabled: true, is_default: false })
   }
 
   const handleTest = async (id: number) => {
+    setTestingId(id)
     setTestResult(null)
     try {
       const result = await testProvider.mutateAsync(id)
-      setTestResult(`Success: ${result.response}`)
-    } catch (err: any) {
-      setTestResult(`Failed: ${err?.response?.data?.detail || 'Connection error'}`)
+      setTestResult({ id, success: true, message: result.response })
+    } catch (e) {
+      setTestResult({ id, success: false, message: getErrMsg(e) })
+    } finally {
+      setTestingId(null)
     }
   }
 
-  if (isLoading) return <LoadingSpinner />
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      await deleteProvider.mutateAsync(deleteTarget.id)
+      toast.success('Provider deleted')
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    } finally {
+      setDeleteTarget(null)
+    }
+  }
 
-  const inputClass =
-    'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white'
-  const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'
+  const columns: Column<LLMProvider>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (p) => (
+        <span className="font-medium text-on-surface">{p.name}</span>
+      ),
+    },
+    {
+      key: 'provider_type',
+      header: 'Type',
+      render: (p) => (
+        <Badge variant={providerTypeVariant[p.provider_type] ?? 'neutral'}>
+          {p.provider_type}
+        </Badge>
+      ),
+    },
+    {
+      key: 'base_url',
+      header: 'Base URL',
+      render: (p) => (
+        <span className="font-mono text-xs text-on-surface-muted">
+          {p.base_url || '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'is_enabled',
+      header: 'Status',
+      render: (p) => (
+        <div className="flex items-center gap-2">
+          <Badge variant={p.is_enabled ? 'success' : 'neutral'}>
+            {p.is_enabled ? 'Enabled' : 'Disabled'}
+          </Badge>
+          {p.is_default && <Badge variant="info">Default</Badge>}
+        </div>
+      ),
+    },
+  ]
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">LLM Providers</h3>
-        <button
-          onClick={() => { setShowForm(true); setEditing(null); }}
-          className="flex items-center gap-2 px-3 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
-        >
-          <Plus className="w-4 h-4" />
-          Add Provider
-        </button>
+      <div className="flex justify-end">
+        <Button onClick={handleOpenCreate} icon={Plus}>
+          Add provider
+        </Button>
       </div>
 
+      <DataTable
+        columns={columns}
+        data={providers ?? []}
+        keyExtractor={(p) => p.id}
+        searchable
+        searchPlaceholder="Search providers…"
+        isLoading={isLoading}
+        emptyContent={
+          <EmptyState
+            icon={Server}
+            title="No providers"
+            description="Add an LLM provider to get started."
+          />
+        }
+        rowActions={(p) => (
+          <div className="flex items-center justify-end gap-1">
+            <IconButton
+              icon={TestTube}
+              label="Test connection"
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleTest(p.id)
+              }}
+              disabled={testingId === p.id}
+            />
+            <IconButton
+              icon={Pencil}
+              label="Edit"
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleOpenEdit(p)
+              }}
+            />
+            <IconButton
+              icon={Trash2}
+              label="Delete"
+              size="sm"
+              variant="ghost"
+              className="text-danger hover:text-danger"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteTarget(p)
+              }}
+            />
+          </div>
+        )}
+      />
+
+      {/* Per-provider test result */}
       {testResult && (
-        <div className={`p-3 rounded-lg text-sm ${testResult.startsWith('Success') ? 'bg-green-50 text-green-700 dark:bg-green-900/20' : 'bg-red-50 text-red-700 dark:bg-red-900/20'}`}>
-          {testResult}
+        <div
+          className={`flex items-start gap-3 p-4 rounded-card border ${
+            testResult.success
+              ? 'border-success bg-success-subtle'
+              : 'border-danger bg-danger-subtle'
+          }`}
+          role="alert"
+        >
+          {testResult.success ? (
+            <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
+          ) : (
+            <XCircle className="h-5 w-5 text-danger shrink-0 mt-0.5" />
+          )}
+          <div className="min-w-0">
+            <p className={`text-sm font-medium ${testResult.success ? 'text-success' : 'text-danger'}`}>
+              {testResult.success ? 'Connection successful' : 'Connection failed'}
+            </p>
+            <p className="text-sm text-on-surface-muted mt-0.5 break-all">
+              {testResult.message}
+            </p>
+          </div>
+          <button
+            onClick={() => setTestResult(null)}
+            className="ml-auto shrink-0 text-on-surface-muted hover:text-on-surface"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
-      {showForm && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
-            {editing ? 'Edit Provider' : 'New Provider'}
-          </h4>
+      {/* Add / Edit modal */}
+      <Modal
+        open={showForm}
+        onClose={() => {
+          setShowForm(false)
+          setEditing(null)
+        }}
+        title={editing ? 'Edit Provider' : 'New Provider'}
+        size="lg"
+      >
+        <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Name</label>
-              <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Local Ollama" />
-            </div>
-            <div>
-              <label className={labelClass}>Type</label>
-              <select className={inputClass} value={form.provider_type} onChange={(e) => setForm({ ...form, provider_type: e.target.value as any })}>
+            <Field label="Name" required>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Local Ollama"
+              />
+            </Field>
+            <Field label="Type">
+              <Select
+                value={form.provider_type}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    provider_type: e.target.value as LLMProviderCreate['provider_type'],
+                  })
+                }
+              >
                 <option value="openai">OpenAI</option>
                 <option value="anthropic">Anthropic</option>
                 <option value="ollama">Ollama</option>
                 <option value="custom">Custom</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Base URL (optional)</label>
-              <input className={inputClass} value={form.base_url || ''} onChange={(e) => setForm({ ...form, base_url: e.target.value })} placeholder="http://ollama:11434" />
-            </div>
-            <div>
-              <label className={labelClass}>API Key (optional)</label>
-              <input type="password" className={inputClass} value={form.api_key || ''} onChange={(e) => setForm({ ...form, api_key: e.target.value })} placeholder="sk-..." />
-            </div>
+              </Select>
+            </Field>
+            <Field label="Base URL" helper="Optional — required for Ollama and custom providers">
+              <Input
+                value={form.base_url ?? ''}
+                onChange={(e) => setForm({ ...form, base_url: e.target.value })}
+                placeholder="http://ollama:11434"
+              />
+            </Field>
+            <Field label="API Key" helper="Optional — required for OpenAI and Anthropic">
+              <Input
+                type="password"
+                value={form.api_key ?? ''}
+                onChange={(e) => setForm({ ...form, 'api_key': e.target.value })}
+                placeholder="sk-..."
+              />
+            </Field>
           </div>
-          <div className="flex items-center gap-4 mt-4">
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input type="checkbox" checked={form.is_enabled} onChange={(e) => setForm({ ...form, is_enabled: e.target.checked })} />
+
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-sm text-on-surface">
+              <input
+                type="checkbox"
+                className="accent-primary"
+                checked={form.is_enabled}
+                onChange={(e) => setForm({ ...form, is_enabled: e.target.checked })}
+              />
               Enabled
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} />
+            <label className="flex items-center gap-2 text-sm text-on-surface">
+              <input
+                type="checkbox"
+                className="accent-primary"
+                checked={form.is_default}
+                onChange={(e) => setForm({ ...form, is_default: e.target.checked })}
+              />
               Default
             </label>
           </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
-            <button onClick={handleSubmit} disabled={!form.name} className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 disabled:opacity-50">
-              <Save className="w-4 h-4 inline mr-1" />
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-border">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowForm(false)
+                setEditing(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!form.name}
+              loading={createProvider.isPending || updateProvider.isPending}
+              icon={Save}
+            >
               Save
-            </button>
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Name</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Type</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Base URL</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Status</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {providers?.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <td className="px-4 py-3 text-gray-900 dark:text-white">{p.name}</td>
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-400 capitalize">{p.provider_type}</td>
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{p.base_url || '-'}</td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${p.is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                    {p.is_enabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                  {p.is_default && (
-                    <span className="ml-2 inline-flex px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-700">Default</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => handleTest(p.id)} className="p-1 text-gray-500 hover:text-primary-600" title="Test connection">
-                      <TestTube className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => { setEditing(p); setForm(p); setShowForm(true); }} className="p-1 text-gray-500 hover:text-blue-600" title="Edit">
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => { if (confirm('Delete this provider?')) deleteProvider.mutate(p.id); }} className="p-1 text-gray-500 hover:text-red-600" title="Delete">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {(!providers || providers.length === 0) && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                  <EmptyState icon={Server} title="No providers" description="Add an LLM provider to get started." />
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete provider"
+        message={`Are you sure you want to delete "${deleteTarget?.name}"?`}
+        impact="All associated models will also be removed."
+        confirmLabel="Delete"
+        loading={deleteProvider.isPending}
+      />
     </div>
   )
 }
 
-// ============================================================================
-// MODELS TAB
-// ============================================================================
+/* ====================================================================== */
+/*  MODELS TAB                                                             */
+/* ====================================================================== */
+
+const EMPTY_MODEL_FORM: LLMModelCreate = {
+  provider_id: 0,
+  name: '',
+  display_name: '',
+  description: '',
+  max_tokens: 4096,
+  supports_vision: false,
+  is_enabled: true,
+}
 
 function ModelsTab() {
   const { data: providers } = useLLMProviders()
@@ -258,154 +467,282 @@ function ModelsTab() {
 
   const [editing, setEditing] = useState<LLMModel | null>(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState<LLMModelCreate>({
-    provider_id: 0,
-    name: '',
-    display_name: '',
-    description: '',
-    max_tokens: 4096,
-    supports_vision: false,
-    is_enabled: true,
-  })
+  const [form, setForm] = useState<LLMModelCreate>(EMPTY_MODEL_FORM)
+  const [deleteTarget, setDeleteTarget] = useState<LLMModel | null>(null)
 
-  const handleSubmit = async () => {
-    if (editing) {
-      await updateModel.mutateAsync({ id: editing.id, ...form })
-      setEditing(null)
-    } else {
-      await createModel.mutateAsync(form)
-    }
-    setShowForm(false)
-    setForm({ provider_id: 0, name: '', display_name: '', description: '', max_tokens: 4096, supports_vision: false, is_enabled: true })
+  const providerName = (id: number) =>
+    providers?.find((p) => p.id === id)?.name ?? String(id)
+
+  const handleOpenCreate = () => {
+    setEditing(null)
+    setForm(EMPTY_MODEL_FORM)
+    setShowForm(true)
   }
 
-  if (isLoading) return <LoadingSpinner />
+  const handleOpenEdit = (m: LLMModel) => {
+    setEditing(m)
+    setForm({
+      provider_id: m.provider_id,
+      name: m.name,
+      display_name: m.display_name ?? '',
+      description: m.description ?? '',
+      max_tokens: m.max_tokens ?? 4096,
+      supports_vision: m.supports_vision,
+      is_enabled: m.is_enabled,
+    })
+    setShowForm(true)
+  }
 
-  const inputClass =
-    'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white'
-  const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'
+  const handleSubmit = async () => {
+    try {
+      if (editing) {
+        await updateModel.mutateAsync({ id: editing.id, ...form })
+        toast.success('Model updated')
+      } else {
+        await createModel.mutateAsync(form)
+        toast.success('Model created')
+      }
+      setShowForm(false)
+      setEditing(null)
+      setForm(EMPTY_MODEL_FORM)
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      await deleteModel.mutateAsync(deleteTarget.id)
+      toast.success('Model deleted')
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    } finally {
+      setDeleteTarget(null)
+    }
+  }
+
+  const columns: Column<LLMModel>[] = [
+    {
+      key: 'provider_id',
+      header: 'Provider',
+      render: (m) => providerName(m.provider_id),
+    },
+    {
+      key: 'name',
+      header: 'Model ID',
+      render: (m) => (
+        <div>
+          <span className="font-mono text-xs">{m.name}</span>
+          {m.display_name && (
+            <p className="text-xs text-on-surface-muted">{m.display_name}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'description',
+      header: 'Use case',
+      render: (m) => (
+        <span className="text-on-surface-muted">{m.description || '—'}</span>
+      ),
+    },
+    {
+      key: 'is_enabled',
+      header: 'Status',
+      render: (m) => (
+        <Badge variant={m.is_enabled ? 'success' : 'neutral'}>
+          {m.is_enabled ? 'Enabled' : 'Disabled'}
+        </Badge>
+      ),
+    },
+  ]
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">LLM Models</h3>
-        <button
-          onClick={() => { setShowForm(true); setEditing(null); }}
-          className="flex items-center gap-2 px-3 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
-        >
-          <Plus className="w-4 h-4" />
-          Add Model
-        </button>
+      <div className="flex justify-end">
+        <Button onClick={handleOpenCreate} icon={Plus}>
+          Add model
+        </Button>
       </div>
 
-      {showForm && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
-            {editing ? 'Edit Model' : 'New Model'}
-          </h4>
+      <DataTable
+        columns={columns}
+        data={models ?? []}
+        keyExtractor={(m) => m.id}
+        searchable
+        searchPlaceholder="Search models…"
+        isLoading={isLoading}
+        emptyContent={
+          <EmptyState
+            icon={Cpu}
+            title="No models"
+            description="Add an LLM model to get started."
+          />
+        }
+        rowActions={(m) => (
+          <div className="flex items-center justify-end gap-1">
+            <IconButton
+              icon={Pencil}
+              label="Edit"
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleOpenEdit(m)
+              }}
+            />
+            <IconButton
+              icon={Trash2}
+              label="Delete"
+              size="sm"
+              variant="ghost"
+              className="text-danger hover:text-danger"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteTarget(m)
+              }}
+            />
+          </div>
+        )}
+      />
+
+      {/* Add / Edit modal */}
+      <Modal
+        open={showForm}
+        onClose={() => {
+          setShowForm(false)
+          setEditing(null)
+        }}
+        title={editing ? 'Edit Model' : 'New Model'}
+        size="lg"
+      >
+        <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Provider</label>
-              <select className={inputClass} value={form.provider_id} onChange={(e) => setForm({ ...form, provider_id: parseInt(e.target.value) })}>
-                <option value={0}>Select provider...</option>
+            <Field label="Provider" required>
+              <Select
+                value={form.provider_id}
+                onChange={(e) =>
+                  setForm({ ...form, provider_id: parseInt(e.target.value) })
+                }
+              >
+                <option value={0}>Select provider…</option>
                 {providers?.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Model ID</label>
-              <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="qwen3.5:9b" />
-            </div>
-            <div>
-              <label className={labelClass}>Display Name</label>
-              <input className={inputClass} value={form.display_name || ''} onChange={(e) => setForm({ ...form, display_name: e.target.value })} placeholder="Qwen 3.5 9B" />
-            </div>
-            <div>
-              <label className={labelClass}>Max Tokens</label>
-              <input type="number" className={inputClass} value={form.max_tokens ?? ''} onChange={(e) => setForm({ ...form, max_tokens: parseInt(e.target.value) })} />
-            </div>
+              </Select>
+            </Field>
+            <Field label="Model ID" required>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="qwen3.5:9b"
+                mono
+              />
+            </Field>
+            <Field label="Display Name">
+              <Input
+                value={form.display_name ?? ''}
+                onChange={(e) =>
+                  setForm({ ...form, display_name: e.target.value })
+                }
+                placeholder="Qwen 3.5 9B"
+              />
+            </Field>
+            <Field label="Max Tokens">
+              <Input
+                type="number"
+                value={form.max_tokens ?? ''}
+                onChange={(e) =>
+                  setForm({ ...form, max_tokens: parseInt(e.target.value) })
+                }
+              />
+            </Field>
             <div className="md:col-span-2">
-              <label className={labelClass}>Description</label>
-              <input className={inputClass} value={form.description || ''} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional description" />
+              <Field label="Description">
+                <Input
+                  value={form.description ?? ''}
+                  onChange={(e) =>
+                    setForm({ ...form, description: e.target.value })
+                  }
+                  placeholder="Optional description"
+                />
+              </Field>
             </div>
           </div>
-          <div className="flex items-center gap-4 mt-4">
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input type="checkbox" checked={form.is_enabled} onChange={(e) => setForm({ ...form, is_enabled: e.target.checked })} />
+
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-sm text-on-surface">
+              <input
+                type="checkbox"
+                className="accent-primary"
+                checked={form.is_enabled}
+                onChange={(e) =>
+                  setForm({ ...form, is_enabled: e.target.checked })
+                }
+              />
               Enabled
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input type="checkbox" checked={form.supports_vision} onChange={(e) => setForm({ ...form, supports_vision: e.target.checked })} />
+            <label className="flex items-center gap-2 text-sm text-on-surface">
+              <input
+                type="checkbox"
+                className="accent-primary"
+                checked={form.supports_vision}
+                onChange={(e) =>
+                  setForm({ ...form, supports_vision: e.target.checked })
+                }
+              />
               Supports Vision
             </label>
           </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
-            <button onClick={handleSubmit} disabled={!form.name || form.provider_id === 0} className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 disabled:opacity-50">
-              <Save className="w-4 h-4 inline mr-1" />
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-border">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowForm(false)
+                setEditing(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!form.name || form.provider_id === 0}
+              loading={createModel.isPending || updateModel.isPending}
+              icon={Save}
+            >
               Save
-            </button>
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Name</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Provider</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Max Tokens</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Status</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {models?.map((m) => (
-              <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <td className="px-4 py-3">
-                  <div className="text-gray-900 dark:text-white">{m.display_name || m.name}</div>
-                  <div className="text-xs text-gray-500">{m.name}</div>
-                </td>
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                  {providers?.find((p) => p.id === m.provider_id)?.name || m.provider_id}
-                </td>
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{m.max_tokens || '-'}</td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${m.is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                    {m.is_enabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => { setEditing(m); setForm(m); setShowForm(true); }} className="p-1 text-gray-500 hover:text-blue-600">
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => { if (confirm('Delete this model?')) deleteModel.mutate(m.id); }} className="p-1 text-gray-500 hover:text-red-600">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {(!models || models.length === 0) && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                  <EmptyState icon={Cpu} title="No models" description="Add an LLM model to get started." />
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete model"
+        message={`Are you sure you want to delete "${deleteTarget?.display_name || deleteTarget?.name}"?`}
+        confirmLabel="Delete"
+        loading={deleteModel.isPending}
+      />
     </div>
   )
 }
 
-// ============================================================================
-// USE CASES TAB
-// ============================================================================
+/* ====================================================================== */
+/*  USE CASES TAB                                                          */
+/* ====================================================================== */
+
+const useCaseLabels: Record<string, string> = {
+  email_classification: 'Email Classification',
+  assistant_chat: 'Assistant Chat',
+  security_audit: 'Security Audit',
+}
 
 function UseCasesTab() {
   const { data: configs, isLoading } = useLLMUseCaseConfigs()
@@ -413,124 +750,226 @@ function UseCasesTab() {
   const { data: models } = useLLMModels()
   const updateConfig = useUpdateLLMUseCaseConfig()
 
-  const [editing, setEditing] = useState<LLMUseCaseConfig | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<Partial<LLMUseCaseConfig>>({})
 
   const handleEdit = (config: LLMUseCaseConfig) => {
-    setEditing(config)
-    setForm(config)
+    setEditingId(config.id)
+    setForm({ ...config })
   }
 
   const handleSave = async () => {
-    if (!editing) return
-    await updateConfig.mutateAsync({ id: editing.id, ...form })
-    setEditing(null)
-    setForm({})
+    if (editingId == null) return
+    try {
+      await updateConfig.mutateAsync({ id: editingId, ...form })
+      toast.success('Use case configuration saved')
+      setEditingId(null)
+      setForm({})
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
   }
 
-  if (isLoading) return <LoadingSpinner />
-
-  const inputClass =
-    'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white'
-  const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'
-
-  const useCaseLabels: Record<string, string> = {
-    email_classification: 'Email Classification',
-    assistant_chat: 'Assistant Chat',
-    security_audit: 'Security Audit',
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i}>
+            <CardBody>
+              <div className="space-y-3 animate-pulse">
+                <div className="h-4 bg-surface-elevated rounded w-1/2" />
+                <div className="h-3 bg-surface-elevated rounded w-3/4" />
+                <div className="h-3 bg-surface-elevated rounded w-2/3" />
+              </div>
+            </CardBody>
+          </Card>
+        ))}
+      </div>
+    )
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Use Case Configurations</h3>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {configs?.map((config) => (
-          <div key={config.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 dark:bg-gray-900 dark:border-gray-700">
-            {editing?.id === config.id ? (
-              <div className="space-y-4">
-                <div>
-                  <label className={labelClass}>Provider</label>
-                  <select className={inputClass} value={form.provider_id || ''} onChange={(e) => setForm({ ...form, provider_id: e.target.value ? parseInt(e.target.value) : null })}>
-                    <option value="">Auto-select</option>
-                    {providers?.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClass}>Model</label>
-                  <select className={inputClass} value={form.model_id || ''} onChange={(e) => setForm({ ...form, model_id: e.target.value ? parseInt(e.target.value) : null })}>
-                    <option value="">Auto-select</option>
-                    {models?.filter((m) => !form.provider_id || m.provider_id === form.provider_id).map((m) => (
-                      <option key={m.id} value={m.id}>{m.display_name || m.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClass}>Temperature ({form.temperature})</label>
-                  <input type="range" min={0} max={2} step={0.1} className="w-full" value={form.temperature || 0.3} onChange={(e) => setForm({ ...form, temperature: parseFloat(e.target.value) })} />
-                </div>
-                <div>
-                  <label className={labelClass}>Max Tokens</label>
-                  <input type="number" className={inputClass} value={form.max_tokens || 500} onChange={(e) => setForm({ ...form, max_tokens: parseInt(e.target.value) })} />
-                </div>
-                <div>
-                  <label className={labelClass}>System Prompt</label>
-                  <textarea className={inputClass + ' min-h-[80px]'} rows={3} value={form.system_prompt || ''} onChange={(e) => setForm({ ...form, system_prompt: e.target.value })} />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => { setEditing(null); setForm({}); }} className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800">
-                    <X className="w-4 h-4 inline mr-1" />
-                    Cancel
-                  </button>
-                  <button onClick={handleSave} className="px-3 py-1.5 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700">
-                    <Save className="w-4 h-4 inline mr-1" />
-                    Save
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{useCaseLabels[config.use_case] || config.use_case}</h4>
-                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${config.is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                    {config.is_enabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </div>
-                <dl className="space-y-2 text-sm">
-                  <div>
-                    <dt className="text-gray-500 dark:text-gray-400">Provider</dt>
-                    <dd className="text-gray-900 dark:text-white">{providers?.find((p) => p.id === config.provider_id)?.name || 'Not set'}</dd>
+          <Card key={config.id}>
+            <CardBody>
+              {editingId === config.id ? (
+                <div className="space-y-4">
+                  <Field label="Provider">
+                    <Select
+                      value={form.provider_id ?? ''}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          provider_id: e.target.value
+                            ? parseInt(e.target.value)
+                            : null,
+                        })
+                      }
+                    >
+                      <option value="">Auto-select</option>
+                      {providers?.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Model">
+                    <Select
+                      value={form.model_id ?? ''}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          model_id: e.target.value
+                            ? parseInt(e.target.value)
+                            : null,
+                        })
+                      }
+                    >
+                      <option value="">Auto-select</option>
+                      {models
+                        ?.filter(
+                          (m) =>
+                            !form.provider_id ||
+                            m.provider_id === form.provider_id,
+                        )
+                        .map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.display_name || m.name}
+                          </option>
+                        ))}
+                    </Select>
+                  </Field>
+                  <Field
+                    label={`Temperature (${form.temperature ?? 0.3})`}
+                  >
+                    <input
+                      type="range"
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      className="w-full accent-primary"
+                      value={form.temperature ?? 0.3}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          temperature: parseFloat(e.target.value),
+                        })
+                      }
+                    />
+                  </Field>
+                  <Field label="Max Tokens">
+                    <Input
+                      type="number"
+                      value={form.max_tokens ?? 500}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          max_tokens: parseInt(e.target.value),
+                        })
+                      }
+                    />
+                  </Field>
+                  <Field label="System Prompt">
+                    <textarea
+                      className="min-h-[5rem] w-full rounded-card border border-border bg-surface-card px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      rows={3}
+                      value={form.system_prompt ?? ''}
+                      onChange={(e) =>
+                        setForm({ ...form, system_prompt: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditingId(null)
+                        setForm({})
+                      }}
+                      icon={X}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSave}
+                      loading={updateConfig.isPending}
+                      icon={Save}
+                    >
+                      Save
+                    </Button>
                   </div>
-                  <div>
-                    <dt className="text-gray-500 dark:text-gray-400">Model</dt>
-                    <dd className="text-gray-900 dark:text-white">{models?.find((m) => m.id === config.model_id)?.display_name || models?.find((m) => m.id === config.model_id)?.name || 'Not set'}</dd>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-semibold text-on-surface">
+                      {useCaseLabels[config.use_case] || config.use_case}
+                    </h2>
+                    <Badge
+                      variant={config.is_enabled ? 'success' : 'neutral'}
+                    >
+                      {config.is_enabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
                   </div>
-                  <div>
-                    <dt className="text-gray-500 dark:text-gray-400">Temperature</dt>
-                    <dd className="text-gray-900 dark:text-white">{config.temperature}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500 dark:text-gray-400">Max Tokens</dt>
-                    <dd className="text-gray-900 dark:text-white">{config.max_tokens}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500 dark:text-gray-400">System Prompt</dt>
-                    <dd className="text-gray-900 dark:text-white truncate">{config.system_prompt || '-'}</dd>
-                  </div>
-                </dl>
-                <button onClick={() => handleEdit(config)} className="mt-4 flex items-center gap-2 px-3 py-2 text-sm text-primary-600 hover:text-primary-700">
-                  <Pencil className="w-4 h-4" />
-                  Edit Configuration
-                </button>
-              </>
-            )}
-          </div>
+                  <dl className="space-y-2 text-sm">
+                    <div>
+                      <dt className="text-on-surface-muted">Provider</dt>
+                      <dd className="text-on-surface">
+                        {providers?.find((p) => p.id === config.provider_id)
+                          ?.name || 'Not set'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-on-surface-muted">Model</dt>
+                      <dd className="text-on-surface">
+                        {models?.find((m) => m.id === config.model_id)
+                          ?.display_name ||
+                          models?.find((m) => m.id === config.model_id)
+                            ?.name ||
+                          'Not set'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-on-surface-muted">Temperature</dt>
+                      <dd className="text-on-surface">{config.temperature}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-on-surface-muted">Max Tokens</dt>
+                      <dd className="text-on-surface">{config.max_tokens}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-on-surface-muted">System Prompt</dt>
+                      <dd className="text-on-surface truncate">
+                        {config.system_prompt || '—'}
+                      </dd>
+                    </div>
+                  </dl>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => handleEdit(config)}
+                    icon={Pencil}
+                  >
+                    Edit Configuration
+                  </Button>
+                </>
+              )}
+            </CardBody>
+          </Card>
         ))}
         {(!configs || configs.length === 0) && (
           <div className="lg:col-span-3">
-            <EmptyState icon={Settings} title="No use cases configured" description="Use cases are seeded automatically on first migration." />
+            <EmptyState
+              icon={Settings}
+              title="No use cases configured"
+              description="Use cases are seeded automatically on first migration."
+            />
           </div>
         )}
       </div>

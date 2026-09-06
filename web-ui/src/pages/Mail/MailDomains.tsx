@@ -1,133 +1,169 @@
-import { Link } from 'react-router-dom'
-import { Plus, Mail, Shield, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Plus, Mail, Info } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
 import { useMailDomains, useDeleteMailDomain } from '../../hooks/useApi'
-import { InstanceSelector, StatusBadge, ConfirmDialog, EmptyState, LoadingSpinner } from '../../components/ui'
+import {
+  PageHeader,
+  Card,
+  DataTable,
+  ConfirmDialog,
+  EmptyState,
+  QueryError,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  buttonVariants,
+  toast,
+} from '../../components/ui'
 import type { MailDomain } from '../../types'
+import { getErrMsg } from '../../lib/utils'
 
 export function MailDomains() {
   const { selectedInstanceId } = useInstanceStore()
-  const { data: domains, isLoading } = useMailDomains(selectedInstanceId!)
+  const navigate = useNavigate()
+  const { data: domains, isLoading, isError, refetch } = useMailDomains(selectedInstanceId!)
   const deleteMutation = useDeleteMailDomain(selectedInstanceId!)
   const [deleteTarget, setDeleteTarget] = useState<MailDomain | null>(null)
 
   const handleDelete = async () => {
-    if (deleteTarget) {
+    if (!deleteTarget) return
+    try {
       await deleteMutation.mutateAsync(deleteTarget.id)
+      toast.success(`Mail domain "${deleteTarget.domain}" deleted`)
       setDeleteTarget(null)
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
   }
 
   if (!selectedInstanceId) {
     return (
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Mail Domains</h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage email domains, users, and security settings</p>
+        <PageHeader
+          title="Mail Domains"
+          description="Manage email domains, users, and security settings"
+        />
+        <Card className="mt-6">
+          <div className="flex items-center gap-3 text-on-surface-muted">
+            <Info className="h-5 w-5 shrink-0" />
+            <p className="text-sm">Select an instance from the top bar to manage its mail domains.</p>
           </div>
-        </div>
-        <EmptyState icon={Mail} title="Select an Instance" description="Choose an instance to manage mail domains." />
-        <div className="mt-4"><InstanceSelector /></div>
+        </Card>
       </div>
     )
   }
 
-  if (isLoading) return <LoadingSpinner />
+  const columns = [
+    {
+      key: 'domain',
+      header: 'Domain',
+      className: 'font-mono',
+      render: (d: MailDomain) => (
+        <span className="font-medium text-on-surface">{d.domain}</span>
+      ),
+    },
+    {
+      key: 'enabled',
+      header: 'Status',
+      render: (d: MailDomain) => (
+        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${d.enabled ? 'bg-success-subtle text-success' : 'bg-neutral-subtle text-on-surface-muted'}`}>
+          {d.enabled ? 'Active' : 'Disabled'}
+        </span>
+      ),
+    },
+    {
+      key: 'features',
+      header: 'Features',
+      render: (d: MailDomain) => (
+        <div className="flex flex-wrap gap-1">
+          {d.spam_filter_enabled && <span className="px-1.5 py-0.5 text-xs rounded bg-info-subtle text-info">Spam</span>}
+          {d.virus_scan_enabled && <span className="px-1.5 py-0.5 text-xs rounded bg-danger-subtle text-danger">AV</span>}
+          {d.dkim_enabled && <span className="px-1.5 py-0.5 text-xs rounded bg-success-subtle text-success">DKIM</span>}
+          {d.llm_enabled && <span className="px-1.5 py-0.5 text-xs rounded bg-info-subtle text-info">LLM</span>}
+          {d.groupware_enabled && <span className="px-1.5 py-0.5 text-xs rounded bg-warning-subtle text-warning">SOGo</span>}
+        </div>
+      ),
+    },
+  ]
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Mail Domains</h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage email domains, users, and security settings</p>
-          </div>
-          <InstanceSelector />
-        </div>
-        <Link
-          to="/mail/domains/create"
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-        >
-          <Plus className="w-5 h-5" />
-          Add Domain
-        </Link>
-      </div>
+      <PageHeader
+        title="Mail Domains"
+        description="Manage email domains, users, and security settings"
+        primaryAction={
+          <Link to="/mail/domains/create" className={buttonVariants()}>
+            <Plus className="w-4 h-4" />
+            Add Domain
+          </Link>
+        }
+      />
 
       {domains && domains.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 mb-6">
+          <Card>
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg dark:bg-gray-800"><Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" /></div>
-              <div><p className="text-sm text-gray-600 dark:text-gray-400">Total Domains</p><p className="text-2xl font-bold dark:text-white">{domains.length}</p></div>
+              <div className="p-2 bg-info-subtle rounded-card"><Mail className="w-5 h-5 text-info" /></div>
+              <div><p className="text-sm text-on-surface-muted">Total Domains</p><p className="text-2xl font-bold text-on-surface">{domains.length}</p></div>
             </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          </Card>
+          <Card>
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg dark:bg-gray-800"><CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" /></div>
-              <div><p className="text-sm text-gray-600 dark:text-gray-400">Active</p><p className="text-2xl font-bold dark:text-white">{domains.filter((d) => d.enabled).length}</p></div>
+              <div className="p-2 bg-success-subtle rounded-card"><Mail className="w-5 h-5 text-success" /></div>
+              <div><p className="text-sm text-on-surface-muted">Active</p><p className="text-2xl font-bold text-on-surface">{domains.filter((d) => d.enabled).length}</p></div>
             </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          </Card>
+          <Card>
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg dark:bg-gray-800"><Shield className="w-5 h-5 text-purple-600 dark:text-purple-400" /></div>
-              <div><p className="text-sm text-gray-600 dark:text-gray-400">Spam Filter</p><p className="text-2xl font-bold dark:text-white">{domains.filter((d) => d.spam_filter_enabled).length}</p></div>
+              <div className="p-2 bg-info-subtle rounded-card"><Mail className="w-5 h-5 text-info" /></div>
+              <div><p className="text-sm text-on-surface-muted">Spam Filter</p><p className="text-2xl font-bold text-on-surface">{domains.filter((d) => d.spam_filter_enabled).length}</p></div>
             </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+          </Card>
+          <Card>
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 rounded-lg dark:bg-gray-800"><AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" /></div>
-              <div><p className="text-sm text-gray-600 dark:text-gray-400">Antivirus</p><p className="text-2xl font-bold dark:text-white">{domains.filter((d) => d.virus_scan_enabled).length}</p></div>
+              <div className="p-2 bg-danger-subtle rounded-card"><Mail className="w-5 h-5 text-danger" /></div>
+              <div><p className="text-sm text-on-surface-muted">Antivirus</p><p className="text-2xl font-bold text-on-surface">{domains.filter((d) => d.virus_scan_enabled).length}</p></div>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
-      {domains && domains.length > 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {domains.map((domain) => (
-              <Link
-                key={domain.id}
-                to={`/mail/domains/${domain.id}`}
-                className="p-6 hover:bg-gray-50 flex items-center justify-between group dark:hover:bg-gray-800"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-lg ${domain.enabled ? 'bg-blue-100 dark:bg-gray-800' : 'bg-gray-100 dark:bg-gray-800'}`}>
-                    <Mail className={`w-6 h-6 ${domain.enabled ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{domain.domain}</h3>
-                    <div className="flex items-center gap-3 text-sm text-gray-600 mt-1 dark:text-gray-400">
-                      {domain.spam_filter_enabled && <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs dark:bg-purple-950/30 dark:text-purple-400">Spam Filter</span>}
-                      {domain.virus_scan_enabled && <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs dark:bg-red-950/30 dark:text-red-400">Antivirus</span>}
-                      {domain.dkim_enabled && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs dark:bg-green-950/30 dark:text-green-400">DKIM</span>}
-                      {domain.dmarc_enabled && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs dark:bg-blue-950/30 dark:text-blue-400">DMARC</span>}
-                      {domain.llm_enabled && <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs dark:bg-indigo-950/30 dark:text-indigo-400">AI Classify</span>}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(domain) }}
-                    className="text-sm text-red-600 hover:text-red-700 opacity-0 group-hover:opacity-100"
-                  >
-                    Delete
-                  </button>
-                  <StatusBadge status={domain.enabled ? 'active' : 'inactive'} />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+      {isError ? (
+        <QueryError onRetry={() => refetch()} />
       ) : (
-        <EmptyState
-          icon={Mail}
-          title="No mail domains"
-          description="Add your first email domain to get started."
-          actionLabel="Add Domain"
-          actionTo="/mail/domains/create"
+        <DataTable
+          columns={columns}
+          data={domains ?? []}
+          keyExtractor={(d) => d.id}
+          isLoading={isLoading}
+          onRowClick={(d) => navigate(`/mail/domains/${d.id}`)}
+          rowActions={(d) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger />
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => navigate(`/mail/domains/${d.id}`)}>
+                  View
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  danger
+                  onClick={() => setDeleteTarget(d)}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          emptyContent={
+            <EmptyState
+              icon={Mail}
+              title="No mail domains"
+              description="Add your first email domain to get started."
+              actionLabel="Add Domain"
+              actionTo="/mail/domains/create"
+            />
+          }
         />
       )}
 
@@ -136,7 +172,8 @@ export function MailDomains() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Delete Domain"
-        message={`Delete "${deleteTarget?.domain}"? All associated users and mail data will be removed.`}
+        message={`Are you sure you want to delete "${deleteTarget?.domain}"?`}
+        impact={`Removes ${deleteTarget?.domain} including mailboxes and DNS records.`}
         loading={deleteMutation.isPending}
       />
     </div>

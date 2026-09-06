@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, CheckCircle, XCircle, AlertTriangle, Download, FileJson } from 'lucide-react'
+import { Play, CheckCircle, XCircle, AlertTriangle, FileJson, Info } from 'lucide-react'
 
 interface TestCase {
   id: string
@@ -123,6 +123,15 @@ export function FirewallTestSuite() {
 
   return (
     <div className="space-y-6">
+      {/* Preview notice */}
+      <div className="flex items-start gap-3 p-4 rounded-card border border-warning bg-warning-subtle" role="status">
+        <Info className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium text-on-surface">Preview — not connected to a live instance</p>
+          <p className="text-xs text-on-surface-muted mt-0.5">This test suite uses mock data for demonstration. Deploy an agent instance to run tests against live firewall rules.</p>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Firewall Test Suite</h2>
@@ -141,7 +150,7 @@ export function FirewallTestSuite() {
           <button
             onClick={runTests}
             disabled={selectedSuites.length === 0 || isRunning}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary-hover disabled:opacity-50"
           >
             <Play className="w-4 h-4" />
             {isRunning ? 'Running...' : 'Run Tests'}
@@ -157,7 +166,7 @@ export function FirewallTestSuite() {
             onClick={() => setActiveTab(tab)}
             className={`pb-3 px-2 font-medium capitalize ${
               activeTab === tab 
-                ? 'text-primary-600 border-b-2 border-primary-600 dark:text-primary-400 dark:border-primary-400' 
+                ? 'text-primary border-b-2 border-primary'
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
             }`}
           >
@@ -174,10 +183,19 @@ export function FirewallTestSuite() {
           {testSuites.map((suite) => (
             <div
               key={suite.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selectedSuites.includes(suite.id)}
               onClick={() => toggleSuite(suite.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  toggleSuite(suite.id)
+                }
+              }}
               className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
                 selectedSuites.includes(suite.id)
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/30'
+                  ? 'border-primary bg-primary-subtle'
                   : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
               }`}
             >
@@ -192,10 +210,10 @@ export function FirewallTestSuite() {
                 
                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
                   selectedSuites.includes(suite.id)
-                    ? 'bg-primary-600 border-primary-600'
-                    : 'border-gray-300 dark:border-gray-600'
-                }`}>
-                  {selectedSuites.includes(suite.id) && <CheckCircle className="w-4 h-4 text-white" />}
+                    ? 'bg-primary border-primary'
+                  : 'border-gray-300 dark:border-gray-600'
+              }`}>
+                  {selectedSuites.includes(suite.id) && <CheckCircle className="w-4 h-4 text-primary-fg" />}
                 </div>
               </div>
             </div>
@@ -203,7 +221,15 @@ export function FirewallTestSuite() {
 
           {/* Custom Test Card */}
           <div
+            role="button"
+            tabIndex={0}
             onClick={() => setActiveTab('custom')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setActiveTab('custom')
+              }
+            }}
             className="p-6 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 cursor-pointer dark:border-gray-700 dark:hover:border-gray-600"
           >
             <div className="text-center">
@@ -244,10 +270,9 @@ export function FirewallTestSuite() {
                 </div>
               </div>
 
-              <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700">
-                <Download className="w-4 h-4" />
-                Export Report
-              </button>
+              <div className="flex gap-2">
+                {/* Export Report — hidden (coming soon) */}
+              </div>
             </div>
 
             {result.critical_failures.length > 0 && (

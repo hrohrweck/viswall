@@ -242,7 +242,7 @@ export function AssistantChat() {
           )}
 
           <div className="flex gap-2">
-            <button className="flex-1 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
+            <button className="flex-1 py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary-hover text-sm">
               Add to Firewall
             </button>
             <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
@@ -291,7 +291,7 @@ export function AssistantChat() {
           </div>
 
           <div className="flex gap-2">
-            <button className="flex-1 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
+            <button className="flex-1 py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary-hover text-sm">
               Run Tests
             </button>
             <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
@@ -310,8 +310,8 @@ export function AssistantChat() {
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center dark:bg-primary-950/30">
-            <Bot className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+          <div className="w-10 h-10 bg-primary-subtle rounded-full flex items-center justify-center">
+            <Bot className="w-6 h-6 text-primary" />
           </div>
           <div>
             <h2 className="font-semibold text-gray-900 dark:text-white">Configuration Assistant</h2>
@@ -328,18 +328,18 @@ export function AssistantChat() {
             className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-              message.role === 'user' ? 'bg-gray-200 dark:bg-gray-700' : 'bg-primary-100 dark:bg-primary-950/30'
+              message.role === 'user' ? 'bg-gray-200 dark:bg-gray-700' : 'bg-primary-subtle'
             }`}>
               {message.role === 'user' ? (
                 <User className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               ) : (
-                <Bot className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                <Bot className="w-5 h-5 text-primary" />
               )}
             </div>
             
             <div className={`max-w-[80%] rounded-lg p-3 ${
               message.role === 'user' 
-                ? 'bg-primary-600 text-white' 
+                ? 'bg-primary text-primary-fg'
                 : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
             }`}>
               {renderMessageContent(message)}
@@ -349,8 +349,8 @@ export function AssistantChat() {
         
         {isLoading && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center dark:bg-primary-950/30">
-              <Bot className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+            <div className="w-8 h-8 rounded-full bg-primary-subtle flex items-center justify-center">
+              <Bot className="w-5 h-5 text-primary" />
             </div>
             <div className="bg-gray-100 rounded-lg p-3 dark:bg-gray-800">
               <div className="flex gap-1">
@@ -393,13 +393,13 @@ export function AssistantChat() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Ask me anything about your configuration..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
           
           <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            className="px-4 py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary-hover disabled:opacity-50"
           >
             <Send className="w-5 h-5" />
           </button>
