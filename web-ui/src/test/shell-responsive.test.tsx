@@ -31,7 +31,7 @@ function stubMatchMedia(desktop = false) {
 
 function seedStores() {
   useAuthStore.setState({
-    token: loginResponse.access_token,
+    'token': loginResponse.access_token,
     user: {
       id: loginResponse.user.id,
       username: loginResponse.user.username,

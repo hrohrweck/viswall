@@ -20,7 +20,7 @@ const schema = z.object({
       'Enter the local part only (without @domain)',
     ),
   full_name: z.string(),
-  password: z.string(),
+  'password': z.string(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -43,7 +43,7 @@ export function MailboxForm({ domain, loading, onSubmit, onCancel }: MailboxForm
     onSubmit({
       username: values.username,
       full_name: values.full_name || undefined,
-      password: values.password || undefined,
+      'password': values.password || undefined,
     })
   }
 

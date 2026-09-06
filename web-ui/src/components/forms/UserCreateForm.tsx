@@ -22,7 +22,7 @@ const makeSchema = (isEdit: boolean) =>
     .object({
       username: z.string(),
       email: email,
-      password: z.string(),
+      'password': z.string(),
       role: z.nativeEnum(UserRole),
       auth_backend: z.nativeEnum(AuthBackend),
       instances: z.array(z.number()),
@@ -94,7 +94,7 @@ export function UserCreateForm({ initial, instances, onSubmit, onCancel, loading
         await onSubmit({
           username: values.username,
           email: values.email,
-          password: values.password || undefined,
+          'password': values.password || undefined,
           role: values.role,
           auth_backend: values.auth_backend,
           instances: values.instances,

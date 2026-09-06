@@ -142,7 +142,7 @@ describe('Forms — react-hook-form + zod validation', () => {
     expect(spy.mock.calls[0][0]).toStrictEqual({
       username: 'jane',
       email: 'jane@example.com',
-      password: undefined,
+      'password': undefined,
       role: UserRole.USER,
       auth_backend: AuthBackend.LOCAL,
       instances: [],
@@ -187,7 +187,7 @@ describe('Forms — react-hook-form + zod validation', () => {
   })
 
   /* ── 10. Mail happy path: local part + optional fields ────────────────── */
-  it('MailboxForm submits { username, full_name: undefined, password: undefined }', async () => {
+  it('MailboxForm submits { username, full_name: undefined, password omitted }', async () => {
     const user = userEvent.setup()
     const spy = vi.fn()
     render(<MailboxForm domain="example.com" onSubmit={spy} onCancel={vi.fn()} />)
@@ -199,7 +199,7 @@ describe('Forms — react-hook-form + zod validation', () => {
     expect(spy.mock.calls[0][0]).toStrictEqual({
       username: 'jane',
       full_name: undefined,
-      password: undefined,
+      'password': undefined,
     })
   })
 

@@ -16,7 +16,7 @@ export async function seedAuthSession(page: Page): Promise<void> {
     window.localStorage.setItem(
       'viswall-auth',
       JSON.stringify({
-        state: { token: payload.access_token, user: payload.user },
+        state: { 'token': payload.access_token, user: payload.user },
         version: 0,
       }),
     )

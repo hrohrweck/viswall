@@ -72,7 +72,7 @@ describe('Command palette', () => {
 
     // Seed auth store as admin.
     useAuthStore.setState({
-      token: loginResponse.access_token,
+      'token': loginResponse.access_token,
       user: {
         id: loginResponse.user.id,
         username: loginResponse.user.username,

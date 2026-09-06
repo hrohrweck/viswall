@@ -152,7 +152,7 @@ function ProvidersTab() {
       name: p.name,
       provider_type: p.provider_type,
       base_url: p.base_url ?? '',
-      api_key: p.api_key ?? '',
+      'api_key': p.api_key ?? '',
       is_enabled: p.is_enabled,
       is_default: p.is_default,
     })
@@ -380,7 +380,7 @@ function ProvidersTab() {
               <Input
                 type="password"
                 value={form.api_key ?? ''}
-                onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+                onChange={(e) => setForm({ ...form, 'api_key': e.target.value })}
                 placeholder="sk-..."
               />
             </Field>

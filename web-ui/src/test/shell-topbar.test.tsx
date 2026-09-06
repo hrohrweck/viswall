@@ -65,7 +65,7 @@ describe('Shell topbar', () => {
 
     // Seed auth store.
     useAuthStore.setState({
-      token: loginResponse.access_token,
+      'token': loginResponse.access_token,
       user: {
         id: loginResponse.user.id,
         username: loginResponse.user.username,

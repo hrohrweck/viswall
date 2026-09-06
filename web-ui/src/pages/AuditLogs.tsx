@@ -131,8 +131,8 @@ export function AuditLogs() {
       key: 'action',
       header: 'Action',
       render: (log: AuditLog) => {
-        const lastToken = log.action.split('.').pop() ?? log.action
-        const variant = actionVariant[lastToken] ?? 'neutral'
+        const leaf = log.action.split('.').pop() ?? log.action
+        const variant = actionVariant[leaf] ?? 'neutral'
         return <Badge variant={variant}>{actionLabel(log.action)}</Badge>
       },
     },
