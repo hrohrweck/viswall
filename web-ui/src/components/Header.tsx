@@ -1,10 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Shield, Search, Sun, Moon, LogOut, Monitor } from 'lucide-react'
+import { Shield, Search, Sun, Moon, LogOut, Monitor, Menu, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { useAuthStore } from '../stores/auth'
 import { useThemeStore, type Theme } from '../stores/theme'
 import { useCommandPaletteStore } from '../stores/commandPalette'
+import { useSidebarStore } from '../stores/sidebar'
 import { Breadcrumbs, type BreadcrumbItem } from './ui/Breadcrumbs'
 import { IconButton } from './ui/Button'
 import { InstanceSwitcher } from './ui/InstanceSwitcher'
@@ -81,6 +82,8 @@ export function Header() {
   const { user, logout } = useAuthStore()
   const theme = useThemeStore((s) => s.theme)
   const setTheme = useThemeStore((s) => s.setTheme)
+  const mobileOpen = useSidebarStore((s) => s.mobileOpen)
+  const setMobileOpen = useSidebarStore((s) => s.setMobileOpen)
 
   const crumbs = buildCrumbs(location.pathname)
   const openPalette = useCommandPaletteStore((s) => s.setOpen)
@@ -96,8 +99,16 @@ export function Header() {
 
   return (
     <header className="h-14 border-b border-border bg-surface-card flex items-center px-4 gap-4 shrink-0">
-      {/* LEFT — logo + breadcrumbs */}
+      {/* LEFT — hamburger + logo + breadcrumbs */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
+        <IconButton
+          icon={mobileOpen ? X : Menu}
+          label={mobileOpen ? 'Close navigation' : 'Open navigation'}
+          variant="ghost"
+          size="md"
+          onClick={() => setMobileOpen(!mobileOpen)}
+          className="lg:hidden"
+        />
         <Link to="/" className="flex items-center gap-1.5 shrink-0">
           <Shield className="w-5 h-5 text-primary" />
           <span className="text-sm font-bold text-on-surface hidden sm:inline">
