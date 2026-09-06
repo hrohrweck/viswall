@@ -4,3 +4,8 @@
 7640af3a53ba7a26067496dea2ea03206cb278fc:scripts/migrate_legacy_mail.py:password-assignment:65
 7640af3a53ba7a26067496dea2ea03206cb278fc:deployments/docker/docker-compose.yml:password-assignment:135
 2c8d4320ca37cbee7e0c7651efd8381e062369e2:.gitguardian.yml:password-assignment:3
+fdd8d6783f00f3b8d1b3ef6f2b17b474f5655a3d:services/dns-service/tests/test_api_auth.py:password-assignment:31
+59c2040db84796045878775fb55fa49ea242c8b7:services/dns-service/tests/test_render.py:password-assignment:159
+5964125a4d7f6cd1b57b91258250529fd6771660:services/api-gateway/tests/test_dns_dispatch.py:password-assignment:67
+4567f58ae0821139df1c07a9a78cfbe13d1ab6c0:services/dns-service/tests/test_render.py:password-assignment:163
+4567f58ae0821139df1c07a9a78cfbe13d1ab6c0:services/api-gateway/tests/test_dns_dispatch.py:password-assignment:69

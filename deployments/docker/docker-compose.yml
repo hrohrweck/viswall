@@ -233,22 +233,33 @@ services:
   #   depends_on:
   #     - api-gateway
 
-  # dns-service:
-  #   build:
-  #     context: ../..
-  #     dockerfile: services/dns-service/Dockerfile
-  #   privileged: true
-  #   network_mode: host
-  #   environment:
-  #     GATEWAY_URL: http://api-gateway:8000
-  #     INSTANCE_API_KEY: ${INSTANCE_API_KEY:-dev-key}
-  #     DNS_AGENT_ALLOW_COMMANDS: "true"
-  #   ports:
-  #     - "53:53/udp"
-  #     - "53:53/tcp"
-  #     - "8082:8082"
-  #   depends_on:
-  #     - api-gateway
+  dns-service:
+    build:
+      context: ../..
+      dockerfile: services/dns-service/Dockerfile
+    restart: unless-stopped
+    cap_add:
+      - NET_BIND_SERVICE
+    environment:
+      GATEWAY_URL: http://api-gateway:8000
+      INSTANCE_ID: ${DNS_INSTANCE_ID:-1}
+      INSTANCE_API_KEY: ${INSTANCE_API_KEY:-dev-key}
+      DNS_AGENT_ALLOW_COMMANDS: "true"
+      ZONES_DIR: /var/lib/bind/viswall-zones
+      DNS_KEYS_DIR: /var/lib/bind/keys
+    ports:
+      # Publish on the authoritative address only; 8082 (control API) stays loopback.
+      # For staging validation set DNS_PUBLISH_PORT=5353 in .env before cutover.
+      - "${DNS_PUBLISH_ADDR:-46.4.63.216}:${DNS_PUBLISH_PORT:-53}:53/udp"
+      - "${DNS_PUBLISH_ADDR:-46.4.63.216}:${DNS_PUBLISH_PORT:-53}:53/tcp"
+      - "127.0.0.1:8082:8082"
+    volumes:
+      - dns_bind_etc:/etc/bind
+      - dns_bind_lib:/var/lib/bind
+    networks:
+      - viswall
+    depends_on:
+      - api-gateway
 
   # dhcp-service:
   #   build:
@@ -291,6 +302,8 @@ volumes:
   certbot_data:
   certbot_www:
   ollama_data:
+  dns_bind_etc:
+  dns_bind_lib:
   mail_data:
     external: true
     name: viswall_mail_data
