@@ -260,4 +260,13 @@ describe('DNS Management page', () => {
 
     await waitFor(() => expect(mutateSpy).toHaveBeenCalledTimes(1))
   })
+
+  /* ── 8. No instance → compact notice ─────────────────────────────────── */
+  it('shows compact notice when no instance is selected', () => {
+    useInstanceStore.setState({ selectedInstanceId: null })
+    renderDNS()
+    expect(
+      screen.getByText(/select an instance from the top bar/i),
+    ).toBeInTheDocument()
+  })
 })

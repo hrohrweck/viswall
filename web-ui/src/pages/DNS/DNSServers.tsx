@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  Database,
+  Info,
   Plus,
   Trash2,
   Play,
@@ -27,10 +27,8 @@ import {
   Button,
   Card,
   ConfirmDialog,
-  EmptyState,
   IconButton,
   Input,
-  InstanceSelector,
   Modal,
   PageHeader,
   QueryError,
@@ -126,20 +124,17 @@ export function DNSServers() {
     return zones.filter((z) => z.name.toLowerCase().includes(q))
   }, [zones, zoneSearch])
 
-  /* ── Instance-notice pattern ─────────────────────────────────────────── */
+  /* ── No instance selected ── */
   if (!selectedInstanceId) {
     return (
-      <div className="space-y-6">
-        <PageHeader
-          title="DNS Servers"
-          description="Manage authoritative and recursive BIND9 DNS servers"
-        />
-        <EmptyState
-          icon={Database}
-          title="Select an Instance"
-          description="Choose an instance to manage DNS."
-        />
-        <InstanceSelector />
+      <div>
+        <PageHeader title="DNS Servers" />
+        <Card className="mt-6">
+          <div className="flex items-center gap-3 text-on-surface-muted">
+            <Info className="h-5 w-5 shrink-0" />
+            <p className="text-sm">Select an instance from the top bar to manage its DNS servers.</p>
+          </div>
+        </Card>
       </div>
     )
   }
