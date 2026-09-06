@@ -15,18 +15,21 @@ test.describe('shell topbar (MSW-seeded)', () => {
   test('switches instance in the top bar and updates selected name', async ({ page }) => {
     await page.goto('/')
 
-    // Wait for the instance switcher to show the first instance.
-    await expect(page.getByText('edge-berlin-01')).toBeVisible({ timeout: 15_000 })
+    // The switcher button shows "Select instance" when nothing is selected.
+    // Scope to the header to avoid matching dashboard content.
+    const switcher = page.locator('header').getByRole('button', { name: /Select instance/i })
+    await expect(switcher).toBeVisible({ timeout: 15_000 })
 
     // Open the instance switcher dropdown.
-    await page.getByText('edge-berlin-01').first().click()
+    await switcher.click()
 
-    // Select edge-oslo-02.
-    await page.getByText('edge-oslo-02').click()
+    // Select edge-oslo-02 from the dropdown menu.
+    await page.getByRole('menuitem', { name: /edge-oslo-02/i }).click()
 
-    // The switcher should now display edge-oslo-02 as the selected instance.
-    // There may be multiple occurrences (trigger + sidebar), so use first().
-    await expect(page.getByText('edge-oslo-02').first()).toBeVisible()
+    // The switcher button should now show edge-oslo-02 (scoped to header).
+    await expect(
+      page.locator('header').getByRole('button', { name: /edge-oslo-02/i }),
+    ).toBeVisible()
   })
 
   test('theme toggle flips html.dark', async ({ page }) => {
