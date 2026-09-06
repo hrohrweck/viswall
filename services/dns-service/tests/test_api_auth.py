@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import secrets
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -27,11 +29,12 @@ def _config(tmp_path, api_key: str | None, allow_commands: bool = False) -> Agen
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    cfg = _config(tmp_path, api_key="test-key")
+def client_and_key(tmp_path, monkeypatch):
+    key = secrets.token_urlsafe(24)
+    cfg = _config(tmp_path, api_key=key)
     monkeypatch.setattr(api_module, "config", cfg)
     monkeypatch.setattr(api_module, "agent", DNSAgent(cfg))
-    return TestClient(api_module.app)
+    return TestClient(api_module.app), key
 
 
 def _payload() -> dict:
@@ -63,27 +66,31 @@ def _payload() -> dict:
     }
 
 
-def test_health_when_unauthenticated(client) -> None:
+def test_health_when_unauthenticated(client_and_key) -> None:
+    client, _ = client_and_key
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["auth_configured"] is True
 
 
-def test_apply_when_key_missing(client) -> None:
+def test_apply_when_key_missing(client_and_key) -> None:
+    client, _ = client_and_key
     response = client.post("/dns/apply", json=_payload())
     assert response.status_code == 401
 
 
-def test_apply_when_key_wrong(client) -> None:
+def test_apply_when_key_wrong(client_and_key) -> None:
+    client, _ = client_and_key
     response = client.post(
-        "/dns/apply", json=_payload(), headers={"X-Instance-Key": "wrong"}
+        "/dns/apply", json=_payload(), headers={"X-Instance-Key": secrets.token_urlsafe(24)}
     )
     assert response.status_code == 401
 
 
-def test_apply_when_key_correct_writes_config(client) -> None:
+def test_apply_when_key_correct_writes_config(client_and_key) -> None:
+    client, _ = client_and_key
     response = client.post(
-        "/dns/apply", json=_payload(), headers={"X-Instance-Key": "test-key"}
+        "/dns/apply", json=_payload(), headers={"X-Instance-Key": client_and_key[1]}
     )
     assert response.status_code == 200
     assert response.json()["success"] is True
@@ -93,12 +100,14 @@ def test_apply_when_key_correct_writes_config(client) -> None:
     assert 'zone "example.com" {' in local
 
 
-def test_reload_when_key_missing(client) -> None:
+def test_reload_when_key_missing(client_and_key) -> None:
+    client, _ = client_and_key
     response = client.post("/dns/reload")
     assert response.status_code == 401
 
 
-def test_status_when_key_missing(client) -> None:
+def test_status_when_key_missing(client_and_key) -> None:
+    client, _ = client_and_key
     response = client.get("/dns/status")
     assert response.status_code == 401
 
