@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, CheckCircle, XCircle, AlertTriangle, Download, FileJson } from 'lucide-react'
+import { Play, CheckCircle, XCircle, AlertTriangle, FileJson, Info } from 'lucide-react'
 
 interface TestCase {
   id: string
@@ -123,6 +123,15 @@ export function FirewallTestSuite() {
 
   return (
     <div className="space-y-6">
+      {/* Preview notice */}
+      <div className="flex items-start gap-3 p-4 rounded-card border border-warning bg-warning-subtle" role="status">
+        <Info className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium text-on-surface">Preview — not connected to a live instance</p>
+          <p className="text-xs text-on-surface-muted mt-0.5">This test suite uses mock data for demonstration. Deploy an agent instance to run tests against live firewall rules.</p>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Firewall Test Suite</h2>
@@ -244,10 +253,9 @@ export function FirewallTestSuite() {
                 </div>
               </div>
 
-              <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700">
-                <Download className="w-4 h-4" />
-                Export Report
-              </button>
+              <div className="flex gap-2">
+                {/* Export Report — hidden (coming soon) */}
+              </div>
             </div>
 
             {result.critical_failures.length > 0 && (

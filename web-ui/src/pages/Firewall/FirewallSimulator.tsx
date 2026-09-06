@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Play, Pause, RotateCcw, CheckCircle, XCircle, ChevronRight } from 'lucide-react'
+import { Play, Pause, RotateCcw, CheckCircle, XCircle, ChevronRight, Info } from 'lucide-react'
 
 interface Packet {
   src_ip: string
@@ -173,6 +173,15 @@ export function FirewallSimulator() {
 
   return (
     <div className="space-y-6">
+      {/* Preview notice */}
+      <div className="flex items-start gap-3 p-4 rounded-card border border-warning bg-warning-subtle" role="status">
+        <Info className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium text-on-surface">Preview — not connected to a live instance</p>
+          <p className="text-xs text-on-surface-muted mt-0.5">This simulator uses mock data for demonstration. Deploy an agent instance to enable live rule evaluation.</p>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Firewall Rule Simulator</h2>
