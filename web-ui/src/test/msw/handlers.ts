@@ -77,6 +77,47 @@ export const handlers = [
 
   // --- Mail -----------------------------------------------------------------------
   http.get('/api/v1/mail/domains/:instanceId', () => HttpResponse.json(f.mailDomains)),
+  http.get('/api/v1/mail/domains/detail/:domainId', ({ params }) => {
+    const domain = f.mailDomains.find((d) => d.id === Number(params.domainId))
+    return domain
+      ? HttpResponse.json(domain)
+      : HttpResponse.json({ detail: 'Domain not found' }, { status: 404 })
+  }),
+  http.get('/api/v1/mail/users/:domainId', () => HttpResponse.json(f.mailUsers)),
+  http.post('/api/v1/mail/users/:domainId', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json({
+      id: 99, domain_id: Number((request.url.split('/').pop()) ?? 1), username: body.username,
+      full_name: body.full_name ?? null, quota_bytes: 536_870_912, quota_used: 0,
+      enabled: true, forward_to: [], vacation_enabled: false,
+      created_at: f.FIXED_NOW, updated_at: f.FIXED_NOW,
+    })
+  }),
+  http.get('/api/v1/mail/messages/:domainId', () => HttpResponse.json(f.mailMessages)),
+  http.post('/api/v1/mail/domains/:domainId/dkim/regenerate', () => HttpResponse.json({ status: 'ok' })),
+  http.post('/api/v1/mail/messages/:messageId/reclassify', () => HttpResponse.json({ id: 1, status: 'reclassified' })),
+  http.post('/api/v1/mail/messages/:messageId/action', () => HttpResponse.json({ id: 1, status: 'ok' })),
+  http.get('/api/v1/groupware/status/:domainId', () => HttpResponse.json({ domain_id: 1, domain: 'example.test', groupware_enabled: true, sogo_url: 'https://sogo.example.test' })),
+  http.get('/api/v1/groupware/stats/:domainId', () => HttpResponse.json({ calendars: 3, contacts: 12, active_users: 5 })),
+  http.post('/api/v1/groupware/enable/:domainId', () => HttpResponse.json({ status: 'ok' })),
+  http.post('/api/v1/groupware/disable/:domainId', () => HttpResponse.json({ status: 'ok' })),
+
+  // --- LLM Admin -----------------------------------------------------------------
+  http.get('/api/v1/admin/llm/providers', () => HttpResponse.json([])),
+  http.get('/api/v1/admin/llm/models', () => HttpResponse.json([])),
+
+  // --- Mail create (mutation handler) --------------------------------------------
+  http.post('/api/v1/mail/domains/:instanceId', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json({
+      id: 99, instance_id: 1, domain: body.domain, enabled: true,
+      spam_filter_enabled: true, virus_scan_enabled: true,
+      dkim_enabled: true, dmarc_enabled: true, spf_enabled: true,
+      llm_enabled: false, llm_config: {}, groupware_enabled: false,
+      created_at: f.FIXED_NOW, updated_at: f.FIXED_NOW,
+    })
+  }),
+  http.delete('/api/v1/mail/domains/:domainId', () => HttpResponse.json({ status: 'ok' })),
 
   // --- Audit -----------------------------------------------------------------------
   http.get('/api/v1/audit/logs', () => HttpResponse.json(f.auditLogs)),
