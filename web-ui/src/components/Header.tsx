@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { useAuthStore } from '../stores/auth'
 import { useThemeStore, type Theme } from '../stores/theme'
+import { useCommandPaletteStore } from '../stores/commandPalette'
 import { Breadcrumbs, type BreadcrumbItem } from './ui/Breadcrumbs'
 import { IconButton } from './ui/Button'
 import { InstanceSwitcher } from './ui/InstanceSwitcher'
@@ -82,6 +83,7 @@ export function Header() {
   const setTheme = useThemeStore((s) => s.setTheme)
 
   const crumbs = buildCrumbs(location.pathname)
+  const openPalette = useCommandPaletteStore((s) => s.setOpen)
 
   const handleLogout = () => {
     logout()
@@ -110,10 +112,11 @@ export function Header() {
 
       {/* RIGHT — search, theme, user menu */}
       <div className="flex items-center gap-1">
-        {/* Search placeholder (palette task 14 will wire it) */}
+        {/* Search → opens command palette */}
         <button
           type="button"
           data-testid="command-palette-trigger"
+          onClick={() => openPalette(true)}
           className="inline-flex items-center gap-1.5 h-9 px-3 rounded-card text-sm text-on-surface-muted border border-border bg-surface-card hover:bg-surface-elevated transition-colors"
         >
           <Search className="w-4 h-4" />

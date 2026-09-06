@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { ErrorBoundary } from './ui/ErrorBoundary'
 import { Toaster } from './ui/Toaster'
+import { CommandPalette } from './ui/CommandPalette'
 
 export function Layout() {
   return (
@@ -17,6 +18,7 @@ export function Layout() {
         </main>
       </div>
       <Toaster />
+      <CommandPalette />
     </div>
   )
 }
