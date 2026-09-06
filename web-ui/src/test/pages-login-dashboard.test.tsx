@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -95,6 +95,11 @@ describe('Login page', () => {
   })
 
   it('shows error banner on failed login with danger-subtle bg', async () => {
+    // Truthful since the interceptor /auth/ guard: a failed login must NOT
+    // clear session storage (the old false-green relied on jsdom ignoring
+    // the location redirect — removeItem still fired there).
+    const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem')
+
     const user = userEvent.setup()
     renderLogin()
 
@@ -111,6 +116,13 @@ describe('Login page', () => {
 
     // Auth store stays empty
     expect(useAuthStore.getState().token).toBeNull()
+
+    // The 401 interceptor skipped the /auth/ request: no session clear,
+    // and the Login page stayed mounted (no redirect/unmount in jsdom).
+    expect(removeItemSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+
+    removeItemSpy.mockRestore()
   })
 })
 

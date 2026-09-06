@@ -21,6 +21,7 @@ import {
 } from '../../components/ui'
 import type { VPNServer } from '../../types'
 import { formatBytes } from '../../utils/format'
+import { getErrMsg } from '../../lib/utils'
 
 export function VPNServers() {
   const { selectedInstanceId } = useInstanceStore()
@@ -35,8 +36,8 @@ export function VPNServers() {
       await deleteMutation.mutateAsync(deleteTarget.id)
       toast.success(`VPN server "${deleteTarget.name}" deleted`)
       setDeleteTarget(null)
-    } catch {
-      toast.error('Failed to delete VPN server')
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
   }
 

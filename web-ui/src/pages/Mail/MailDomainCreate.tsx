@@ -14,6 +14,7 @@ import {
   toast,
   buttonVariants,
 } from '../../components/ui'
+import { getErrMsg } from '../../lib/utils'
 
 const STEPS = ['Domain', 'Security', 'Review'] as const
 
@@ -71,8 +72,8 @@ export function MailDomainCreate() {
       })
       toast.success(`Domain "${config.domain}" created`)
       navigate('/mail')
-    } catch {
-      toast.error('Failed to create domain')
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
   }
 

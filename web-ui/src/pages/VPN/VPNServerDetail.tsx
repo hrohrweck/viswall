@@ -39,6 +39,7 @@ import {
 import { TabsContent } from '../../components/ui/Tabs'
 import type { VPNClient } from '../../types'
 import { formatBytes } from '../../utils/format'
+import { getErrMsg } from '../../lib/utils'
 
 function relativeTime(iso: string | null): string {
   if (!iso) return 'Never'
@@ -114,8 +115,8 @@ export function VPNServerDetail() {
     try {
       await actionMutation.mutateAsync({ serverId, action: 'stop' })
       toast.success(`VPN server "${server.name}" stopped`)
-    } catch {
-      toast.error('Failed to stop VPN server')
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
     setShowStopServer(false)
   }
@@ -124,8 +125,8 @@ export function VPNServerDetail() {
     try {
       await actionMutation.mutateAsync({ serverId, action: 'restart' })
       toast.success(`VPN server "${server.name}" restarted`)
-    } catch {
-      toast.error('Failed to restart VPN server')
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
   }
 
@@ -134,8 +135,8 @@ export function VPNServerDetail() {
       await deleteServerMutation.mutateAsync(server.id)
       toast.success(`VPN server "${server.name}" deleted`)
       navigate('/vpn')
-    } catch {
-      toast.error('Failed to delete VPN server')
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
   }
 
@@ -154,8 +155,8 @@ export function VPNServerDetail() {
       setNewClientName('')
       setNewClientIp('')
       setShowCreateClient(false)
-    } catch {
-      toast.error('Failed to create VPN client')
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
   }
 
@@ -165,8 +166,8 @@ export function VPNServerDetail() {
       await deleteClientMutation.mutateAsync(deleteClientTarget.id)
       toast.success(`Client "${deleteClientTarget.name}" revoked`)
       setDeleteClientTarget(null)
-    } catch {
-      toast.error('Failed to revoke client')
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
   }
 

@@ -51,17 +51,21 @@ async function signInAndGo(page: Page, route: string, opts?: { instance?: boolea
 /*  Login                                                              */
 /* ------------------------------------------------------------------ */
 
-// REAL PRODUCT BUG (captured F3, fix must land in product code): the axios
-// 401 interceptor in src/utils/api.ts unconditionally does
-// window.location.href = '/login' — including for the login endpoint's own
-// invalid-credentials 401 — so the page reloads before the error banner
-// paints. Probe evidence: banner never becomes visible; framenavigated
-// fires twice for /login; the jsdom RTL login-error test passes only
-// because jsdom ignores location assignments. Remove .fixme and assert the
-// banner once the interceptor skips the auth endpoints.
-test.fixme('login: invalid credentials → error banner, stays on /login', async ({ page }) => {
+// The axios 401 interceptor in src/utils/api.ts skips /auth/ requests
+// (final-wave fix): a failed login must paint the error banner WITHOUT
+// clearing the session or navigating/reloading — the original bug had
+// window.location.href = '/login' fire on the login endpoint's own 401,
+// reloading the page before the banner could render.
+test('login: invalid credentials → error banner, stays on /login (no reload)', async ({ page }) => {
   await page.goto('/login')
   await page.waitForLoadState('networkidle')
+
+  // Any interceptor-triggered navigation (the old bug's reload) fires
+  // framenavigated on the main frame — count them after the click.
+  let navigations = 0
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) navigations += 1
+  })
 
   await page.locator('input[type="text"]').fill('admin')
   await page.locator('input[type="password"]').fill('definitely-wrong')
@@ -71,6 +75,10 @@ test.fixme('login: invalid credentials → error banner, stays on /login', async
   await expect(banner).toBeVisible()
   await expect(banner).toContainText('Invalid credentials')
   await expect(page).toHaveURL(/\/login/)
+
+  // Grace window for a would-be reload to have fired framenavigated.
+  await page.waitForTimeout(500)
+  expect(navigations).toBe(0)
 
   await shot(page, '01-login-error-banner')
 })

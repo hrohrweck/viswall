@@ -14,7 +14,7 @@ import {
   CardBody,
   toast,
 } from '../../components/ui'
-import { cn } from '../../lib/utils'
+import { cn, getErrMsg } from '../../lib/utils'
 
 /* ------------------------------------------------------------------ */
 /*  Static color map — NO template classNames anywhere in this file    */
@@ -157,8 +157,8 @@ export function VPNCreate() {
       const server = await createMutation.mutateAsync(payload)
       toast.success(`VPN server "${name}" created`)
       navigate(`/vpn/servers/${server.id}`)
-    } catch {
-      toast.error('Failed to create VPN server')
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
   }
 

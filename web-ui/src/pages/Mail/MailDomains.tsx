@@ -18,6 +18,7 @@ import {
   toast,
 } from '../../components/ui'
 import type { MailDomain } from '../../types'
+import { getErrMsg } from '../../lib/utils'
 
 export function MailDomains() {
   const { selectedInstanceId } = useInstanceStore()
@@ -32,8 +33,8 @@ export function MailDomains() {
       await deleteMutation.mutateAsync(deleteTarget.id)
       toast.success(`Mail domain "${deleteTarget.domain}" deleted`)
       setDeleteTarget(null)
-    } catch {
-      toast.error('Failed to delete mail domain')
+    } catch (e) {
+      toast.error(getErrMsg(e))
     }
   }
 
