@@ -5,13 +5,19 @@ import secrets
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.audit_logger import log_audit
 from shared.database import get_db
 from shared.models import DNSRecord, DNSServer, DNSZone, DNSZoneSlave, Instance
+from utils.agent_client import AgentClientError
+from utils.dns_dispatch import (
+    apply_dns_config,
+    apply_dns_config_task,
+    reload_dns_agent,
+)
 from shared.schemas import (
     BulkRecordImport,
     CreatePTRRequest,
@@ -107,6 +113,32 @@ def _ptr_name_for_zone(ip_address: str, zone_name: str) -> str:
     return relative or "@"
 
 
+def _schedule_apply(background_tasks: BackgroundTasks, instance_id) -> None:
+    """Queue an agent config push after the response is sent (repo pattern)."""
+    if instance_id is not None:
+        background_tasks.add_task(apply_dns_config_task, instance_id)
+
+
+async def _server_instance_id(db: AsyncSession, server_id: int):
+    result = await db.execute(
+        select(DNSServer.instance_id).where(DNSServer.id == server_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _zone_instance_id(db: AsyncSession, zone_id: int):
+    result = await db.execute(
+        select(DNSServer.instance_id)
+        .join(DNSZone, DNSZone.server_id == DNSServer.id)
+        .where(DNSZone.id == zone_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _record_instance_id(db: AsyncSession, record: DNSRecord):
+    return await _zone_instance_id(db, record.zone_id)
+
+
 @router.get("/servers/{instance_id}", response_model=List[DNSServerResponse])
 async def list_servers(
     instance_id: int,
@@ -138,6 +170,7 @@ async def list_servers(
 async def create_server(
     instance_id: int,
     data: DNSServerCreate,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -173,6 +206,7 @@ async def create_server(
         instance_id=instance_id,
     )
     await db.refresh(server)
+    _schedule_apply(background_tasks, instance_id)
     return DNSServerResponse.model_validate(server)
 
 
@@ -199,6 +233,7 @@ async def get_server(
 async def update_server(
     server_id: int,
     data: DNSServerUpdate,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -220,12 +255,14 @@ async def update_server(
         instance_id=server.instance_id,
     )
     await db.refresh(server)
+    _schedule_apply(background_tasks, server.instance_id)
     return DNSServerResponse.model_validate(server)
 
 
 @router.delete("/servers/{server_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_server(
     server_id: int,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -236,6 +273,7 @@ async def delete_server(
     instance_id = server.instance_id
     await db.delete(server)
     await db.commit()
+    _schedule_apply(background_tasks, instance_id)
     await log_audit(
         db=db,
         user_id=user_id,
@@ -250,6 +288,7 @@ async def delete_server(
 async def server_action(
     server_id: int,
     action: str,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -258,14 +297,36 @@ async def server_action(
     if not server:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS server not found")
 
-    allowed = {"start", "stop", "reload"}
+    allowed = {"start", "stop", "reload", "apply"}
     if action not in allowed:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action")
 
+    agent_result = None
     if action == "start":
         server.status = "running"
+        _schedule_apply(background_tasks, server.instance_id)
     elif action == "stop":
         server.status = "stopped"
+    elif action == "apply":
+        try:
+            agent_result = await apply_dns_config(db, server.instance_id)
+            server.status = "running"
+            await db.commit()
+        except AgentClientError as exc:
+            server.status = "error"
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to apply DNS config on agent: {exc}",
+            ) from exc
+    elif action == "reload":
+        try:
+            agent_result = await reload_dns_agent(db, server.instance_id)
+        except AgentClientError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to reload BIND on agent: {exc}",
+            ) from exc
 
     await db.commit()
     await log_audit(
@@ -275,9 +336,9 @@ async def server_action(
         resource_type="dns_server",
         resource_id=server.id,
         instance_id=server.instance_id,
-        new_value={"operation": action},
+        new_value={"operation": action, "agent_result": agent_result},
     )
-    return {"status": "success", "action": action, "server_id": server_id}
+    return {"status": "success", "action": action, "server_id": server_id, "agent_result": agent_result}
 
 
 @router.get("/servers/{server_id}/zones", response_model=List[DNSZoneResponse])
@@ -311,6 +372,7 @@ async def list_zones(
 async def create_zone(
     server_id: int,
     data: DNSZoneCreate,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -360,6 +422,7 @@ async def create_zone(
         instance_id=server.instance_id,
     )
     await db.refresh(zone)
+    _schedule_apply(background_tasks, server.instance_id)
     response = DNSZoneResponse.model_validate(zone)
     response.records_count = 1 if zone.zone_type in {DNSZoneType.MASTER.value, DNSZoneType.SLAVE.value} else 0
     return response
@@ -373,6 +436,7 @@ async def create_zone(
 async def create_reverse_zone(
     server_id: int,
     data: CreateReverseZoneRequest,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -384,7 +448,7 @@ async def create_reverse_zone(
         reverse_network=data.network,
         enabled=True,
     )
-    created = await create_zone(server_id, payload, user_id, db)
+    created = await create_zone(server_id, payload, background_tasks, user_id, db)
 
     zone_result = await db.execute(select(DNSZone).where(DNSZone.id == created.id))
     zone = zone_result.scalar_one_or_none()
@@ -438,6 +502,7 @@ async def get_zone(
 async def update_zone(
     zone_id: int,
     data: DNSZoneUpdate,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -451,6 +516,8 @@ async def update_zone(
     zone.serial = _serial_from_now()
 
     await db.commit()
+    instance_id = await _zone_instance_id(db, zone_id)
+    _schedule_apply(background_tasks, instance_id)
     await log_audit(
         db=db,
         user_id=user_id,
@@ -466,6 +533,7 @@ async def update_zone(
 @router.delete("/zones/{zone_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_zone(
     zone_id: int,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -473,8 +541,10 @@ async def delete_zone(
     zone = result.scalar_one_or_none()
     if not zone:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+    instance_id = await _zone_instance_id(db, zone_id)
     await db.delete(zone)
     await db.commit()
+    _schedule_apply(background_tasks, instance_id)
     await log_audit(
         db=db,
         user_id=user_id,
@@ -488,6 +558,7 @@ async def delete_zone(
 @router.post("/zones/{zone_id}/sign")
 async def sign_zone(
     zone_id: int,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -538,6 +609,7 @@ async def sign_zone(
     zone.dnssec_ds_record = ds
     zone.serial = _serial_from_now()
     await db.commit()
+    _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
     await log_audit(
         db=db,
         user_id=user_id,
@@ -553,6 +625,7 @@ async def sign_zone(
 @router.post("/zones/{zone_id}/unsign")
 async def unsign_zone(
     zone_id: int,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -570,6 +643,7 @@ async def unsign_zone(
         key.rotated_at = datetime.utcnow()
     zone.serial = _serial_from_now()
     await db.commit()
+    _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
     await log_audit(
         db=db,
         user_id=user_id,
@@ -599,6 +673,7 @@ async def list_dnssec_keys(
 async def dnssec_rollover(
     zone_id: int,
     data: DNSSECRolloverRequest,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -646,6 +721,7 @@ async def dnssec_rollover(
     zone.serial = _serial_from_now()
     await db.commit()
     await db.refresh(key)
+    _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
 
     await log_audit(
         db=db,
@@ -676,6 +752,7 @@ async def list_records(
 async def create_record(
     zone_id: int,
     data: DNSRecordCreate,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -702,6 +779,7 @@ async def create_record(
     zone.serial = _serial_from_now()
     await db.commit()
     await db.refresh(record)
+    _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
     return DNSRecordResponse.model_validate(record)
 
 
@@ -709,6 +787,7 @@ async def create_record(
 async def bulk_import_records(
     zone_id: int,
     data: BulkRecordImport,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -740,6 +819,7 @@ async def bulk_import_records(
     await db.commit()
     for record in records:
         await db.refresh(record)
+    _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
     return [DNSRecordResponse.model_validate(record) for record in records]
 
 
@@ -747,6 +827,7 @@ async def bulk_import_records(
 async def create_ptr_record(
     zone_id: int,
     data: CreatePTRRequest,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -781,6 +862,7 @@ async def create_ptr_record(
     zone.serial = _serial_from_now()
     await db.commit()
     await db.refresh(record)
+    _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
     return DNSRecordResponse.model_validate(record)
 
 
@@ -788,6 +870,7 @@ async def create_ptr_record(
 async def update_record(
     record_id: int,
     data: DNSRecordUpdate,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -813,12 +896,14 @@ async def update_record(
         zone.serial = _serial_from_now()
     await db.commit()
     await db.refresh(record)
+    _schedule_apply(background_tasks, await _record_instance_id(db, record))
     return DNSRecordResponse.model_validate(record)
 
 
 @router.delete("/records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_record(
     record_id: int,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -834,10 +919,12 @@ async def delete_record(
 
     zone_result = await db.execute(select(DNSZone).where(DNSZone.id == record.zone_id))
     zone = zone_result.scalar_one_or_none()
+    instance_id = await _record_instance_id(db, record)
     await db.delete(record)
     if zone:
         zone.serial = _serial_from_now()
     await db.commit()
+    _schedule_apply(background_tasks, instance_id)
 
 
 @router.get("/zones/{zone_id}/slaves", response_model=List[DNSZoneSlaveResponse])
@@ -874,6 +961,7 @@ async def list_tsig_keys(
 async def create_tsig_key(
     server_id: int,
     data: DNSTSIGKeyCreate,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -893,6 +981,7 @@ async def create_tsig_key(
     db.add(key)
     await db.commit()
     await db.refresh(key)
+    _schedule_apply(background_tasks, server.instance_id)
 
     await log_audit(
         db=db,
@@ -909,6 +998,7 @@ async def create_tsig_key(
 async def rotate_tsig_key(
     key_id: int,
     data: DNSTSIGKeyRotate,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -923,6 +1013,7 @@ async def rotate_tsig_key(
     key.is_active = True
     await db.commit()
     await db.refresh(key)
+    _schedule_apply(background_tasks, await _server_instance_id(db, key.server_id))
 
     server_result = await db.execute(select(DNSServer).where(DNSServer.id == key.server_id))
     server = server_result.scalar_one_or_none()
@@ -941,6 +1032,7 @@ async def rotate_tsig_key(
 @router.delete("/tsig-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_tsig_key(
     key_id: int,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -952,6 +1044,7 @@ async def delete_tsig_key(
     key.is_active = False
     key.rotated_at = datetime.utcnow()
     await db.commit()
+    _schedule_apply(background_tasks, await _server_instance_id(db, key.server_id))
 
     server_result = await db.execute(select(DNSServer).where(DNSServer.id == key.server_id))
     server = server_result.scalar_one_or_none()
