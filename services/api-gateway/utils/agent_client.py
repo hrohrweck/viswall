@@ -24,14 +24,32 @@ class AgentResponseError(AgentClientError):
         self.status_code = status_code
 
 
-async def get_instance_endpoint(db: AsyncSession, instance_id: int) -> str:
+async def get_instance_endpoint(
+    db: AsyncSession, instance_id: int, service: Optional[str] = None
+) -> str:
+    """Resolve the agent base URL for an instance.
+
+    An instance can host several agents (mail, dns, firewall, ...) on
+    different ports. Per-service endpoints live in
+    Instance.config["agent_endpoints"][service]; anything missing falls back
+    to Instance.api_endpoint.
+    """
+    instance = await _load_instance(db, instance_id)
+    if service:
+        endpoints = (instance.config or {}).get("agent_endpoints") or {}
+        if endpoints.get(service):
+            return endpoints[service].rstrip("/")
+    if not instance.api_endpoint:
+        raise AgentClientError(f"Instance {instance_id} has no api_endpoint configured")
+    return instance.api_endpoint.rstrip("/")
+
+
+async def _load_instance(db: AsyncSession, instance_id: int) -> Instance:
     result = await db.execute(select(Instance).where(Instance.id == instance_id))
     instance = result.scalar_one_or_none()
     if not instance:
         raise AgentClientError(f"Instance {instance_id} not found")
-    if not instance.api_endpoint:
-        raise AgentClientError(f"Instance {instance_id} has no api_endpoint configured")
-    return instance.api_endpoint.rstrip("/")
+    return instance
 
 
 async def agent_request(
@@ -42,9 +60,12 @@ async def agent_request(
     json_data: Optional[Dict[str, Any]] = None,
     params: Optional[Dict[str, Any]] = None,
     timeout: float = DEFAULT_AGENT_TIMEOUT,
+    service: Optional[str] = None,
 ) -> Dict[str, Any]:
-    endpoint = await get_instance_endpoint(db, instance_id)
+    instance = await _load_instance(db, instance_id)
+    endpoint = await get_instance_endpoint(db, instance_id, service=service)
     url = f"{endpoint}{path}"
+    headers = {"X-Instance-Key": instance.api_key}
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
@@ -53,6 +74,7 @@ async def agent_request(
                 url=url,
                 json=json_data,
                 params=params,
+                headers=headers,
             )
             response.raise_for_status()
             return response.json()
