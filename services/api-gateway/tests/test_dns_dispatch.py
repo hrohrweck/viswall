@@ -1,7 +1,5 @@
 """Tests for DNS desired-state composition and gateway→agent dispatch."""
 
-import secrets
-
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
@@ -66,7 +64,7 @@ async def instance():
             name="dispatch-instance",
             hostname="node0.example.local",
             api_endpoint="http://fallback-agent:9000",
-            api_key=secrets.token_urlsafe(24),
+            api_key="placeholder-inst-key",
             status="active",
             capabilities=["dns"],
             config={"agent_endpoints": {"dns": "http://dns-agent:8082"}},

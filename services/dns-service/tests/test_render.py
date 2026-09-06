@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import secrets
-
 from viswall_dns_agent.payloads import (
     DNSRecordPayload,
     DNSZonePayload,
@@ -158,14 +155,13 @@ def test_render_zone_block_when_slave_with_tsig() -> None:
 
 
 def test_render_local_text_contains_tsig_and_zones_only() -> None:
-    secret_value = base64.b64encode(secrets.token_bytes(24)).decode("ascii")
     payload = _server(
-        tsig_keys=[TSIGKeyPayload(id=1, name="axfr-key", secret=secret_value)]
+        tsig_keys=[TSIGKeyPayload(id=1, name="axfr-key", secret="placeholder-secret-01")]
     )
     text = render_local_text(payload, [render_zone_block(_zone(), "/tmp/z.db", None)])
     assert 'key "axfr-key" {' in text
     assert "algorithm hmac-sha256;" in text
-    assert f'secret "{secret_value}";' in text
+    assert 'secret "placeholder-secret-01";' in text
     assert 'zone "example.com" {' in text
     # the local file must never carry an options block (double-include bug)
     assert "options {" not in text
