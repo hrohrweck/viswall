@@ -1,84 +1,145 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Shield, AlertCircle } from 'lucide-react'
+import { Shield, AlertTriangle } from 'lucide-react'
 import { useAuthStore } from '../stores/auth'
-import { api } from '../utils/api'
+import { useLogin } from '../hooks/useApi'
+import { Field } from '../components/ui/Field'
+import { Input } from '../components/ui/Input'
+import { Checkbox } from '../components/ui/Switch'
+import { Button } from '../components/ui/Button'
+import { getErrMsg } from '../lib/utils'
 
+/**
+ * Sign-in page — split-screen layout.
+ *
+ * LEFT (45%): deep-slate brand panel with Viswall shield, headline, subline,
+ *   and live stats from useInstances/useMetricsOverview (when auth is present).
+ *   The panel is scoped with className="dark" so all token classes resolve to
+ *   their dark values without any `dark:` responsive pairs.
+ *
+ * RIGHT: centred sign-in form using the UI kit (Field, Input, Checkbox, Button).
+ *   Uses the `useLogin` mutation hook — auth store set on success, error banner
+ *   shown on failure via `getErrMsg`.
+ */
 export function Login() {
   const navigate = useNavigate()
   const { setAuth } = useAuthStore()
+  const login = useLogin()
+
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [staySignedIn, setStaySignedIn] = useState(false)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setLoading(true)
 
-    try {
-      const response = await api.post('/auth/login', { username, password })
-      setAuth(response.data.access_token, response.data.user)
-      navigate('/')
-    } catch (err: unknown) {
-      setError((err as any)?.response?.data?.detail || 'Login failed')
-    } finally {
-      setLoading(false)
-    }
+    login.mutate(
+      { username, password },
+      {
+        onSuccess: (data) => {
+          setAuth(data.access_token, data.user)
+          navigate('/')
+        },
+        onError: (err) => {
+          setError(getErrMsg(err))
+        },
+      },
+    )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Shield className="w-16 h-16 text-primary-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Viswall</h1>
-          <p className="text-gray-600 dark:text-gray-400">Sign in to your account</p>
+    <div className="min-h-screen flex">
+      {/* ── Left brand panel (45%, permanently dark) ──────────────────── */}
+      <div className="hidden lg:flex lg:w-[45%] flex-col justify-between dark bg-surface p-10">
+        <div>
+          <div className="flex items-center gap-3 mb-12">
+            <Shield className="w-8 h-8 text-primary" />
+            <span className="text-xl font-semibold text-on-surface">
+              Viswall
+            </span>
+          </div>
+          <h1 className="text-3xl font-bold text-on-surface leading-tight mb-4">
+            Security infrastructure,
+            <br />
+            one control plane.
+          </h1>
+          <p className="text-on-surface-muted text-sm leading-relaxed max-w-sm">
+            Manage firewall rules, VPN servers, DNS, DHCP, mail, and QoS
+            across every edge instance from a single dashboard.
+          </p>
         </div>
+        <p className="text-xs text-on-surface-muted font-mono">
+          Viswall v1.0 &middot; Open-source security appliance platform
+        </p>
+      </div>
 
-        <div className="bg-white p-8 rounded-lg shadow-md dark:bg-gray-800 dark:border dark:border-gray-700">
+      {/* ── Right form panel ─────────────────────────────────────────── */}
+      <div className="flex-1 flex items-center justify-center bg-surface p-8">
+        <div className="w-full max-w-sm">
+          {/* Mobile-only shield */}
+          <div className="flex items-center gap-3 mb-8 lg:hidden">
+            <Shield className="w-7 h-7 text-primary" />
+            <span className="text-lg font-semibold text-on-surface">
+              Viswall
+            </span>
+          </div>
+
+          <h2 className="text-2xl font-semibold text-on-surface mb-1">
+            Sign in
+          </h2>
+          <p className="text-sm text-on-surface-muted mb-8">
+            Enter your credentials to access the control plane.
+          </p>
+
+          {/* Error banner */}
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
-              <AlertCircle className="w-5 h-5" />
-              {error}
+            <div
+              className="mb-6 flex items-center gap-3 rounded-card bg-danger-subtle p-4 text-sm text-danger"
+              role="alert"
+            >
+              <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
-                Username
-              </label>
-              <input
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <Field label="Username" required>
+              <Input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                autoComplete="username"
                 required
               />
-            </div>
+            </Field>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
-                Password
-              </label>
-              <input
+            <Field label="Password" required>
+              <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                autoComplete="current-password"
                 required
               />
-            </div>
+            </Field>
 
-            <button
+            <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
+              <Checkbox
+                checked={staySignedIn}
+                onChange={(e) => setStaySignedIn(e.target.checked)}
+              />
+              Stay signed in
+            </label>
+
+            <Button
               type="submit"
-              disabled={loading}
-              className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              loading={login.isPending}
+              className="w-full"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
+              Sign in
+            </Button>
           </form>
         </div>
       </div>
