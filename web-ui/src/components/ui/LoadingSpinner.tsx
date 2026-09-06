@@ -1,3 +1,5 @@
+import { Skeleton } from './Skeleton'
+
 export function LoadingSpinner({ className = '' }: { className?: string }) {
   return (
     <div className={`flex items-center justify-center py-12 ${className}`}>
@@ -8,19 +10,19 @@ export function LoadingSpinner({ className = '' }: { className?: string }) {
 
 export function PageSkeleton() {
   return (
-    <div className="animate-pulse space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="h-8 w-48 bg-gray-200 dark:bg-gray-800 rounded" />
-        <div className="h-10 w-32 bg-gray-200 dark:bg-gray-800 rounded-lg" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-32 rounded-lg" />
       </div>
-      <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+      <div className="bg-surface-card rounded-card border border-border">
         <div className="p-6 space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gray-200 dark:bg-gray-800 rounded-lg" />
+              <Skeleton className="w-10 h-10 rounded-lg" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/3" />
-                <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-1/4" />
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-3 w-1/4" />
               </div>
             </div>
           ))}

@@ -1,5 +1,7 @@
 import { type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { cn } from '../../lib/utils'
+import { Button, buttonVariants } from './Button'
 
 interface EmptyStateProps {
   icon: LucideIcon
@@ -8,29 +10,22 @@ interface EmptyStateProps {
   actionLabel?: string
   actionTo?: string
   onAction?: () => void
+  className?: string
 }
 
-export function EmptyState({ icon: Icon, title, description, actionLabel, actionTo, onAction }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, actionLabel, actionTo, onAction, className }: EmptyStateProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+    <div className={cn('bg-surface-card rounded-card border border-border', className)}>
       <div className="p-12 text-center">
-        <Icon className="w-16 h-16 text-gray-300 mx-auto mb-4 dark:text-gray-600" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2 dark:text-white">{title}</h3>
-        <p className="text-gray-600 mb-6 dark:text-gray-400">{description}</p>
+        <Icon className="w-16 h-16 text-on-surface-muted mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-on-surface mb-2">{title}</h3>
+        <p className="text-on-surface-muted mb-6">{description}</p>
         {actionLabel && (actionTo ? (
-          <Link
-            to={actionTo}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-          >
+          <Link to={actionTo} className={cn(buttonVariants({ variant: 'primary' }))}>
             {actionLabel}
           </Link>
         ) : onAction ? (
-          <button
-            onClick={onAction}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-          >
-            {actionLabel}
-          </button>
+          <Button onClick={onAction}>{actionLabel}</Button>
         ) : null)}
       </div>
     </div>
