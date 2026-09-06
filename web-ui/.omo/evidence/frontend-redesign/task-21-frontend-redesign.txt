@@ -1,0 +1,47 @@
+## Task 21 — DNS Management Redesign
+
+**Date**: 2026-09-06
+**Status**: DONE
+
+### Files Changed
+
+| File | Lines | Action |
+|------|-------|--------|
+| `src/pages/DNS/DNSServers.tsx` | 555 | Rewritten (was 520) |
+| `src/components/forms/DNSServerForm.tsx` | 69 | NEW |
+| `src/components/forms/DNSZoneForm.tsx` | 61 | NEW |
+| `src/components/forms/DNSRecordForm.tsx` | 71 | NEW |
+| `src/test/pages-dns.test.tsx` | 263 | NEW |
+
+### Changes Summary
+
+- **Instance-notice pattern**: EmptyState + InstanceSelector when no instance selected
+- **PageHeader**: title + description + primary "New DNS Server" Button
+- **3-pane layout**: `grid grid-cols-1 lg:grid-cols-3 gap-6` — Servers, Zones, Records
+- **Card components**: Each pane uses Card with title/actions/padding="p-0"
+- **Servers pane**: List with StatusBadge + IconButton actions (Start/Stop/Reload/Delete)
+- **ConfirmDialog on all server actions**: Start, Stop, Reload each open a warning ConfirmDialog before firing mutation (adversarial: misleading_success_output — previously fired directly)
+- **ConfirmDialog on deletes**: Server (danger, impact text), Zone, Record
+- **Toasts**: `toast.success()` on all mutation success (create server/zone/record, delete server/zone/record, server action)
+- **Per-pane loading/error**: Skeleton/SkeletonText per pane while loading; QueryError with retry on error
+- **Zones pane**: Search input filters zones list
+- **Records pane**: Name mono, Type Badge, TTL mono, Content mono truncated; Delete with ConfirmDialog
+- **Forms extracted**: 3 inline forms → `src/components/forms/*.tsx` using kit Field/Input/Select/Checkbox/Button
+- **Form payloads unchanged**: Same DNSServerCreate, DNSZoneCreate, DNSRecordCreate shapes
+
+### Tests (7 passing)
+
+1. Start server opens ConfirmDialog before firing mutation
+2. Stop server opens ConfirmDialog before firing mutation
+3. Reload server opens ConfirmDialog before firing mutation
+4. Selecting a zone loads records pane
+5. Zone search filters zones list
+6. Create Server form submits expected payload shape
+7. Delete zone opens ConfirmDialog
+
+### Gates
+
+- **Type-check**: 0 DNS-related errors (pre-existing VPN errors in VPNServerDetail.tsx)
+- **Lint**: 0 errors on changed files
+- **test:ci**: 7/7 DNS tests pass; 3 pre-existing msw-smoke failures (Login page, unrelated)
+- **No build/playwright**: per task constraints
