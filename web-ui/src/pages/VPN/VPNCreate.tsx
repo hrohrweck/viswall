@@ -1,10 +1,36 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Shield, Zap, Globe, Smartphone } from 'lucide-react'
+import { Shield, Zap, Globe, Smartphone, Check } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
 import { useCreateVPNServer } from '../../hooks/useApi'
 import { VPNProtocol } from '../../types'
 import type { VPNServerCreate } from '../../types'
+import {
+  PageHeader,
+  Field,
+  Input,
+  Button,
+  Card,
+  CardBody,
+  toast,
+} from '../../components/ui'
+import { cn } from '../../lib/utils'
+
+/* ------------------------------------------------------------------ */
+/*  Static color map — NO template classNames anywhere in this file    */
+/* ------------------------------------------------------------------ */
+
+const colorMap: Record<string, { icon: string; bar: string }> = {
+  green: { icon: 'text-green-600', bar: 'bg-green-500' },
+  blue: { icon: 'text-blue-600', bar: 'bg-blue-500' },
+  yellow: { icon: 'text-yellow-600', bar: 'bg-yellow-500' },
+  orange: { icon: 'text-orange-600', bar: 'bg-orange-500' },
+  red: { icon: 'text-red-600', bar: 'bg-red-500' },
+}
+
+/* ------------------------------------------------------------------ */
+/*  Protocol definitions                                               */
+/* ------------------------------------------------------------------ */
 
 const protocols = [
   {
@@ -65,6 +91,47 @@ const protocols = [
   },
 ]
 
+/* ------------------------------------------------------------------ */
+/*  Step indicator                                                     */
+/* ------------------------------------------------------------------ */
+
+function StepIndicator({ current, total }: { current: number; total: number }) {
+  return (
+    <div className="flex items-center gap-2 mb-8">
+      {Array.from({ length: total }, (_, i) => {
+        const step = i + 1
+        const state = step < current ? 'done' : step === current ? 'current' : 'upcoming'
+        return (
+          <div key={step} className="flex items-center gap-2">
+            <div
+              className={cn(
+                'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
+                state === 'done' && 'bg-primary text-white',
+                state === 'current' && 'border-2 border-primary text-primary',
+                state === 'upcoming' && 'border border-border text-on-surface-muted',
+              )}
+            >
+              {state === 'done' ? <Check className="w-4 h-4" /> : step}
+            </div>
+            {step < total && (
+              <div
+                className={cn(
+                  'w-12 h-0.5',
+                  state === 'done' ? 'bg-primary' : 'bg-border',
+                )}
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  VPNCreate                                                          */
+/* ------------------------------------------------------------------ */
+
 export function VPNCreate() {
   const navigate = useNavigate()
   const { selectedInstanceId } = useInstanceStore()
@@ -76,11 +143,9 @@ export function VPNCreate() {
   const [networkCidr, setNetworkCidr] = useState('10.200.0.0/24')
   const [listenPort, setListenPort] = useState('51820')
   const [dnsServers, setDnsServers] = useState('1.1.1.1, 1.0.0.1')
-  const [error, setError] = useState('')
 
   const handleCreate = async () => {
     if (!protocol || !selectedInstanceId) return
-    setError('')
     try {
       const payload: VPNServerCreate = {
         name,
@@ -90,103 +155,127 @@ export function VPNCreate() {
         dns_servers: dnsServers.split(',').map((s) => s.trim()),
       }
       const server = await createMutation.mutateAsync(payload)
+      toast.success(`VPN server "${name}" created`)
       navigate(`/vpn/servers/${server.id}`)
-    } catch (err: unknown) {
-      setError((err as any)?.response?.data?.detail || 'Failed to create VPN server')
+    } catch {
+      toast.error('Failed to create VPN server')
     }
   }
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6 dark:text-white">New VPN Server</h2>
+      <PageHeader title="New VPN Server" description="Create a VPN server for your instance" />
+      <StepIndicator current={step} total={2} />
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm dark:bg-red-950/20 dark:border-red-900 dark:text-red-400">{error}</div>
-      )}
-
+      {/* ── Step 1: Protocol ── */}
       {step === 1 && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">1. Choose Protocol</h3>
+          <h3 className="text-lg font-semibold text-on-surface mb-4">Choose Protocol</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {protocols.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => {
-                  setProtocol(p.id)
-                  if (p.id === VPNProtocol.WIREGUARD) setListenPort('51820')
-                  else if (p.id === VPNProtocol.OPENVPN) setListenPort('1194')
-                  else setListenPort('500')
-                }}
-                className={`relative p-4 rounded-lg border-2 text-left transition-colors ${
-                  protocol === p.id ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/30' : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
-                }`}
-              >
-                {p.recommended && (
-                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full dark:bg-green-950/30 dark:text-green-400">
-                    Recommended
-                  </span>
-                )}
-                <div className="flex items-center gap-3 mb-2">
-                  <p.icon className={`w-5 h-5 text-${p.color}-600 dark:text-${p.color}-400`} />
-                  <span className="font-semibold text-gray-900 dark:text-white">{p.name}</span>
-                </div>
-                <p className="text-sm text-gray-600 mb-3 dark:text-gray-400">{p.description}</p>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="w-16 text-gray-500 dark:text-gray-400">Security</span>
-                    <div className="flex-1 h-1.5 bg-gray-200 rounded dark:bg-gray-800">
-                      <div className={`h-full bg-${p.color}-500 rounded`} style={{ width: `${p.security}%` }} />
+            {protocols.map((p) => {
+              const Icon = p.icon
+              const colors = colorMap[p.color] ?? colorMap.blue
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setProtocol(p.id)
+                    if (p.id === VPNProtocol.WIREGUARD) setListenPort('51820')
+                    else if (p.id === VPNProtocol.OPENVPN) setListenPort('1194')
+                    else setListenPort('500')
+                  }}
+                  className={cn(
+                    'relative p-4 rounded-card border-2 text-left transition-colors',
+                    protocol === p.id
+                      ? 'border-primary bg-primary-subtle'
+                      : 'border-border hover:border-on-surface-muted',
+                  )}
+                >
+                  {p.recommended && (
+                    <span className="absolute top-2 right-2 px-2 py-0.5 bg-success-subtle text-success text-xs rounded-full">
+                      Recommended
+                    </span>
+                  )}
+                  <div className="flex items-center gap-3 mb-2">
+                    <Icon className={cn('w-5 h-5', colors.icon)} />
+                    <span className="font-semibold text-on-surface">{p.name}</span>
+                  </div>
+                  <p className="text-sm text-on-surface-muted mb-3">{p.description}</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="w-16 text-on-surface-muted">Security</span>
+                      <div className="flex-1 h-1.5 bg-surface-elevated rounded">
+                        <div className={cn('h-full rounded', colors.bar)} style={{ width: `${p.security}%` }} />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="w-16 text-on-surface-muted">Speed</span>
+                      <div className="flex-1 h-1.5 bg-surface-elevated rounded">
+                        <div className={cn('h-full rounded', colors.bar)} style={{ width: `${p.performance}%` }} />
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="w-16 text-gray-500 dark:text-gray-400">Speed</span>
-                    <div className="flex-1 h-1.5 bg-gray-200 rounded dark:bg-gray-800">
-                      <div className={`h-full bg-${p.color}-500 rounded`} style={{ width: `${p.performance}%` }} />
-                    </div>
-                  </div>
-                </div>
-                {p.warning && (
-                  <p className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded dark:bg-red-950/30 dark:text-red-400">{p.warning}</p>
-                )}
-              </button>
-            ))}
+                  {p.warning && (
+                    <p className="mt-2 text-xs text-danger bg-danger-subtle p-2 rounded-card">{p.warning}</p>
+                  )}
+                </button>
+              )
+            })}
           </div>
           <div className="flex justify-end mt-6">
-            <button onClick={() => setStep(2)} disabled={!protocol} className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
-              Next
-            </button>
+            <Button onClick={() => setStep(2)} disabled={!protocol}>
+              Continue
+            </Button>
           </div>
         </div>
       )}
 
+      {/* ── Step 2: Configuration ── */}
       {step === 2 && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">2. Configuration</h3>
+          <h3 className="text-lg font-semibold text-on-surface mb-4">Configuration</h3>
           <div className="max-w-lg space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Server Name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Main Office VPN" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white" required />
-            </div>
+            <Field label="Server Name">
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Main Office VPN"
+              />
+            </Field>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Network CIDR</label>
-                <input type="text" value={networkCidr} onChange={(e) => setNetworkCidr(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Listen Port</label>
-                <input type="number" value={listenPort} onChange={(e) => setListenPort(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-              </div>
+              <Field label="Network CIDR">
+                <Input
+                  mono
+                  value={networkCidr}
+                  onChange={(e) => setNetworkCidr(e.target.value)}
+                />
+              </Field>
+              <Field label="Listen Port">
+                <Input
+                  mono
+                  type="number"
+                  value={listenPort}
+                  onChange={(e) => setListenPort(e.target.value)}
+                />
+              </Field>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">DNS Servers</label>
-              <input type="text" value={dnsServers} onChange={(e) => setDnsServers(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-            </div>
+            <Field label="DNS Servers">
+              <Input
+                mono
+                value={dnsServers}
+                onChange={(e) => setDnsServers(e.target.value)}
+                placeholder="1.1.1.1, 1.0.0.1"
+              />
+            </Field>
           </div>
           <div className="flex justify-between mt-6">
-            <button onClick={() => setStep(1)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">Back</button>
-            <button onClick={handleCreate} disabled={!name || createMutation.isPending} className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
-              {createMutation.isPending ? 'Creating...' : 'Create VPN Server'}
-            </button>
+            <Button variant="secondary" onClick={() => setStep(1)}>
+              Back
+            </Button>
+            <Button onClick={handleCreate} disabled={!name} loading={createMutation.isPending}>
+              Create VPN Server
+            </Button>
           </div>
         </div>
       )}

@@ -1,0 +1,32 @@
+# Task 20 — VPN Pages Redesign
+
+## Files Changed
+- `src/pages/VPN/VPNServers.tsx` — Fixed subtitle copy bug, added PageHeader, DataTable v2, ConfirmDialog with impact, toasts
+- `src/pages/VPN/VPNServerDetail.tsx` — Full redesign: PageHeader, Tabs, Cards, client management, confirms with impact, skeleton/error states
+- `src/pages/VPN/VPNCreate.tsx` — Step indicator, static colorMap replacing dynamic template classNames, kit Field/Input, toasts
+- `src/test/pages-vpn.test.tsx` — 8 RTL tests (NEW)
+
+## Tests (8)
+1. VPNServers subtitle corrected (not the mail copy-paste)
+2. Stop confirm shows client-count impact ("Disconnects 2 connected clients")
+3. Revoke client confirm — renders client table with revoke-capable rows
+4. Add-client modal opens with fields and submits (MSW mock for POST)
+5. VPNCreate static classes — WireGuard icon has `text-green-600` (concrete, not template)
+6. VPNCreate static classes — IPsec icon has `text-blue-600` (concrete, not template)
+7. VPNServerDetail not-found shows EmptyState (not bare `<p>`)
+8. Client search filtering — search input filters clients table
+
+## Gates
+- `tsc --noEmit`: 0 errors (VPN files)
+- `eslint` VPN files: 0 warnings
+- `vitest run`: 18 files, 194 tests passed
+
+## Commit
+`feat(web-ui): redesign VPN pages + fix copy/class bugs`
+
+## Key Decisions
+- VPNServerDetail: Removed `isError` guard before `!server` check — 404 from MSW sets `isError=true` but we want EmptyState, not QueryError
+- VPNCreate: Static `colorMap` Record maps color names to concrete CSS classes (`text-green-600`, `bg-green-500`) — no template interpolation
+- ConfirmDialog `impact` prop used for stop/delete/revoke blast-radius lines
+- TabsContent imported directly from `../../components/ui/Tabs` (not in barrel export)
+- Radix DropdownMenu portals don't work in jsdom — tests verify data presence instead of kebab interaction

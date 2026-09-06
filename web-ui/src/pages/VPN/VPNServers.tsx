@@ -1,131 +1,162 @@
-import { Link } from 'react-router-dom'
-import { Plus, Shield, Network } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Plus, Network } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
 import { useVPNServers, useDeleteVPNServer } from '../../hooks/useApi'
-import { InstanceSelector, StatusBadge, ProtocolBadge, EmptyState, LoadingSpinner, ConfirmDialog } from '../../components/ui'
-import { useState } from 'react'
+import {
+  InstanceSelector,
+  VPNStatusBadge,
+  ProtocolBadge,
+  EmptyState,
+  PageHeader,
+  DataTable,
+  ConfirmDialog,
+  QueryError,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  buttonVariants,
+  toast,
+} from '../../components/ui'
 import type { VPNServer } from '../../types'
 import { formatBytes } from '../../utils/format'
 
 export function VPNServers() {
   const { selectedInstanceId } = useInstanceStore()
-  const { data: servers, isLoading } = useVPNServers(selectedInstanceId!)
+  const navigate = useNavigate()
+  const { data: servers, isLoading, isError, refetch } = useVPNServers(selectedInstanceId!)
   const deleteMutation = useDeleteVPNServer(selectedInstanceId!)
   const [deleteTarget, setDeleteTarget] = useState<VPNServer | null>(null)
 
   const handleDelete = async () => {
-    if (deleteTarget) {
+    if (!deleteTarget) return
+    try {
       await deleteMutation.mutateAsync(deleteTarget.id)
+      toast.success(`VPN server "${deleteTarget.name}" deleted`)
       setDeleteTarget(null)
+    } catch {
+      toast.error('Failed to delete VPN server')
     }
   }
 
   if (!selectedInstanceId) {
     return (
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">VPN Servers</h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage email domains, users, and security settings</p>
-          </div>
-        </div>
+        <PageHeader
+          title="VPN Servers"
+          description="WireGuard, IPsec and OpenVPN servers across your instances"
+        />
         <EmptyState icon={Network} title="Select an Instance" description="Choose an instance to manage VPN servers." />
         <div className="mt-4"><InstanceSelector /></div>
       </div>
     )
   }
 
-  if (isLoading) return <LoadingSpinner />
+  const columns = [
+    {
+      key: 'name',
+      header: 'Server',
+      render: (server: VPNServer) => (
+        <div className="flex items-center gap-3">
+          <ProtocolBadge protocol={server.protocol} />
+          <div>
+            <p className="font-medium text-on-surface">{server.name}</p>
+            <p className="text-xs text-on-surface-muted capitalize">{server.protocol}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'listen_port',
+      header: 'Port',
+      className: 'font-mono',
+      render: (server: VPNServer) => (
+        <span className="font-mono text-sm">{server.listen_port ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'network_cidr',
+      header: 'Tunnel network',
+      className: 'font-mono',
+      render: (server: VPNServer) => (
+        <span className="font-mono text-sm">{server.network_cidr}</span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (server: VPNServer) => <VPNStatusBadge status={server.status} />,
+    },
+    {
+      key: 'connected_clients',
+      header: 'Clients',
+      render: (server: VPNServer) => (
+        <span className="text-sm">{server.connected_clients}</span>
+      ),
+    },
+    {
+      key: 'traffic',
+      header: 'Traffic',
+      render: (server: VPNServer) => (
+        <span className="font-mono text-sm">
+          ↑{formatBytes(server.bytes_sent)} ↓{formatBytes(server.bytes_received)}
+        </span>
+      ),
+    },
+  ]
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">VPN Servers</h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage WireGuard, IPsec, OpenVPN, and legacy protocols</p>
-          </div>
-          <InstanceSelector />
-        </div>
-        <Link
-          to="/vpn/create"
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-        >
-          <Plus className="w-5 h-5" />
-          New VPN Server
-        </Link>
+      <PageHeader
+        title="VPN Servers"
+        description="WireGuard, IPsec and OpenVPN servers across your instances"
+        primaryAction={
+          <Link to="/vpn/create" className={buttonVariants()}>
+            <Plus className="w-4 h-4" />
+            New VPN Server
+          </Link>
+        }
+      />
+
+      <div className="mt-6 mb-6">
+        <InstanceSelector />
       </div>
 
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg mb-6 border border-blue-100 dark:from-blue-950/20 dark:to-indigo-950/20 dark:border-blue-900">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-blue-100 rounded-lg dark:bg-gray-800">
-            <Shield className="w-6 h-6 text-blue-700 dark:text-blue-400" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-blue-900 dark:text-blue-200">Recommended: WireGuard</h3>
-            <p className="text-blue-800 text-sm mt-1 dark:text-blue-300">
-              Modern, fast, and secure. WireGuard uses state-of-the-art cryptography
-              and is recommended for all new deployments.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {servers && servers.length > 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {servers.map((server) => (
-              <Link
-                key={server.id}
-                to={`/vpn/servers/${server.id}`}
-                className="p-6 hover:bg-gray-50 flex items-center justify-between group dark:hover:bg-gray-800"
-              >
-                <div className="flex items-center gap-4">
-                  <ProtocolBadge protocol={server.protocol} />
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{server.name}</h3>
-                    <div className="flex items-center gap-3 text-sm text-gray-600 mt-1 dark:text-gray-400">
-                      <span className="capitalize">{server.protocol}</span>
-                      <span>•</span>
-                      <span>Port {server.listen_port}</span>
-                      <span>•</span>
-                      <span>{server.network_cidr}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-6">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {server.connected_clients} connected
-                  </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatBytes(server.bytes_received + server.bytes_sent)}
-                  </span>
-                  <span className="text-sm text-gray-600">
-                    {formatBytes(server.bytes_received + server.bytes_sent)}
-                  </span>
-                  <StatusBadge status={server.status} />
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setDeleteTarget(server)
-                    }}
-                    className="text-sm text-red-600 hover:text-red-700 opacity-0 group-hover:opacity-100"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+      {isError ? (
+        <QueryError onRetry={() => refetch()} />
       ) : (
-        <EmptyState
-          icon={Network}
-          title="No VPN servers"
-          description="Create your first VPN server to enable remote access."
-          actionLabel="Create VPN Server"
-          actionTo="/vpn/create"
+        <DataTable
+          columns={columns}
+          data={servers ?? []}
+          keyExtractor={(s) => s.id}
+          isLoading={isLoading}
+          onRowClick={(server) => navigate(`/vpn/servers/${server.id}`)}
+          rowActions={(server) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger />
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => navigate(`/vpn/servers/${server.id}`)}>
+                  View
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  danger
+                  onClick={() => setDeleteTarget(server)}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          emptyContent={
+            <EmptyState
+              icon={Network}
+              title="No VPN servers"
+              description="Create your first VPN server to enable remote access."
+              actionLabel="Create VPN Server"
+              actionTo="/vpn/create"
+            />
+          }
         />
       )}
 
@@ -134,7 +165,8 @@ export function VPNServers() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Delete VPN Server"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? All connected clients will be disconnected.`}
+        message={`Are you sure you want to delete "${deleteTarget?.name}"?`}
+        impact={`Disconnects ${deleteTarget?.connected_clients ?? 0} connected clients.`}
         loading={deleteMutation.isPending}
       />
     </div>
