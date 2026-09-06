@@ -286,8 +286,9 @@ function NATRuleForm({ onSubmit, onCancel, isSubmitting }: NATRuleFormProps) {
         </Field>
       </div>
 
-      <label className="flex items-center gap-2 cursor-pointer">
+      <label htmlFor="nat-rule-enabled" className="flex items-center gap-2 cursor-pointer">
         <Checkbox
+          id="nat-rule-enabled"
           checked={formData.enabled}
           onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
         />

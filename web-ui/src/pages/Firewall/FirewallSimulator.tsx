@@ -216,8 +216,9 @@ export function FirewallSimulator() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Source IP</label>
+                <label htmlFor="sim-src-ip" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Source IP</label>
                 <input
+                  id="sim-src-ip"
                   type="text"
                   value={packet.src_ip}
                   onChange={(e) => setPacket({ ...packet, src_ip: e.target.value })}
@@ -225,8 +226,9 @@ export function FirewallSimulator() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Dest IP</label>
+                <label htmlFor="sim-dst-ip" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Dest IP</label>
                 <input
+                  id="sim-dst-ip"
                   type="text"
                   value={packet.dst_ip}
                   onChange={(e) => setPacket({ ...packet, dst_ip: e.target.value })}
@@ -237,8 +239,9 @@ export function FirewallSimulator() {
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Protocol</label>
+                <label htmlFor="sim-protocol" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Protocol</label>
                 <select
+                  id="sim-protocol"
                   value={packet.protocol}
                   onChange={(e) => setPacket({ ...packet, protocol: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
@@ -249,8 +252,9 @@ export function FirewallSimulator() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Src Port</label>
+                <label htmlFor="sim-src-port" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Src Port</label>
                 <input
+                  id="sim-src-port"
                   type="number"
                   value={packet.src_port}
                   onChange={(e) => setPacket({ ...packet, src_port: parseInt(e.target.value) })}
@@ -258,8 +262,9 @@ export function FirewallSimulator() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Dst Port</label>
+                <label htmlFor="sim-dst-port" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Dst Port</label>
                 <input
+                  id="sim-dst-port"
                   type="number"
                   value={packet.dst_port}
                   onChange={(e) => setPacket({ ...packet, dst_port: parseInt(e.target.value) })}
@@ -270,8 +275,9 @@ export function FirewallSimulator() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">In Interface</label>
+                <label htmlFor="sim-interface-in" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">In Interface</label>
                 <select
+                  id="sim-interface-in"
                   value={packet.interface_in}
                   onChange={(e) => setPacket({ ...packet, interface_in: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
@@ -281,8 +287,9 @@ export function FirewallSimulator() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Conn State</label>
+                <label htmlFor="sim-conn-state" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Conn State</label>
                 <select
+                  id="sim-conn-state"
                   value={packet.connection_state}
                   onChange={(e) => setPacket({ ...packet, connection_state: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
@@ -316,7 +323,7 @@ export function FirewallSimulator() {
                 className="w-full h-full"
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-600">
+              <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
                 Configure packet and click "Run Simulation"
               </div>
             )}

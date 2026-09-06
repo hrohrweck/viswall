@@ -125,8 +125,9 @@ export function Login() {
               />
             </Field>
 
-            <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
+            <label htmlFor="stay-signed-in" className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
               <Checkbox
+                id="stay-signed-in"
                 checked={staySignedIn}
                 onChange={(e) => setStaySignedIn(e.target.checked)}
               />

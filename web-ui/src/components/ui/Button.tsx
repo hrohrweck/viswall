@@ -23,13 +23,13 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          'bg-primary text-white hover:bg-primary-hover',
+          'bg-primary text-primary-fg hover:bg-primary-hover',
         secondary:
           'bg-surface-card text-on-surface border border-border hover:bg-surface-elevated',
         ghost:
           'text-on-surface hover:bg-surface-elevated',
         destructive:
-          'bg-danger text-white hover:bg-danger/90',
+          'bg-danger text-danger-fg hover:bg-danger/90',
       },
       size: {
         sm: 'h-8 px-3 text-sm',

@@ -47,6 +47,12 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-3 focus:left-3 focus:px-4 focus:py-2 focus:rounded-card focus:bg-primary focus:text-primary-fg focus:text-sm focus:font-medium focus:shadow-lg"
+      >
+        Skip to content
+      </a>
       <Header />
       <div className="flex flex-1">
         {!isDesktop && mobileOpen && (

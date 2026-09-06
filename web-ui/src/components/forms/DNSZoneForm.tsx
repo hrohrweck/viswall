@@ -56,8 +56,8 @@ export function DNSZoneForm({ zoneTypeOptions, loading, onSubmit }: DNSZoneFormP
           ))}
         </Select>
       </Field>
-      <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-        <Checkbox {...register('dnssec_enabled')} />
+      <label htmlFor="dns-zone-dnssec" className="inline-flex items-center gap-2 text-sm cursor-pointer">
+        <Checkbox id="dns-zone-dnssec" {...register('dnssec_enabled')} />
         Enable DNSSEC
       </label>
       <div className="flex justify-end">

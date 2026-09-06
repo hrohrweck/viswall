@@ -70,18 +70,18 @@ export function DHCPServerForm({ loading, onSubmit }: DHCPServerFormProps) {
       </Field>
 
       <div className="flex items-center gap-6">
-        <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-          <Checkbox {...register('dhcpv4_enabled')} />
+        <label htmlFor="dhcp-server-dhcpv4" className="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <Checkbox id="dhcp-server-dhcpv4" {...register('dhcpv4_enabled')} />
           DHCPv4
         </label>
-        <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-          <Checkbox {...register('dhcpv6_enabled')} />
+        <label htmlFor="dhcp-server-dhcpv6" className="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <Checkbox id="dhcp-server-dhcpv6" {...register('dhcpv6_enabled')} />
           DHCPv6
         </label>
       </div>
 
-      <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-        <Checkbox {...register('ha_enabled')} />
+      <label htmlFor="dhcp-server-ha" className="inline-flex items-center gap-2 text-sm cursor-pointer">
+        <Checkbox id="dhcp-server-ha" {...register('ha_enabled')} />
         Enable HA
       </label>
 

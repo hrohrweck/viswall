@@ -218,39 +218,42 @@ export function DHCPServers() {
           ) : servers && servers.length > 0 ? (
             <div className="divide-y divide-border">
               {servers.map((server) => (
-                <button
+                <div
                   key={server.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedServer(server)
-                    setSelectedSubnet(null)
-                  }}
                   className={cn(
-                    'w-full text-left px-5 py-3 hover:bg-surface-elevated transition-colors',
+                    'flex items-center gap-1',
                     selectedServer?.id === server.id &&
                       'bg-primary/5 border-l-2 border-l-primary',
                   )}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-on-surface truncate">
-                      {server.name}
-                    </span>
-                    <StatusBadge status={server.status} />
-                  </div>
-                  <div className="mt-1 text-xs text-on-surface-muted">
-                    {server.subnets_count} subnets ·{' '}
-                    {server.dhcpv4_enabled ? 'v4' : ''}
-                    {server.dhcpv4_enabled && server.dhcpv6_enabled ? '+' : ''}
-                    {server.dhcpv6_enabled ? 'v6' : ''}
-                  </div>
-                  <div className="mt-2 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedServer(server)
+                      setSelectedSubnet(null)
+                    }}
+                    className="flex-1 min-w-0 text-left px-5 py-3 hover:bg-surface-elevated transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-on-surface truncate">
+                        {server.name}
+                      </span>
+                      <StatusBadge status={server.status} />
+                    </div>
+                    <div className="mt-1 text-xs text-on-surface-muted">
+                      {server.subnets_count} subnets ·{' '}
+                      {server.dhcpv4_enabled ? 'v4' : ''}
+                      {server.dhcpv4_enabled && server.dhcpv6_enabled ? '+' : ''}
+                      {server.dhcpv6_enabled ? 'v6' : ''}
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-1 pr-4">
                     <IconButton
                       icon={Play}
                       size="sm"
                       variant="ghost"
                       label="Start server"
-                      onClick={(event) => {
-                        event.stopPropagation()
+                      onClick={() => {
                         setActionTarget({ server, action: 'start' })
                       }}
                     />
@@ -259,8 +262,7 @@ export function DHCPServers() {
                       size="sm"
                       variant="ghost"
                       label="Stop server"
-                      onClick={(event) => {
-                        event.stopPropagation()
+                      onClick={() => {
                         setActionTarget({ server, action: 'stop' })
                       }}
                     />
@@ -269,24 +271,22 @@ export function DHCPServers() {
                       size="sm"
                       variant="ghost"
                       label="Reload server"
-                      onClick={(event) => {
-                        event.stopPropagation()
+                      onClick={() => {
                         setActionTarget({ server, action: 'reload' })
                       }}
                     />
-                    <IconButton
-                      icon={Trash2}
-                      size="sm"
-                      variant="ghost"
-                      className="text-danger hover:text-danger"
-                      label="Delete server"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setDeleteServerTarget(server)
-                      }}
-                    />
-                  </div>
-                </button>
+                     <IconButton
+                       icon={Trash2}
+                       size="sm"
+                       variant="ghost"
+                       className="text-danger hover:text-danger"
+                       label="Delete server"
+                       onClick={() => {
+                         setDeleteServerTarget(server)
+                       }}
+                     />
+                   </div>
+                </div>
               ))}
             </div>
           ) : (
@@ -324,42 +324,45 @@ export function DHCPServers() {
           ) : subnets && subnets.length > 0 ? (
             <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
               {subnets.map((subnet) => (
-                <button
+                <div
                   key={subnet.id}
-                  type="button"
-                  onClick={() => setSelectedSubnet(subnet)}
                   className={cn(
-                    'w-full text-left px-5 py-3 hover:bg-surface-elevated transition-colors',
+                    'flex items-center gap-1',
                     selectedSubnet?.id === subnet.id &&
                       'bg-primary/5 border-l-2 border-l-primary',
                   )}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-on-surface truncate">
-                      {subnet.name}
-                    </span>
-                    <Badge variant="neutral">{subnet.type}</Badge>
-                  </div>
-                  <div className="mt-1 text-xs text-on-surface-muted break-all font-mono">
-                    {subnet.subnet}
-                  </div>
-                  <div className="mt-1 text-xs text-on-surface-muted">
-                    {subnet.pools_count} pools · {subnet.reservations_count} reservations
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubnet(subnet)}
+                    className="flex-1 min-w-0 text-left px-5 py-3 hover:bg-surface-elevated transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-on-surface truncate">
+                        {subnet.name}
+                      </span>
+                      <Badge variant="neutral">{subnet.type}</Badge>
+                    </div>
+                    <div className="mt-1 text-xs text-on-surface-muted break-all font-mono">
+                      {subnet.subnet}
+                    </div>
+                    <div className="mt-1 text-xs text-on-surface-muted">
+                      {subnet.pools_count} pools · {subnet.reservations_count} reservations
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-2 pr-4">
                     <IconButton
                       icon={Trash2}
                       size="sm"
                       variant="ghost"
                       className="text-danger hover:text-danger"
                       label="Delete subnet"
-                      onClick={(event) => {
-                        event.stopPropagation()
+                      onClick={() => {
                         setDeleteSubnetTarget(subnet)
                       }}
                     />
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           ) : (

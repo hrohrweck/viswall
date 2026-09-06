@@ -23,6 +23,21 @@ export async function seedAuthSession(page: Page): Promise<void> {
   }, loginResponse)
 }
 
+/**
+ * Seeds the persisted instance store (src/stores/instance.ts) so
+ * instance-scoped pages render their per-instance data instead of the
+ * EmptyState + InstanceSelector fallback. Defaults to fixture instance 1
+ * (edge-berlin-01, active).
+ */
+export async function seedInstanceState(page: Page, instanceId = 1): Promise<void> {
+  await page.addInitScript((id) => {
+    window.localStorage.setItem(
+      'viswall-instance',
+      JSON.stringify({ state: { selectedInstanceId: id }, version: 0 }),
+    )
+  }, instanceId)
+}
+
 export async function loginViaUi(page: Page): Promise<void> {
   await page.goto('/login')
   // The Login page labels are not programmatically associated with their

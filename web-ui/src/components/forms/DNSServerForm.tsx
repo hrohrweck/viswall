@@ -59,12 +59,12 @@ export function DNSServerForm({ loading, onSubmit }: DNSServerFormProps) {
         <Input mono {...register('forwarders')} />
       </Field>
       <div className="flex items-center gap-6 text-sm">
-        <label className="inline-flex items-center gap-2 cursor-pointer">
-          <Checkbox {...register('is_recursive')} />
+        <label htmlFor="dns-server-recursive" className="inline-flex items-center gap-2 cursor-pointer">
+          <Checkbox id="dns-server-recursive" {...register('is_recursive')} />
           Recursive
         </label>
-        <label className="inline-flex items-center gap-2 cursor-pointer">
-          <Checkbox {...register('is_authoritative')} />
+        <label htmlFor="dns-server-authoritative" className="inline-flex items-center gap-2 cursor-pointer">
+          <Checkbox id="dns-server-authoritative" {...register('is_authoritative')} />
           Authoritative
         </label>
       </div>

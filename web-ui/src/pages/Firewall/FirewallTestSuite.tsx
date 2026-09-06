@@ -166,7 +166,7 @@ export function FirewallTestSuite() {
             onClick={() => setActiveTab(tab)}
             className={`pb-3 px-2 font-medium capitalize ${
               activeTab === tab 
-                ? 'text-primary-600 border-b-2 border-primary-600 dark:text-primary-400 dark:border-primary-400' 
+                ? 'text-primary-600 border-b-2 border-primary-600 dark:text-indigo-400 dark:border-indigo-400'
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
             }`}
           >
@@ -183,7 +183,16 @@ export function FirewallTestSuite() {
           {testSuites.map((suite) => (
             <div
               key={suite.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selectedSuites.includes(suite.id)}
               onClick={() => toggleSuite(suite.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  toggleSuite(suite.id)
+                }
+              }}
               className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
                 selectedSuites.includes(suite.id)
                   ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/30'
@@ -212,7 +221,15 @@ export function FirewallTestSuite() {
 
           {/* Custom Test Card */}
           <div
+            role="button"
+            tabIndex={0}
             onClick={() => setActiveTab('custom')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setActiveTab('custom')
+              }
+            }}
             className="p-6 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 cursor-pointer dark:border-gray-700 dark:hover:border-gray-600"
           >
             <div className="text-center">

@@ -385,8 +385,9 @@ export function FirewallRules() {
                 Applies {rules?.length ?? 0} rules to {instanceName}. Connections not matching the
                 ruleset will be dropped.
               </Dialog.Description>
-              <label className="flex items-center gap-2 mt-4 cursor-pointer">
+              <label htmlFor="deploy-reviewed" className="flex items-center gap-2 mt-4 cursor-pointer">
                 <Checkbox
+                  id="deploy-reviewed"
                   checked={deployReviewed}
                   onChange={(e) => setDeployReviewed(e.target.checked)}
                 />
@@ -408,7 +409,7 @@ export function FirewallRules() {
                 <button
                   onClick={handleDeploy}
                   disabled={!deployReviewed || deployMutation.isPending}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                  className="px-4 py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary/90 disabled:opacity-50"
                 >
                   {deployMutation.isPending ? 'Deploying…' : 'Deploy'}
                 </button>

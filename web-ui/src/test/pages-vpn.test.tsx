@@ -247,7 +247,7 @@ describe('VPNCreate static classes', () => {
 
   it('has no template literal classNames in VPNCreate source', () => {
     // This is a meta-test: verify that the VPNCreate component source
-    // does not contain dynamic class interpolation patterns like `text-${...}`
+    // does not contain dynamically interpolated Tailwind class names.
     // We verify this by checking rendered output has concrete classes instead
     renderVPNCreate()
 

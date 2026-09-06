@@ -260,7 +260,11 @@ function PolicyCard({
       <CardHeader
         title={
           <div className="flex items-center gap-2">
-            <button onClick={onToggleExpand} className="text-on-surface-muted hover:text-on-surface">
+            <button
+              onClick={onToggleExpand}
+              aria-label={isExpanded ? `Collapse ${policy.name}` : `Expand ${policy.name}`}
+              className="text-on-surface-muted hover:text-on-surface"
+            >
               {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
             </button>
             <CardTitle>{policy.name}</CardTitle>

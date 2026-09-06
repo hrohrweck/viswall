@@ -106,7 +106,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
             <div
               className={cn(
                 'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
-                state === 'done' && 'bg-primary text-white',
+                state === 'done' && 'bg-primary text-primary-fg',
                 state === 'current' && 'border-2 border-primary text-primary',
                 state === 'upcoming' && 'border border-border text-on-surface-muted',
               )}

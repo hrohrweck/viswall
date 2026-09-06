@@ -153,7 +153,7 @@ export function Header() {
               <button
                 type="button"
                 aria-label="User menu"
-                className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary text-white text-xs font-bold hover:opacity-90 transition-opacity"
+                className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary text-primary-fg text-xs font-bold hover:opacity-90 transition-opacity"
               >
                 {initials}
               </button>

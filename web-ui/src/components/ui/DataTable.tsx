@@ -244,11 +244,12 @@ export function DataTable<T extends RowData>({
                         colMeta?.className ?? ''
                       }`}
                     >
-                      {enableSorting && !isActionsCol ? (
+                      {enableSorting && !isActionsCol && colMeta?.header !== '' ? (
                         <button
                           type="button"
                           className="inline-flex items-center gap-1 hover:text-on-surface transition-colors"
                           onClick={header.column.getToggleSortingHandler()}
+                          aria-label={`Sort by ${String(colMeta?.header ?? header.id)}`}
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
                           {sortIcon(header.id)}
@@ -316,6 +317,7 @@ export function DataTable<T extends RowData>({
             <span>Rows per page</span>
             <select
               value={pagination.pageSize}
+              aria-label="Rows per page"
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                 setPagination((prev: PaginationState) => ({
                   ...prev,

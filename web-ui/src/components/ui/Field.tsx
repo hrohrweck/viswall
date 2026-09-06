@@ -17,9 +17,11 @@ import { cn } from '../../lib/utils'
 export type LabelProps = LabelHTMLAttributes<HTMLLabelElement>
 
 export const Label = forwardRef<HTMLLabelElement, LabelProps>(
-  ({ className, ...props }, ref) => (
+  // htmlFor must be explicit (not spread) for jsx-a11y static verification
+  ({ className, htmlFor, ...props }, ref) => (
     <label
       ref={ref}
+      htmlFor={htmlFor}
       className={cn('text-sm font-medium text-on-surface', className)}
       {...props}
     />

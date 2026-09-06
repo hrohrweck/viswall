@@ -178,7 +178,7 @@ export function Settings() {
                       onClick={() => setTheme(t)}
                       className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
                         theme === t
-                          ? 'bg-primary text-white'
+                          ? 'bg-primary text-primary-fg'
                           : 'text-on-surface hover:bg-surface-elevated'
                       }`}
                     >

@@ -168,36 +168,39 @@ export function DNSServers() {
           ) : servers && servers.length > 0 ? (
             <div className="divide-y divide-border">
               {servers.map((server) => (
-                <button
+                <div
                   key={server.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedServer(server)
-                    setSelectedZone(null)
-                  }}
-                  className={`w-full text-left px-5 py-3 hover:bg-surface-elevated transition-colors ${
+                  className={`flex items-center gap-1 ${
                     selectedServer?.id === server.id
                       ? 'bg-primary/5 border-l-2 border-l-primary'
                       : ''
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-on-surface truncate">
-                      {server.name}
-                    </span>
-                    <StatusBadge status={server.status} />
-                  </div>
-                  <div className="mt-1 text-xs text-on-surface-muted">
-                    {server.zones_count} zones · {server.port}/tcp+udp
-                  </div>
-                  <div className="mt-2 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedServer(server)
+                      setSelectedZone(null)
+                    }}
+                    className="flex-1 min-w-0 text-left px-5 py-3 hover:bg-surface-elevated transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-on-surface truncate">
+                        {server.name}
+                      </span>
+                      <StatusBadge status={server.status} />
+                    </div>
+                    <div className="mt-1 text-xs text-on-surface-muted">
+                      {server.zones_count} zones · {server.port}/tcp+udp
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-1 pr-4">
                     <IconButton
                       icon={Play}
                       size="sm"
                       variant="ghost"
                       label="Start server"
-                      onClick={(event) => {
-                        event.stopPropagation()
+                      onClick={() => {
                         setActionTarget({ server, action: 'start' })
                       }}
                     />
@@ -206,8 +209,7 @@ export function DNSServers() {
                       size="sm"
                       variant="ghost"
                       label="Stop server"
-                      onClick={(event) => {
-                        event.stopPropagation()
+                      onClick={() => {
                         setActionTarget({ server, action: 'stop' })
                       }}
                     />
@@ -216,8 +218,7 @@ export function DNSServers() {
                       size="sm"
                       variant="ghost"
                       label="Reload server"
-                      onClick={(event) => {
-                        event.stopPropagation()
+                      onClick={() => {
                         setActionTarget({ server, action: 'reload' })
                       }}
                     />
@@ -227,13 +228,12 @@ export function DNSServers() {
                       variant="ghost"
                       className="text-danger hover:text-danger"
                       label="Delete server"
-                      onClick={(event) => {
-                        event.stopPropagation()
+                      onClick={() => {
                         setDeleteServerTarget(server)
                       }}
                     />
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           ) : (
@@ -284,42 +284,47 @@ export function DNSServers() {
           ) : filteredZones.length > 0 ? (
             <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
               {filteredZones.map((zone) => (
-                <button
+                <div
                   key={zone.id}
-                  type="button"
-                  onClick={() => setSelectedZone(zone)}
-                  className={`w-full text-left px-5 py-3 hover:bg-surface-elevated transition-colors ${
+                  className={`flex items-center gap-1 ${
                     selectedZone?.id === zone.id
                       ? 'bg-primary/5 border-l-2 border-l-primary'
                       : ''
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-on-surface truncate">
-                      {zone.name}
-                    </span>
-                    <Badge variant="neutral">{zone.zone_type}</Badge>
-                  </div>
-                  <div className="mt-1 text-xs text-on-surface-muted">
-                    serial {zone.serial} · {zone.records_count} records
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    {zone.dnssec_enabled ? (
-                      <Badge variant="success">DNSSEC</Badge>
-                    ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedZone(zone)}
+                    className="flex-1 min-w-0 text-left px-5 py-3 hover:bg-surface-elevated transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-on-surface truncate">
+                        {zone.name}
+                      </span>
+                      <Badge variant="neutral">{zone.zone_type}</Badge>
+                    </div>
+                    <div className="mt-1 text-xs text-on-surface-muted">
+                      serial {zone.serial} · {zone.records_count} records
+                    </div>
+                    <div className="mt-1">
+                      {zone.dnssec_enabled ? (
+                        <Badge variant="success">DNSSEC</Badge>
+                      ) : null}
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-2 pr-4">
                     <IconButton
                       icon={Trash2}
                       size="sm"
                       variant="ghost"
                       className="text-danger hover:text-danger"
                       label="Delete zone"
-                      onClick={(event) => {
-                        event.stopPropagation()
+                      onClick={() => {
                         setDeleteZoneTarget(zone)
                       }}
                     />
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           ) : (

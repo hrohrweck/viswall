@@ -49,7 +49,7 @@ function formatPercent(value?: number): string {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Static token-class map — replaces dynamic `bg-${color}` templates  */
+/*  Static token-class map — replaces dynamically interpolated color names */
 /* ------------------------------------------------------------------ */
 
 const CARD_COLORS: Record<string, { bg: string; icon: string }> = {

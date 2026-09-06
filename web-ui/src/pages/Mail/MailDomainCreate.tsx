@@ -84,7 +84,7 @@ export function MailDomainCreate() {
         return (
           <div key={label} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              done ? 'bg-primary text-white' : current ? 'ring-2 ring-primary text-primary bg-surface-card' : 'bg-surface-elevated text-on-surface-muted'
+              done ? 'bg-primary text-primary-fg' : current ? 'ring-2 ring-primary text-primary bg-surface-card' : 'bg-surface-elevated text-on-surface-muted'
             }`}>
               {done ? <Check className="w-4 h-4" /> : i + 1}
             </div>
