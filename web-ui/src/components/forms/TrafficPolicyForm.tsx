@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Field, Input, Select, Switch, Button } from '../ui'
+import { nonEmptyName } from '../../lib/validation'
 import type { QoSPolicy, QoSPolicyCreate, QoSPolicyUpdate } from '../../types'
 
 interface TrafficPolicyFormProps {
@@ -9,38 +12,66 @@ interface TrafficPolicyFormProps {
   loading: boolean
 }
 
-export function TrafficPolicyForm({ initial, onSubmit, onCancel, loading }: TrafficPolicyFormProps) {
-  const [name, setName] = useState(initial?.name || '')
-  const [description, setDescription] = useState(initial?.description || '')
-  const [interfaceName, setInterfaceName] = useState(initial?.interface_name || 'eth0')
-  const [algorithm, setAlgorithm] = useState<'cake' | 'fq_codel' | 'htb'>(
-    (initial?.algorithm as 'cake' | 'fq_codel' | 'htb') || 'cake',
-  )
-  const [downloadKbps, setDownloadKbps] = useState(initial?.download_kbps || 100000)
-  const [uploadKbps, setUploadKbps] = useState(initial?.upload_kbps || 50000)
-  const [enabled, setEnabled] = useState(initial?.enabled ?? true)
+const bandwidth = z.string().refine(
+  (value) => /^\d+$/.test(value) && Number(value) >= 1,
+  'Enter a bandwidth in Kbps (whole number, minimum 1)',
+)
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+const makeSchema = (isEdit: boolean) =>
+  z.object({
+    name: nonEmptyName,
+    description: z.string(),
+    interface_name: z.string().refine(
+      (value) => isEdit || value.trim() !== '',
+      'Interface is required',
+    ),
+    algorithm: z.enum(['cake', 'fq_codel', 'htb']),
+    download_kbps: bandwidth,
+    upload_kbps: bandwidth,
+    enabled: z.boolean(),
+  })
+
+type FormValues = z.infer<ReturnType<typeof makeSchema>>
+
+export function TrafficPolicyForm({ initial, onSubmit, onCancel, loading }: TrafficPolicyFormProps) {
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(makeSchema(!!initial)),
+    defaultValues: {
+      name: initial?.name || '',
+      description: initial?.description || '',
+      interface_name: initial?.interface_name || 'eth0',
+      algorithm: (initial?.algorithm as 'cake' | 'fq_codel' | 'htb') || 'cake',
+      download_kbps: initial?.download_kbps?.toString() || '100000',
+      upload_kbps: initial?.upload_kbps?.toString() || '50000',
+      enabled: initial?.enabled ?? true,
+    },
+  })
+
+  const onValid = (values: FormValues) => {
     if (initial) {
       const payload: QoSPolicyUpdate = {
-        name,
-        description: description || undefined,
-        enabled,
-        algorithm,
-        download_kbps: downloadKbps,
-        upload_kbps: uploadKbps,
+        name: values.name,
+        description: values.description || undefined,
+        enabled: values.enabled,
+        algorithm: values.algorithm,
+        download_kbps: Number(values.download_kbps),
+        upload_kbps: Number(values.upload_kbps),
       }
       onSubmit(payload)
     } else {
       const payload: QoSPolicyCreate = {
-        name,
-        description: description || undefined,
-        interface_name: interfaceName,
-        algorithm,
-        download_kbps: downloadKbps,
-        upload_kbps: uploadKbps,
-        enabled,
+        name: values.name,
+        description: values.description || undefined,
+        interface_name: values.interface_name,
+        algorithm: values.algorithm,
+        download_kbps: Number(values.download_kbps),
+        upload_kbps: Number(values.upload_kbps),
+        enabled: values.enabled,
         classes: [],
       }
       onSubmit(payload)
@@ -48,39 +79,21 @@ export function TrafficPolicyForm({ initial, onSubmit, onCancel, loading }: Traf
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Field label="Policy Name" required>
-        <Input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
+    <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-4">
+      <Field label="Policy Name" required error={errors.name?.message}>
+        <Input type="text" {...register('name')} />
       </Field>
 
       <Field label="Description">
-        <Input
-          type="text"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
+        <Input type="text" {...register('description')} />
       </Field>
 
-      <Field label="Interface" required>
-        <Input
-          type="text"
-          value={interfaceName}
-          onChange={(e) => setInterfaceName(e.target.value)}
-          disabled={!!initial}
-          required
-        />
+      <Field label="Interface" required error={errors.interface_name?.message}>
+        <Input type="text" disabled={!!initial} {...register('interface_name')} />
       </Field>
 
       <Field label="Algorithm">
-        <Select
-          value={algorithm}
-          onChange={(e) => setAlgorithm(e.target.value as 'cake' | 'fq_codel' | 'htb')}
-        >
+        <Select {...register('algorithm')}>
           <option value="cake">CAKE (Recommended)</option>
           <option value="fq_codel">FQ-CoDel</option>
           <option value="htb">HTB (Advanced)</option>
@@ -88,31 +101,21 @@ export function TrafficPolicyForm({ initial, onSubmit, onCancel, loading }: Traf
       </Field>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Download (Kbps)" required>
-          <Input
-            type="number"
-            value={downloadKbps}
-            onChange={(e) => setDownloadKbps(Number(e.target.value))}
-            min={1}
-            required
-          />
+        <Field label="Download (Kbps)" required error={errors.download_kbps?.message}>
+          <Input type="number" {...register('download_kbps')} />
         </Field>
-        <Field label="Upload (Kbps)" required>
-          <Input
-            type="number"
-            value={uploadKbps}
-            onChange={(e) => setUploadKbps(Number(e.target.value))}
-            min={1}
-            required
-          />
+        <Field label="Upload (Kbps)" required error={errors.upload_kbps?.message}>
+          <Input type="number" {...register('upload_kbps')} />
         </Field>
       </div>
 
       <div className="flex items-center gap-2">
-        <Switch
-          checked={enabled}
-          onCheckedChange={setEnabled}
-          aria-label="Enable policy immediately"
+        <Controller
+          name="enabled"
+          control={control}
+          render={({ field }) => (
+            <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="Enable policy immediately" />
+          )}
         />
         <span className="text-sm text-on-surface">Enable policy immediately</span>
       </div>

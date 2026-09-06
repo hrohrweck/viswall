@@ -1,4 +1,10 @@
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Button, Field, Input } from '../ui'
+import { cn } from '../../lib/utils'
+import { hostname, nonEmptyName } from '../../lib/validation'
 import type { InstanceCreate } from '../../types'
 
 interface InstanceCreateFormProps {
@@ -7,75 +13,84 @@ interface InstanceCreateFormProps {
   loading: boolean
 }
 
-export function InstanceCreateForm({ onSubmit, onCancel, loading }: InstanceCreateFormProps) {
-  const [name, setName] = useState('')
-  const [hostname, setHostname] = useState('')
-  const [error, setError] = useState('')
+const schema = z.object({
+  name: nonEmptyName,
+  hostname: hostname,
+  capabilities: z.array(z.string()),
+})
 
-  const capabilities = ['firewall', 'mail', 'vpn', 'metrics']
-  const [selectedCaps, setSelectedCaps] = useState<string[]>([])
+type FormValues = z.infer<typeof schema>
+
+const CAPABILITIES = ['firewall', 'mail', 'vpn', 'metrics']
+
+export function InstanceCreateForm({ onSubmit, onCancel, loading }: InstanceCreateFormProps) {
+  const [submitError, setSubmitError] = useState('')
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: '',
+      hostname: '',
+      capabilities: [],
+    },
+  })
+
+  const selectedCaps = watch('capabilities')
 
   const toggleCap = (cap: string) => {
-    setSelectedCaps((prev) =>
-      prev.includes(cap) ? prev.filter((c) => c !== cap) : [...prev, cap]
+    setValue(
+      'capabilities',
+      selectedCaps.includes(cap) ? selectedCaps.filter((c) => c !== cap) : [...selectedCaps, cap],
+      { shouldValidate: true },
     )
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  const onValid = async (values: FormValues): Promise<void> => {
+    setSubmitError('')
     try {
-      await onSubmit({ name, hostname, capabilities: selectedCaps })
+      await onSubmit({ name: values.name, hostname: values.hostname, capabilities: values.capabilities })
     } catch (err: unknown) {
-      setError((err as any)?.response?.data?.detail || 'Failed to create instance')
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setSubmitError(detail || 'Failed to create instance')
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm dark:bg-red-950/20 dark:border-red-900 dark:text-red-400">
-          {error}
+    <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-4">
+      {submitError && (
+        <div className="p-3 rounded-card border border-danger bg-danger-subtle text-danger text-sm">
+          {submitError}
         </div>
       )}
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Name</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Main Office"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-          required
-        />
-      </div>
+      <Field label="Name" required error={errors.name?.message}>
+        <Input type="text" placeholder="e.g. Main Office" {...register('name')} />
+      </Field>
+
+      <Field label="Hostname" required error={errors.hostname?.message}>
+        <Input type="text" mono placeholder="e.g. viswall.example.com" {...register('hostname')} />
+      </Field>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Hostname</label>
-        <input
-          type="text"
-          value={hostname}
-          onChange={(e) => setHostname(e.target.value)}
-          placeholder="e.g. viswall.example.com"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Capabilities</label>
+        <span className="block text-sm font-medium text-on-surface mb-2">Capabilities</span>
         <div className="flex flex-wrap gap-2">
-          {capabilities.map((cap) => (
+          {CAPABILITIES.map((cap) => (
             <button
               key={cap}
               type="button"
               onClick={() => toggleCap(cap)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+              aria-pressed={selectedCaps.includes(cap)}
+              className={cn(
+                'px-3 py-1.5 rounded-card text-sm font-medium border transition-colors',
                 selectedCaps.includes(cap)
-                  ? 'bg-primary-50 border-primary-300 text-primary-700 dark:bg-primary-950/30 dark:border-primary-500 dark:text-primary-400'
-                  : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
-              }`}
+                  ? 'bg-primary-subtle border-primary text-primary'
+                  : 'bg-surface-card border-border text-on-surface-muted hover:bg-surface-elevated',
+              )}
             >
               {cap}
             </button>
@@ -84,20 +99,12 @@ export function InstanceCreateForm({ onSubmit, onCancel, loading }: InstanceCrea
       </div>
 
       <div className="flex justify-end gap-3 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-        >
+        <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={loading || !name || !hostname}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-        >
+        </Button>
+        <Button type="submit" loading={loading}>
           {loading ? 'Creating...' : 'Create Instance'}
-        </button>
+        </Button>
       </div>
     </form>
   )

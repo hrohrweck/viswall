@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import type { User, UserCreate, UserUpdate, Instance } from '../../types'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Button, Checkbox, Field, Input, Select } from '../ui'
+import { cn } from '../../lib/utils'
+import { email } from '../../lib/validation'
+import type { Instance, User, UserCreate, UserUpdate } from '../../types'
 import { UserRole, AuthBackend } from '../../types'
 
 interface UserCreateFormProps {
@@ -11,163 +17,177 @@ interface UserCreateFormProps {
   isEdit?: boolean
 }
 
+const makeSchema = (isEdit: boolean) =>
+  z
+    .object({
+      username: z.string(),
+      email: email,
+      password: z.string(),
+      role: z.nativeEnum(UserRole),
+      auth_backend: z.nativeEnum(AuthBackend),
+      instances: z.array(z.number()),
+      is_active: z.boolean(),
+    })
+    .superRefine((data, ctx) => {
+      if (!isEdit && data.username.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['username'],
+          message: 'Username is required',
+        })
+      }
+      if (data.password !== '' && data.password.length < 8) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['password'],
+          message: 'Password must be at least 8 characters',
+        })
+      }
+    })
+
+type FormValues = z.infer<ReturnType<typeof makeSchema>>
+
 export function UserCreateForm({ initial, instances, onSubmit, onCancel, loading, isEdit }: UserCreateFormProps) {
-  const [username, setUsername] = useState(initial?.username || '')
-  const [email, setEmail] = useState(initial?.email || '')
-  const [password, setPassword] = useState('')
-  const [role, setRole] = useState<UserRole>((initial?.role as UserRole) || UserRole.USER)
-  const [authBackend, setAuthBackend] = useState<AuthBackend>((initial?.auth_backend as AuthBackend) || AuthBackend.LOCAL)
-  const [selectedInstances, setSelectedInstances] = useState<number[]>(initial?.instances || [])
-  const [isActive, setIsActive] = useState(initial?.is_active ?? true)
-  const [error, setError] = useState('')
+  const [submitError, setSubmitError] = useState('')
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(makeSchema(!!isEdit)),
+    defaultValues: {
+      username: initial?.username || '',
+      email: initial?.email || '',
+      password: '',
+      role: (initial?.role as UserRole) || UserRole.USER,
+      auth_backend: (initial?.auth_backend as AuthBackend) || AuthBackend.LOCAL,
+      instances: initial?.instances || [],
+      is_active: initial?.is_active ?? true,
+    },
+  })
+
+  const selectedInstances = watch('instances')
 
   const toggleInstance = (id: number) => {
-    setSelectedInstances((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    setValue(
+      'instances',
+      selectedInstances.includes(id)
+        ? selectedInstances.filter((i) => i !== id)
+        : [...selectedInstances, id],
+      { shouldValidate: true },
     )
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  const onValid = async (values: FormValues): Promise<void> => {
+    setSubmitError('')
     try {
       if (isEdit) {
         await onSubmit({
-          email,
-          role,
-          is_active: isActive,
-          instances: selectedInstances,
+          email: values.email,
+          role: values.role,
+          is_active: values.is_active,
+          instances: values.instances,
         } as UserUpdate)
       } else {
         await onSubmit({
-          username,
-          email,
-          password: password || undefined,
-          role,
-          auth_backend: authBackend,
-          instances: selectedInstances,
+          username: values.username,
+          email: values.email,
+          password: values.password || undefined,
+          role: values.role,
+          auth_backend: values.auth_backend,
+          instances: values.instances,
         } as UserCreate)
       }
     } catch (err: unknown) {
-      setError((err as any)?.response?.data?.detail || 'Failed to save user')
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setSubmitError(detail || 'Failed to save user')
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm dark:bg-red-950/20 dark:border-red-900 dark:text-red-400">{error}</div>
+    <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-4">
+      {submitError && (
+        <div className="p-3 rounded-card border border-danger bg-danger-subtle text-danger text-sm">
+          {submitError}
+        </div>
       )}
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Username</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            disabled={isEdit}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:disabled:bg-gray-700"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-            required
-          />
-        </div>
+        <Field label="Username" required={!isEdit} error={isEdit ? undefined : errors.username?.message}>
+          <Input type="text" disabled={isEdit} {...register('username')} />
+        </Field>
+        <Field label="Email" required error={errors.email?.message}>
+          <Input type="email" {...register('email')} />
+        </Field>
       </div>
 
       {!isEdit && (
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min 8 characters"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-              minLength={8}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Auth Backend</label>
-            <select
-              value={authBackend}
-              onChange={(e) => setAuthBackend(e.target.value as AuthBackend)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-            >
+          <Field label="Password" helper="Min 8 characters" error={errors.password?.message}>
+            <Input type="password" placeholder="Min 8 characters" {...register('password')} />
+          </Field>
+          <Field label="Auth Backend">
+            <Select {...register('auth_backend')}>
               <option value="local">Local</option>
               <option value="ldap">LDAP</option>
               <option value="ad">Active Directory</option>
-            </select>
-          </div>
+            </Select>
+          </Field>
         </div>
       )}
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Role</label>
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value as UserRole)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-        >
+      <Field label="Role">
+        <Select {...register('role')}>
           <option value="superadmin">Super Admin</option>
           <option value="admin">Admin</option>
           <option value="user">User</option>
           <option value="readonly">Read Only</option>
-        </select>
-      </div>
+        </Select>
+      </Field>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Assigned Instances</label>
+        <span className="block text-sm font-medium text-on-surface mb-2">Assigned Instances</span>
         <div className="flex flex-wrap gap-2">
           {instances.map((inst) => (
             <button
               key={inst.id}
               type="button"
               onClick={() => toggleInstance(inst.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+              aria-pressed={selectedInstances.includes(inst.id)}
+              className={cn(
+                'px-3 py-1.5 rounded-card text-sm font-medium border transition-colors',
                 selectedInstances.includes(inst.id)
-                  ? 'bg-primary-50 border-primary-300 text-primary-700 dark:bg-primary-950/30 dark:border-primary-500 dark:text-primary-400'
-                  : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
-              }`}
+                  ? 'bg-primary-subtle border-primary text-primary'
+                  : 'bg-surface-card border-border text-on-surface-muted hover:bg-surface-elevated',
+              )}
             >
               {inst.name}
             </button>
           ))}
           {instances.length === 0 && (
-            <p className="text-sm text-gray-400 dark:text-gray-500">No instances available</p>
+            <p className="text-sm text-on-surface-muted">No instances available</p>
           )}
         </div>
       </div>
 
       {isEdit && (
         <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="isActive"
-            checked={isActive}
-            onChange={(e) => setIsActive(e.target.checked)}
-            className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-          />
-          <label htmlFor="isActive" className="text-sm text-gray-700 dark:text-gray-300">Active</label>
+          <Checkbox id="isActive" {...register('is_active')} />
+          <label htmlFor="isActive" className="text-sm text-on-surface">
+            Active
+          </label>
         </div>
       )}
 
       <div className="flex justify-end gap-3 pt-4">
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">
+        <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
-        </button>
-        <button type="submit" disabled={loading} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+        </Button>
+        <Button type="submit" loading={loading}>
           {loading ? 'Saving...' : isEdit ? 'Update User' : 'Create User'}
-        </button>
+        </Button>
       </div>
     </form>
   )

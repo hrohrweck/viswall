@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Field, Input, Select, Checkbox, Button } from '../ui'
-import type { DNSZoneCreate, DNSZoneType } from '../../types'
+import { domainName } from '../../lib/validation'
+import { DNSZoneType } from '../../types'
+import type { DNSZoneCreate } from '../../types'
 
 interface DNSZoneFormProps {
   zoneTypeOptions: DNSZoneType[]
@@ -8,35 +12,43 @@ interface DNSZoneFormProps {
   onSubmit: (payload: DNSZoneCreate) => Promise<void>
 }
 
+const schema = z.object({
+  name: domainName,
+  zone_type: z.nativeEnum(DNSZoneType),
+  dnssec_enabled: z.boolean(),
+})
+
+type FormValues = z.infer<typeof schema>
+
 export function DNSZoneForm({ zoneTypeOptions, loading, onSubmit }: DNSZoneFormProps) {
-  const [name, setName] = useState('example.internal')
-  const [zoneType, setZoneType] = useState<DNSZoneType>(zoneTypeOptions[0])
-  const [dnssecEnabled, setDnssecEnabled] = useState(false)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: 'example.internal',
+      zone_type: zoneTypeOptions[0],
+      dnssec_enabled: false,
+    },
+  })
+
+  const onValid = (values: FormValues) => {
+    void onSubmit({
+      name: values.name,
+      zone_type: values.zone_type,
+      dnssec_enabled: values.dnssec_enabled,
+    })
+  }
 
   return (
-    <form
-      className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void onSubmit({
-          name,
-          zone_type: zoneType,
-          dnssec_enabled: dnssecEnabled,
-        })
-      }}
-    >
-      <Field label="Zone Name">
-        <Input
-          mono
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
+    <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-4">
+      <Field label="Zone Name" required error={errors.name?.message}>
+        <Input mono {...register('name')} />
       </Field>
       <Field label="Zone Type">
-        <Select
-          value={zoneType}
-          onChange={(event) => setZoneType(event.target.value as DNSZoneType)}
-        >
+        <Select {...register('zone_type')}>
           {zoneTypeOptions.map((option) => (
             <option key={option} value={option}>
               {option}
@@ -45,10 +57,7 @@ export function DNSZoneForm({ zoneTypeOptions, loading, onSubmit }: DNSZoneFormP
         </Select>
       </Field>
       <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-        <Checkbox
-          checked={dnssecEnabled}
-          onChange={(event) => setDnssecEnabled(event.target.checked)}
-        />
+        <Checkbox {...register('dnssec_enabled')} />
         Enable DNSSEC
       </label>
       <div className="flex justify-end">
