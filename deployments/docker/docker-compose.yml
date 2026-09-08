@@ -200,6 +200,7 @@ services:
       - ${LETSENCRYPT_LIVE:?LETSENCRYPT_LIVE is required}/privkey.pem:/viswall/certs/server.key:ro
       - /opt/viswall/dkim:/opt/viswall/dkim-staging:ro
       - mail_data:/var/mail
+      - exim_spool:/var/spool/exim4
     depends_on:
       postgres:
         condition: service_healthy
@@ -307,6 +308,7 @@ volumes:
   mail_data:
     external: true
     name: viswall_mail_data
+  exim_spool:
 
 networks:
   viswall:
