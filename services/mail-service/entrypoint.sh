@@ -41,12 +41,12 @@ fi
 
 # --- render templated configs (token subst; avoids clobbering exim ${...}) ---
 PG_SERVERS="${DB_HOST}::${DB_PORT}/${DB_NAME}/${DB_USER}/${DB_PASS}"
-# Write passfile for Dovecot's libpq connection (avoids inline password in config)
-echo "${DB_HOST}:${DB_PORT}:${DB_NAME}:${DB_USER}:${DB_PASS}" > /tmp/dovecot.pgpass
-chmod 600 /tmp/dovecot.pgpass
+# dovecot's pgsql connect parser drops unknown libpq keywords (e.g. passfile=) — assemble the full connect string here
+DOVECOT_SQL_CONNECT="host=${DB_HOST} port=${DB_PORT} dbname=${DB_NAME} user=${DB_USER} password=${DB_PASS}"
 render() {
   sed -e "s|@@PG_SERVERS@@|${PG_SERVERS}|g" \
       -e "s|@@PRIMARY_HOSTNAME@@|${EXIM_HOSTNAME}|g" \
+      -e "s|@@DOVECOT_SQL_CONNECT@@|${DOVECOT_SQL_CONNECT}|g" \
       -e "s|@@DB_HOST@@|${DB_HOST}|g" \
       -e "s|@@DB_PORT@@|${DB_PORT}|g" \
       -e "s|@@DB_NAME@@|${DB_NAME}|g" \
