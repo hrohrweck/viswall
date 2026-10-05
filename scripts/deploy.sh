@@ -32,6 +32,11 @@ fi
 log() { echo "[deploy] $*"; }
 
 COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+# mail-service sits behind the "mail" compose profile but IS enabled in
+# production (Exim/Dovecot carry live mail), so stack apply and rollback
+# must include that profile. pull stays profile-less: mail-service has no
+# prebuilt image (it builds locally) and third-party pulls are unaffected.
+COMPOSE_UP="$COMPOSE --profile mail"
 
 cd "$COMPOSE_DIR"
 
@@ -70,7 +75,7 @@ fi
 log "Pulling images for tag $TAG"
 VISWALL_TAG="$TAG" $COMPOSE pull
 log "Applying stack at tag $TAG"
-VISWALL_TAG="$TAG" $COMPOSE up -d --remove-orphans
+VISWALL_TAG="$TAG" $COMPOSE_UP up -d --remove-orphans
 
 # ---------------------------------------------------------------------------
 # 4. Health gates.
@@ -108,7 +113,7 @@ rollback() {
     if [ -f "$LAST_GOOD_FILE" ]; then
         OLD_TAG="$(cat "$LAST_GOOD_FILE")"
         log "Rolling back to $OLD_TAG"
-        VISWALL_TAG="$OLD_TAG" $COMPOSE up -d --remove-orphans
+        VISWALL_TAG="$OLD_TAG" $COMPOSE_UP up -d --remove-orphans
     else
         # First deploy with no known-good tag: leave the stack as-is rather
         # than taking a live site down; an operator investigates from here.
