@@ -353,6 +353,30 @@ export interface paths {
      */
     patch: operations["update_user_api_v1_mail_users__user_id__patch"];
   };
+  "/api/v1/mail/aliases/{domain_id}": {
+    /**
+     * Get Aliases
+     * @description Get all mail aliases for a domain
+     */
+    get: operations["get_aliases_api_v1_mail_aliases__domain_id__get"];
+    /**
+     * Create Alias
+     * @description Create a new mail alias
+     */
+    post: operations["create_alias_api_v1_mail_aliases__domain_id__post"];
+  };
+  "/api/v1/mail/aliases/{alias_id}": {
+    /**
+     * Delete Alias
+     * @description Delete a mail alias
+     */
+    delete: operations["delete_alias_api_v1_mail_aliases__alias_id__delete"];
+    /**
+     * Update Alias
+     * @description Update a mail alias
+     */
+    patch: operations["update_alias_api_v1_mail_aliases__alias_id__patch"];
+  };
   "/api/v1/mail/queue/{instance_id}": {
     /**
      * Get Mail Queue
@@ -2881,6 +2905,53 @@ export interface components {
       token_type?: string;
       user: components["schemas"]["UserResponse"];
     };
+    /** MailAliasCreate */
+    MailAliasCreate: {
+      /** Source */
+      source: string;
+      /** Destination */
+      destination: string;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+    };
+    /** MailAliasResponse */
+    MailAliasResponse: {
+      /** Source */
+      source: string;
+      /** Destination */
+      destination: string;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Id */
+      id: number;
+      /** Domain Id */
+      domain_id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** MailAliasUpdate */
+    MailAliasUpdate: {
+      /** Source */
+      source?: string | null;
+      /** Destination */
+      destination?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
+    };
     /** MailDomainCreate */
     MailDomainCreate: {
       /** Domain */
@@ -4609,6 +4680,10 @@ export interface components {
       msg: string;
       /** Error Type */
       type: string;
+      /** Input */
+      input?: unknown;
+      /** Context */
+      ctx?: Record<string, never>;
     };
     /** WireGuardConfig */
     WireGuardConfig: {
@@ -6186,6 +6261,114 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["MailUserResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Aliases
+   * @description Get all mail aliases for a domain
+   */
+  get_aliases_api_v1_mail_aliases__domain_id__get: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailAliasResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Alias
+   * @description Create a new mail alias
+   */
+  create_alias_api_v1_mail_aliases__domain_id__post: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MailAliasCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["MailAliasResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Alias
+   * @description Delete a mail alias
+   */
+  delete_alias_api_v1_mail_aliases__alias_id__delete: {
+    parameters: {
+      path: {
+        alias_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Alias
+   * @description Update a mail alias
+   */
+  update_alias_api_v1_mail_aliases__alias_id__patch: {
+    parameters: {
+      path: {
+        alias_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MailAliasUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailAliasResponse"];
         };
       };
       /** @description Validation Error */
