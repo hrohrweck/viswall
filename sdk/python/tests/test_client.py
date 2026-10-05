@@ -317,3 +317,78 @@ class TestDHCPResource:
         result = client.dhcp.release_lease(lease_id=99)
         assert result["state"] == "released"
         client.close()
+
+
+class TestMailResourceMTAForward:
+    """Test MailResource MTA forwarding on create_domain."""
+
+    def test_create_domain_with_mta_forward(self, httpx_mock):
+        """Test create domain sends MTA forwarding fields."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/domains/1",
+            method="POST",
+            status_code=201,
+            json={"id": 5, "domain": "example.com"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.mail.create_domain(
+            instance_id=1,
+            domain="example.com",
+            mta_forward_enabled=True,
+            mta_forward_host="smtp.example.net",
+            mta_forward_port=2525,
+        )
+        assert result["domain"] == "example.com"
+
+        request = httpx_mock.get_request()
+        body = json.loads(request.content)
+        assert body["mta_forward_enabled"] is True
+        assert body["mta_forward_host"] == "smtp.example.net"
+        assert body["mta_forward_port"] == 2525
+        client.close()
+
+    def test_create_domain_default_mta_forward(self, httpx_mock):
+        """Test create domain defaults MTA forwarding disabled, no host key."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/domains/1",
+            method="POST",
+            status_code=201,
+            json={"id": 5, "domain": "example.com"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        client.mail.create_domain(instance_id=1, domain="example.com")
+
+        request = httpx_mock.get_request()
+        body = json.loads(request.content)
+        assert body["mta_forward_enabled"] is False
+        assert body["mta_forward_port"] == 25
+        assert "mta_forward_host" not in body
+        client.close()
+
+    def test_update_domain_mta_forward_passthrough(self, httpx_mock):
+        """Test update_domain passes MTA kwargs through."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/domains/5",
+            method="PATCH",
+            json={"id": 5, "mta_forward_enabled": True},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.mail.update_domain(
+            domain_id=5,
+            mta_forward_enabled=True,
+            mta_forward_host="smtp.example.net",
+            mta_forward_port=2525,
+        )
+        assert result["mta_forward_enabled"] is True
+
+        request = httpx_mock.get_request()
+        body = json.loads(request.content)
+        assert body == {
+            "mta_forward_enabled": True,
+            "mta_forward_host": "smtp.example.net",
+            "mta_forward_port": 2525,
+        }
+        client.close()
