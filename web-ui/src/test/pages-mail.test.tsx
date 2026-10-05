@@ -179,6 +179,79 @@ describe('Delete domain confirm', () => {
 })
 
 /* ================================================================== */
+/*  3b — Delete domain mutation                                        */
+/* ================================================================== */
+
+describe('Delete domain mutation', () => {
+  it('fires DELETE, shows success toast and navigates to /mail', async () => {
+    const { toast } = await import('sonner')
+    const deleteSpy = vi.fn()
+    server.use(
+      http.delete('*/mail/domains/:domainId', async () => {
+        deleteSpy()
+        return HttpResponse.json({ status: 'ok' })
+      }),
+    )
+
+    render(<MailDomainDetail />, { wrapper: (p) => <DetailWrapper initialEntry="/mail/domains/1">{p.children}</DetailWrapper> })
+
+    await waitFor(() => {
+      expect(screen.getByText('example.test')).toBeInTheDocument()
+    })
+
+    // Open kebab → Delete Domain
+    await userEvent.click(screen.getByLabelText('Domain actions'))
+    const deleteItem = await screen.findByText('Delete Domain')
+    await userEvent.click(deleteItem)
+
+    const dialog = await screen.findByRole('dialog')
+    const confirmBtn = within(dialog).getByRole('button', { name: /delete/i })
+    await userEvent.click(confirmBtn)
+
+    await waitFor(() => expect(deleteSpy).toHaveBeenCalledTimes(1))
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('deleted'))
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Mail list')).toBeInTheDocument()
+    })
+  })
+
+  it('shows error toast and keeps dialog open when DELETE fails', async () => {
+    const { toast } = await import('sonner')
+    server.use(
+      http.delete('*/mail/domains/:domainId', () => HttpResponse.json({ detail: 'boom' }, { status: 500 })),
+    )
+
+    render(<MailDomainDetail />, { wrapper: (p) => <DetailWrapper initialEntry="/mail/domains/1">{p.children}</DetailWrapper> })
+
+    await waitFor(() => {
+      expect(screen.getByText('example.test')).toBeInTheDocument()
+    })
+
+    // Open kebab → Delete Domain
+    await userEvent.click(screen.getByLabelText('Domain actions'))
+    const deleteItem = await screen.findByText('Delete Domain')
+    await userEvent.click(deleteItem)
+
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: /delete/i }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('boom'))
+    })
+
+    // Dialog stays open — confirm button is still visible
+    await waitFor(() => {
+      const openDialog = screen.getByRole('dialog')
+      expect(openDialog).toBeInTheDocument()
+      expect(within(openDialog).getByRole('button', { name: /delete/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Mail list')).not.toBeInTheDocument()
+  })
+})
+
+/* ================================================================== */
 /*  4 — Groupware toggle confirm                                       */
 /* ================================================================== */
 

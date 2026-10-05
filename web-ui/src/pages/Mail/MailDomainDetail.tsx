@@ -36,6 +36,7 @@ import {
 import { TabsContent } from '../../components/ui/Tabs'
 import type { MailUser } from '../../types'
 import { formatBytes } from '../../utils/format'
+import { getErrMsg } from '../../lib/utils'
 import { MailClassificationView } from './MailClassificationView'
 import { MailboxForm } from '../../components/forms/MailboxForm'
 
@@ -81,9 +82,13 @@ export function MailDomainDetail() {
   }
 
   const handleDeleteDomain = async () => {
-    await deleteDomainMutation.mutateAsync(domain.id)
-    toast.success(`Domain "${domain.domain}" deleted`)
-    navigate('/mail')
+    try {
+      await deleteDomainMutation.mutateAsync(domain.id)
+      toast.success(`Domain "${domain.domain}" deleted`)
+      navigate('/mail')
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
   }
 
   const handleDeleteUser = async () => {
