@@ -1,0 +1,3 @@
+# Server-side deploy artifacts (created by scripts/deploy.sh)
+backups/
+.last-good-tag
