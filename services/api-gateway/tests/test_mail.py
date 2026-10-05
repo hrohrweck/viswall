@@ -216,3 +216,227 @@ class TestMailDomainDeletion:
         async with TestSessionLocal() as session:
             result = await session.execute(select(MailDomain).where(MailDomain.id == mail_domain.id))
             assert result.scalar_one_or_none() is not None
+
+
+class TestMailAliasEndpoints:
+    async def test_list_aliases(self, client: AsyncClient, admin_user, mail_domain):
+        async with TestSessionLocal() as session:
+            admin_row = (await session.execute(select(User).where(User.id == admin_user.id))).scalar_one()
+            admin_row.instances = [mail_domain.instance_id]
+            session.add(MailAlias(domain_id=mail_domain.id, source="info", destination="alice@example.test"))
+            session.add(MailAlias(domain_id=mail_domain.id, source="sales", destination="bob@example.test", enabled=False))
+            await session.commit()
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/aliases/{mail_domain.id}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+        for alias in data:
+            assert set(alias.keys()) == {"id", "domain_id", "source", "destination", "enabled", "created_at", "updated_at"}
+            assert alias["domain_id"] == mail_domain.id
+        by_source = {alias["source"]: alias for alias in data}
+        assert by_source["info"]["destination"] == "alice@example.test"
+        assert by_source["info"]["enabled"] is True
+        assert by_source["sales"]["destination"] == "bob@example.test"
+        assert by_source["sales"]["enabled"] is False
+
+    async def test_list_aliases_readonly_forbidden(self, client: AsyncClient, readonly_user, mail_domain):
+        token = await _login(client, "mailreader", "mailreaderpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/aliases/{mail_domain.id}", headers=headers)
+        assert response.status_code == 403
+
+    async def test_list_aliases_unknown_domain(self, client: AsyncClient, admin_user):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get("/api/v1/mail/aliases/999999", headers=headers)
+        assert response.status_code == 404
+
+    async def test_create_alias(self, client: AsyncClient, admin_user, instance, mail_domain):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/aliases/{mail_domain.id}",
+            json={"source": "info", "destination": "alice@example.test"},
+            headers=headers,
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["source"] == "info"
+        assert body["destination"] == "alice@example.test"
+        assert body["enabled"] is True
+        assert body["domain_id"] == mail_domain.id
+        alias_id = body["id"]
+
+        # Row in DB
+        async with TestSessionLocal() as session:
+            result = await session.execute(select(MailAlias).where(MailAlias.id == alias_id))
+            assert result.scalar_one_or_none() is not None
+
+        # Audit log row
+        async with TestSessionLocal() as session:
+            result = await session.execute(
+                select(AuditLog).where(
+                    AuditLog.action == "create",
+                    AuditLog.resource_type == "mail_alias",
+                    AuditLog.resource_id == str(alias_id),
+                )
+            )
+            logs = result.scalars().all()
+            assert len(logs) == 1
+            assert logs[0].user_id == admin_user.id
+            assert logs[0].instance_id == instance.id
+
+    async def test_create_alias_duplicate(self, client: AsyncClient, admin_user, mail_domain):
+        async with TestSessionLocal() as session:
+            session.add(MailAlias(domain_id=mail_domain.id, source="info", destination="alice@example.test"))
+            await session.commit()
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/aliases/{mail_domain.id}",
+            json={"source": "info", "destination": "alice@example.test"},
+            headers=headers,
+        )
+        assert response.status_code == 400
+
+    async def test_create_alias_invalid_source(self, client: AsyncClient, admin_user, mail_domain):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        for bad_source in ["bad@part", "has space"]:
+            response = await client.post(
+                f"/api/v1/mail/aliases/{mail_domain.id}",
+                json={"source": bad_source, "destination": "alice@example.test"},
+                headers=headers,
+            )
+            assert response.status_code == 422, f"source {bad_source!r} should be rejected"
+
+    async def test_create_alias_invalid_destination(self, client: AsyncClient, admin_user, mail_domain):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/aliases/{mail_domain.id}",
+            json={"source": "info", "destination": "not-an-email"},
+            headers=headers,
+        )
+        assert response.status_code == 422
+
+    async def test_patch_alias_toggle_enabled(self, client: AsyncClient, admin_user, mail_domain):
+        async with TestSessionLocal() as session:
+            alias = MailAlias(domain_id=mail_domain.id, source="info", destination="alice@example.test", enabled=True)
+            session.add(alias)
+            await session.commit()
+            await session.refresh(alias)
+            alias_id = alias.id
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.patch(f"/api/v1/mail/aliases/{alias_id}", json={"enabled": False}, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["enabled"] is False
+
+        async with TestSessionLocal() as session:
+            result = await session.execute(select(MailAlias).where(MailAlias.id == alias_id))
+            row = result.scalar_one()
+            assert row.enabled is False
+
+    async def test_patch_alias_destination(self, client: AsyncClient, admin_user, mail_domain):
+        async with TestSessionLocal() as session:
+            alias = MailAlias(domain_id=mail_domain.id, source="info", destination="alice@example.test")
+            session.add(alias)
+            await session.commit()
+            await session.refresh(alias)
+            alias_id = alias.id
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.patch(
+            f"/api/v1/mail/aliases/{alias_id}",
+            json={"destination": "carol@example.test"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["destination"] == "carol@example.test"
+
+        async with TestSessionLocal() as session:
+            result = await session.execute(select(MailAlias).where(MailAlias.id == alias_id))
+            row = result.scalar_one()
+            assert row.destination == "carol@example.test"
+
+    async def test_patch_alias_duplicate_destination(self, client: AsyncClient, admin_user, mail_domain):
+        async with TestSessionLocal() as session:
+            session.add(MailAlias(domain_id=mail_domain.id, source="info", destination="alice@example.test"))
+            alias_b = MailAlias(domain_id=mail_domain.id, source="info", destination="bob@example.test")
+            session.add(alias_b)
+            await session.commit()
+            await session.refresh(alias_b)
+            alias_b_id = alias_b.id
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.patch(
+            f"/api/v1/mail/aliases/{alias_b_id}",
+            json={"destination": "alice@example.test"},
+            headers=headers,
+        )
+        assert response.status_code == 400
+
+    async def test_patch_alias_unknown_id(self, client: AsyncClient, admin_user):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.patch("/api/v1/mail/aliases/999999", json={"enabled": False}, headers=headers)
+        assert response.status_code == 404
+
+    async def test_delete_alias(self, client: AsyncClient, admin_user, instance, mail_domain):
+        async with TestSessionLocal() as session:
+            alias = MailAlias(domain_id=mail_domain.id, source="info", destination="alice@example.test")
+            session.add(alias)
+            await session.commit()
+            await session.refresh(alias)
+            alias_id = alias.id
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.delete(f"/api/v1/mail/aliases/{alias_id}", headers=headers)
+        assert response.status_code == 204
+
+        # Row gone
+        async with TestSessionLocal() as session:
+            result = await session.execute(select(MailAlias).where(MailAlias.id == alias_id))
+            assert result.scalar_one_or_none() is None
+
+        # Audit log row
+        async with TestSessionLocal() as session:
+            result = await session.execute(
+                select(AuditLog).where(
+                    AuditLog.action == "delete",
+                    AuditLog.resource_type == "mail_alias",
+                    AuditLog.resource_id == str(alias_id),
+                )
+            )
+            logs = result.scalars().all()
+            assert len(logs) == 1
+            assert logs[0].user_id == admin_user.id
+            assert logs[0].instance_id == instance.id
+
+    async def test_delete_alias_unknown_id(self, client: AsyncClient, admin_user):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.delete("/api/v1/mail/aliases/999999", headers=headers)
+        assert response.status_code == 404
