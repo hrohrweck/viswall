@@ -115,6 +115,40 @@ class MailResource:
         """Delete mail user."""
         self._client._request("DELETE", f"/mail/users/{user_id}")
 
+    def list_aliases(self, domain_id: int) -> List[Dict[str, Any]]:
+        """List mail aliases for a domain."""
+        return self._client._request("GET", f"/mail/aliases/{domain_id}")
+
+    def create_alias(
+        self,
+        domain_id: int,
+        source: str,
+        destination: str,
+        enabled: bool = True,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Create a mail alias.
+        
+        Args:
+            domain_id: Domain ID
+            source: Alias source address (e.g., "info@example.com")
+            destination: Alias destination address (e.g., "john@example.com")
+            enabled: Whether alias is enabled
+            
+        Returns:
+            Created alias
+        """
+        data = {"source": source, "destination": destination, "enabled": enabled, **kwargs}
+        return self._client._request("POST", f"/mail/aliases/{domain_id}", json=data)
+
+    def update_alias(self, alias_id: int, **kwargs: Any) -> Dict[str, Any]:
+        """Update mail alias."""
+        return self._client._request("PATCH", f"/mail/aliases/{alias_id}", json=kwargs)
+
+    def delete_alias(self, alias_id: int) -> None:
+        """Delete mail alias."""
+        self._client._request("DELETE", f"/mail/aliases/{alias_id}")
+
     def get_queue(self, instance_id: int) -> Dict[str, Any]:
         """Get mail queue status."""
         return self._client._request("GET", f"/mail/queue/{instance_id}")
