@@ -130,9 +130,12 @@ jobs:
           fingerprint: ${{ secrets.SSH_FINGERPRINT }}
           command_timeout: 30m
           script: |
-            # Repo checkout on the server; scripts/deploy.sh pins it to the
-            # deployed commit before touching containers.
+            # Repo checkout on the server. Sync it BEFORE invoking deploy.sh:
+            # the script itself lives in the checkout, so the first-ever run
+            # (clone older than this commit) would not find it otherwise.
             cd /opt/viswall
+            git fetch origin main
+            git reset --hard "${{ needs.images.outputs.sha }}" || git reset --hard origin/main
             # The GHCR images are private; the workflow token has packages:write,
             # which is sufficient to pull this repo's own packages. The credential
             # persists in ~/.docker/config.json for the subsequent compose pull.
