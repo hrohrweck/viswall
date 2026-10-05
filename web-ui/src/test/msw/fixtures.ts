@@ -774,6 +774,45 @@ export const mailUsers = [
   },
 ]
 
+export const mailAliases = [
+  {
+    id: 1,
+    domain_id: 1,
+    source: 'sales',
+    destination: 'alice@example.test',
+    enabled: true,
+    created_at: FIXED_NOW,
+    updated_at: FIXED_NOW,
+  },
+  {
+    id: 2,
+    domain_id: 1,
+    source: 'sales',
+    destination: 'bob@example.test',
+    enabled: true,
+    created_at: FIXED_NOW,
+    updated_at: FIXED_NOW,
+  },
+  {
+    id: 3,
+    domain_id: 1,
+    source: 'support',
+    destination: 'carol@external.test',
+    enabled: false,
+    created_at: FIXED_NOW,
+    updated_at: FIXED_NOW,
+  },
+  {
+    id: 4,
+    domain_id: 1,
+    source: '*',
+    destination: 'postmaster@example.test',
+    enabled: true,
+    created_at: FIXED_NOW,
+    updated_at: FIXED_NOW,
+  },
+]
+
 export const mailMessages = [
   {
     id: 1,

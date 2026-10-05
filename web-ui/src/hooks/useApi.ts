@@ -25,6 +25,9 @@ import type {
   MailUser,
   MailUserCreate,
   MailUserUpdate,
+  MailAlias,
+  MailAliasCreate,
+  MailAliasUpdate,
   VPNServer,
   VPNServerCreate,
   VPNServerUpdate,
@@ -98,6 +101,7 @@ const queryKeys = {
   groupwareStatus: (domainId: number) => ['groupware-status', domainId] as const,
   groupwareStats: (domainId: number) => ['groupware-stats', domainId] as const,
   mailUsers: (instanceId: number, domainId: number) => ['mail-users', instanceId, domainId] as const,
+  mailAliases: (instanceId: number, domainId: number) => ['mail-aliases', instanceId, domainId] as const,
   mailMessages: (domainId: number, filters?: Record<string, unknown>) => ['mail-messages', domainId, filters] as const,
   mailMessage: (messageId: number) => ['mail-message', messageId] as const,
   vpnServers: (instanceId: number) => ['vpn-servers', instanceId] as const,
@@ -573,6 +577,55 @@ export function useDeleteMailUser(instanceId: number, domainId: number) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.mailUsers(instanceId, domainId) })
+    },
+  })
+}
+
+export function useMailAliases(instanceId: number, domainId: number) {
+  return useQuery<MailAlias[]>({
+    queryKey: queryKeys.mailAliases(instanceId, domainId),
+    queryFn: async () => {
+      const { data } = await api.get(`/mail/aliases/${domainId}`)
+      return data
+    },
+    enabled: !!instanceId && !!domainId,
+  })
+}
+
+export function useCreateMailAlias(instanceId: number, domainId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: MailAliasCreate) => {
+      const { data } = await api.post(`/mail/aliases/${domainId}`, body)
+      return data as MailAlias
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.mailAliases(instanceId, domainId) })
+    },
+  })
+}
+
+export function useUpdateMailAlias(instanceId: number, domainId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...body }: MailAliasUpdate & { id: number }) => {
+      const { data } = await api.patch(`/mail/aliases/${id}`, body)
+      return data as MailAlias
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.mailAliases(instanceId, domainId) })
+    },
+  })
+}
+
+export function useDeleteMailAlias(instanceId: number, domainId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (aliasId: number) => {
+      await api.delete(`/mail/aliases/${aliasId}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.mailAliases(instanceId, domainId) })
     },
   })
 }
