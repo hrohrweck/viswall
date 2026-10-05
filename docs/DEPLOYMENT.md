@@ -36,7 +36,7 @@ PR merged to main
 | `ghcr.io/hrohrweck/viswall/sogo` | `services/sogo-service/Dockerfile` | |
 | `ghcr.io/hrohrweck/viswall/dns-service` | `services/dns-service/Dockerfile` | authoritative DNS on 46.4.63.216:53 |
 
-`nginx` (profile `disabled`) and `mail-service` (profile `mail`) are intentionally **not** prebuilt — TLS is terminated by the existing host nginx, and if either profile is ever enabled on the server it keeps building locally.
+`nginx` (profile `disabled`) is intentionally **not** prebuilt — TLS is terminated by the existing host nginx. `mail-service` (profile `mail`) **is enabled in production** (Exim/Dovecot carry live mail) and builds locally on the server during each deploy; its DKIM keys live in `/opt/viswall/dkim` (untracked, preserved across deploys).
 
 Third-party images (postgres, redis, prometheus, grafana, ollama) are pulled directly by compose. Data lives in named volumes and survives every deploy.
 
@@ -45,15 +45,15 @@ Third-party images (postgres, redis, prometheus, grafana, ollama) are pulled dir
 | Component | Value |
 |---|---|
 | Server | `viswall.webmasters.co.at` (Hetzner `46.4.63.216`, hostname `boseman`) — also hosts vidForge and other stacks |
-| Checkout | `/opt/viswall` (git clone, owned by `viswall-deploy`; pre-existing `/opt/viswall/dkim` dir is untracked and preserved) |
-| Compose env | `/opt/viswall/deployments/docker/.env` (0600, copied from the retired pre-CD deployment at `/data/docker/persistent/exim4/viswall/`) |
+| Checkout | `/opt/viswall` (git clone, owned by `viswall-deploy`; `/opt/viswall/dkim` holds the DKIM keys — untracked and preserved across deploys) |
+| Compose env | `/opt/viswall/deployments/docker/.env` (0600, copied from the retired pre-CD deployment at `/data/docker/persistent/viswall/viswall/`) |
 | Deploy SSH user | `viswall-deploy` (member of `docker`) |
 | Self-hosted runner | `enterprise-viswall-1` on `10.80.2.251` — docker compose service `ghar-viswall-1` in the `gh-runners` project (`/naspool/home/sysop/source/private/build/gh-runners/docker-compose.yml`), labels `self-hosted,linux,x64,viswall`, docker socket mounted + `group_add: docker` |
 | Repo secrets | `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `SSH_FINGERPRINT` (ED25519 host key of the server) |
 | GitHub environment | `production` (no protection rules — add reviewers here if manual approval is wanted) |
 | Git access on server | read-only deploy key `deploy: boseman/viswall.webmasters.co.at` → `/home/viswall-deploy/.ssh/viswall_deploy_key` |
 
-The pre-CD deployment at `/data/docker/persistent/exim4/viswall/` is retired: same compose project name (`name: viswall` in the compose file), so `/opt/viswall` adopts its containers and named volumes (`viswall_postgres_data`, …) on the first deploy. Do not run `docker compose up` from the old directory again.
+The pre-CD deployment at `/data/docker/persistent/viswall/viswall/` is retired: same compose project name (`name: viswall` in the compose file), so `/opt/viswall` adopts its containers and named volumes (`viswall_postgres_data`, …) on the first deploy. Do not run `docker compose up` from the old directory again.
 
 ### Rebuilding the setup from scratch (disaster recovery)
 
@@ -66,7 +66,7 @@ The pre-CD deployment at `/data/docker/persistent/exim4/viswall/` is retired: sa
 
 1. **Pin checkout** — `git fetch origin main` + `git reset --hard <sha>` so the bind-mounted `shared/`, compose files, and the script itself match the built images.
 2. **DB backup** — `pg_dump` into `deployments/docker/backups/` (gzipped, last 10 kept) *before* api-gateway startup runs migrations. Skipped if postgres is not running.
-3. **Pull & apply** — `VISWALL_TAG=<tag> docker compose -f docker-compose.yml -f docker-compose.prod.yml pull && up -d --remove-orphans`. Unchanged services (postgres, redis, …) are not restarted.
+3. **Pull & apply** — `VISWALL_TAG=<tag> docker compose -f docker-compose.yml -f docker-compose.prod.yml pull && up --profile mail -d --remove-orphans` (the `mail` profile is active in production; mail-service builds locally). Unchanged services (postgres, redis, …) are not restarted.
 4. **Health gates** (300 s each):
    - in-container `GET http://127.0.0.1:8000/health` on api-gateway;
    - public probe of `PUBLIC_HEALTH_URL` (default `https://viswall.webmasters.co.at/`).
@@ -80,7 +80,7 @@ The pre-CD deployment at `/data/docker/persistent/exim4/viswall/` is retired: sa
 ssh viswall-deploy@viswall.webmasters.co.at
 cd /opt/viswall/deployments/docker
 VISWALL_TAG=sha-abc1234 docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
-VISWALL_TAG=sha-abc1234 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+VISWALL_TAG=sha-abc1234 docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile mail up -d --remove-orphans
 
 # Trigger a fresh deploy of current main without a merge:
 #   Actions → Deploy → Run workflow
