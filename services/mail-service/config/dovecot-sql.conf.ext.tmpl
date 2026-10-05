@@ -1,5 +1,5 @@
 driver = pgsql
-connect = host=@@DB_HOST@@ port=@@DB_PORT@@ dbname=@@DB_NAME@@ user=@@DB_USER@@ passfile=/tmp/dovecot.pgpass
+connect = @@DOVECOT_SQL_CONNECT@@
 default_pass_scheme = CRYPT
 
 # password_hash holds a crypt-format hash (bcrypt $2b$ from passlib / ETL); {CRYPT} makes Dovecot use crypt(3).
