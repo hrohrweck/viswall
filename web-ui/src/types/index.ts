@@ -942,6 +942,25 @@ export interface LLMUseCaseConfig {
   updated_at: string;
 }
 
+export interface LLMModelDiscovery {
+  id: string;
+  display_name?: string | null;
+  size?: number | null;
+  owned_by?: string | null;
+}
+
+export interface LLMModelDiscoveryResponse {
+  provider_id: number;
+  provider_type: 'openai' | 'anthropic' | 'ollama' | 'custom';
+  models: LLMModelDiscovery[];
+}
+
+export interface LLMModelSyncResponse {
+  provider_id: number;
+  discovered: number;
+  created: number;
+}
+
 export interface LLMUseCaseConfigUpdate {
   use_case?: 'email_classification' | 'assistant_chat' | 'security_audit';
   provider_id?: number | null;

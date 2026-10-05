@@ -8,7 +8,9 @@ All endpoints require admin access.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Optional
+
+import httpx
 
 from shared.database import get_db
 from shared.security import require_admin
@@ -16,9 +18,11 @@ from shared.models import LLMProvider, LLMModel, LLMUseCaseConfig
 from shared.schemas import (
     LLMProviderCreate, LLMProviderUpdate, LLMProviderResponse,
     LLMModelCreate, LLMModelUpdate, LLMModelResponse,
+    LLMModelDiscoveryResponse, LLMModelDiscovery, LLMModelSyncResponse,
+    LLMProviderTestRequest,
     LLMUseCaseConfigCreate, LLMUseCaseConfigUpdate, LLMUseCaseConfigResponse,
 )
-from shared.llm_client import LLMClientFactory, LLMConfigError
+from shared.llm_client import LLMClientFactory, LLMConfigError, LLMError
 
 router = APIRouter()
 
@@ -104,29 +108,180 @@ async def delete_llm_provider(
     await db.commit()
 
 
+async def _resolve_test_model(
+    db: AsyncSession,
+    provider: LLMProvider,
+    requested_model: Optional[str],
+    client,
+) -> str:
+    """Pick the model to test with: explicit → first enabled → first discovered."""
+    if requested_model:
+        return requested_model
+
+    result = await db.execute(
+        select(LLMModel)
+        .where(LLMModel.provider_id == provider.id, LLMModel.is_enabled == True)  # noqa: E712
+        .order_by(LLMModel.id)
+        .limit(1)
+    )
+    stored = result.scalar_one_or_none()
+    if stored:
+        return stored.name
+
+    try:
+        discovered = await client.list_models()
+    except LLMError:
+        discovered = []
+    if discovered:
+        return discovered[0]["id"]
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=(
+            "No models available for this provider: none configured, enabled, "
+            "or discoverable. Sync or add a model first (e.g. pull one in Ollama)."
+        ),
+    )
+
+
 @router.post("/providers/{provider_id}/test")
 async def test_llm_provider(
     provider_id: int,
+    data: Optional[LLMProviderTestRequest] = None,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Test connectivity to an LLM provider."""
+    """Test connectivity to an LLM provider with a real (small) chat request."""
     result = await db.execute(select(LLMProvider).where(LLMProvider.id == provider_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
 
+    # Cold model loads (Ollama) can take a while — allow more than the
+    # default 30s client timeout for this diagnostic call.
+    http_client = httpx.AsyncClient(timeout=90.0)
     try:
-        client = LLMClientFactory.create_provider(provider.provider_type, provider)
-        # Send a minimal test prompt
+        if provider.provider_type == "custom":
+            # "custom" endpoints are treated as OpenAI-compatible.
+            client = LLMClientFactory.create_provider(
+                "openai", provider, http_client=http_client
+            )
+        else:
+            client = LLMClientFactory.create_provider(
+                provider.provider_type, provider, http_client=http_client
+            )
+
+        model = await _resolve_test_model(db, provider, data.model if data else None, client)
         test_response = await client.chat(
             messages=[{"role": "user", "content": "Say 'ok'"}],
-            model="qwen3.5:9b",  # Use default model; caller can override if needed
+            model=model,
             max_tokens=10,
         )
-        return {"status": "success", "response": test_response[:100]}
+        return {"status": "success", "response": test_response[:100], "model": model}
+    except HTTPException:
+        raise
+    except LLMError as e:
+        raise HTTPException(status_code=502, detail=f"Provider test failed: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Provider test failed: {str(e)}")
+    finally:
+        await http_client.aclose()
+
+
+# ============================================================================
+# LLM MODEL DISCOVERY
+# ============================================================================
+
+@router.get("/providers/{provider_id}/models/discover", response_model=LLMModelDiscoveryResponse)
+async def discover_provider_models(
+    provider_id: int,
+    admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """List the models a live provider advertises (Ollama /api/tags, OpenAI & Anthropic /models)."""
+    result = await db.execute(select(LLMProvider).where(LLMProvider.id == provider_id))
+    provider = result.scalar_one_or_none()
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    if provider.provider_type == "custom":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Model discovery is not supported for custom providers. Add models manually.",
+        )
+
+    client = LLMClientFactory.create_provider(provider.provider_type, provider)
+    try:
+        models = await client.list_models()
+    except LLMError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Could not reach provider '{provider.name}': {str(e)}",
+        )
+
+    return LLMModelDiscoveryResponse(
+        provider_id=provider.id,
+        provider_type=provider.provider_type,
+        models=[LLMModelDiscovery(**m) for m in models],
+    )
+
+
+@router.post("/providers/{provider_id}/models/sync", response_model=LLMModelSyncResponse)
+async def sync_provider_models(
+    provider_id: int,
+    admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import a provider's advertised models into the registry.
+
+    Newly discovered models are created **disabled**; existing rows keep
+    their enabled state (so preconfigured models stay active).
+    """
+    result = await db.execute(select(LLMProvider).where(LLMProvider.id == provider_id))
+    provider = result.scalar_one_or_none()
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    if provider.provider_type == "custom":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Model discovery is not supported for custom providers. Add models manually.",
+        )
+
+    client = LLMClientFactory.create_provider(provider.provider_type, provider)
+    try:
+        discovered = await client.list_models()
+    except LLMError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Could not reach provider '{provider.name}': {str(e)}",
+        )
+
+    existing_result = await db.execute(
+        select(LLMModel.name).where(LLMModel.provider_id == provider_id)
+    )
+    existing = {row[0] for row in existing_result.all()}
+
+    created = 0
+    for m in discovered:
+        if m["id"] in existing:
+            continue
+        db.add(LLMModel(
+            provider_id=provider_id,
+            name=m["id"],
+            display_name=m.get("display_name") or m["id"],
+            is_enabled=False,
+        ))
+        created += 1
+
+    if created:
+        await db.commit()
+
+    return LLMModelSyncResponse(
+        provider_id=provider_id,
+        discovered=len(discovered),
+        created=created,
+    )
 
 
 # ============================================================================

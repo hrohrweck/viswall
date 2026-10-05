@@ -755,7 +755,7 @@ async def message_action(
 async def generate_dkim_keys(domain_id: int, domain_name: str):
     """Generate DKIM keys for a domain"""
     from shared.database import AsyncSessionLocal
-    from utils.agent_client import agent_request, AgentClientError
+    from utils.agent_client import agent_request, AgentClientError, log_agent_dispatch
     import logging
     logger = logging.getLogger(__name__)
 
@@ -772,13 +772,23 @@ async def generate_dkim_keys(domain_id: int, domain_name: str):
                 path="/dkim/generate",
                 json_data={"domain": domain_name},
             )
+            await log_agent_dispatch(
+                db, instance_id=domain.instance_id, resource_type="mail_agent",
+                action="deploy", path="/dkim/generate", ok=True,
+                detail=f"DKIM keys generated for {domain_name}",
+            )
         except AgentClientError as e:
             logger.error(f"Failed to generate DKIM for {domain_name}: {e}")
+            await log_agent_dispatch(
+                db, instance_id=domain.instance_id, resource_type="mail_agent",
+                action="deploy", path="/dkim/generate", ok=False,
+                detail=f"DKIM generation for {domain_name} failed: {e}",
+            )
 
 async def reload_mail_config(instance_id: int):
     """Reload Exim configuration on an instance"""
     from shared.database import AsyncSessionLocal
-    from utils.agent_client import agent_request, AgentClientError
+    from utils.agent_client import agent_request, AgentClientError, log_agent_dispatch
     import logging
     logger = logging.getLogger(__name__)
 
@@ -790,8 +800,18 @@ async def reload_mail_config(instance_id: int):
                 method="POST",
                 path="/reload",
             )
+            await log_agent_dispatch(
+                db, instance_id=instance_id, resource_type="mail_agent",
+                action="deploy", path="/reload", ok=True,
+                detail="Mail (Exim) configuration reloaded",
+            )
         except AgentClientError as e:
             logger.error(f"Failed to reload mail config on instance {instance_id}: {e}")
+            await log_agent_dispatch(
+                db, instance_id=instance_id, resource_type="mail_agent",
+                action="deploy", path="/reload", ok=False,
+                detail=f"Mail config reload failed: {e}",
+            )
 
 async def create_maildir(domain: str, username: str):
     """Create Maildir for a new user"""

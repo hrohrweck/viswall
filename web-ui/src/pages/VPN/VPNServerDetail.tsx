@@ -67,7 +67,7 @@ export function VPNServerDetail() {
   const { selectedInstanceId } = useInstanceStore()
   const serverId = Number(id)
 
-  const { data: server, isLoading, isError, refetch } = useVPNServer(selectedInstanceId!, serverId)
+  const { data: server, isLoading, isError, error, refetch } = useVPNServer(selectedInstanceId!, serverId)
   const { data: clients } = useVPNClients(selectedInstanceId!, serverId)
   const deleteServerMutation = useDeleteVPNServer(selectedInstanceId!)
   const actionMutation = useVPNServerAction(selectedInstanceId!)
@@ -95,6 +95,24 @@ export function VPNServerDetail() {
         </div>
         <SkeletonText lines={5} />
       </div>
+    )
+  }
+
+  if (isError) {
+    const status = (error as { response?: { status?: number } })?.response?.status
+    if (status === 404) {
+      return (
+        <EmptyState
+          icon={Users}
+          title="VPN server not found"
+          description="The server you're looking for doesn't exist or has been deleted."
+          actionLabel="Back to VPN Servers"
+          actionTo="/vpn"
+        />
+      )
+    }
+    return (
+      <QueryError onRetry={() => refetch()} />
     )
   }
 

@@ -243,14 +243,14 @@ class MetricSnapshot(Base):
     instance_id = Column(Integer, ForeignKey("instances.id"))
     timestamp = Column(DateTime, default=datetime.utcnow)
 
-    # System metrics
+    # System metrics (byte counters exceed int32 for realistic volumes)
     cpu_percent = Column(Float)
     memory_percent = Column(Float)
-    memory_used_bytes = Column(Integer)
-    memory_total_bytes = Column(Integer)
+    memory_used_bytes = Column(BigInteger)
+    memory_total_bytes = Column(BigInteger)
     disk_percent = Column(Float)
-    disk_used_bytes = Column(Integer)
-    disk_total_bytes = Column(Integer)
+    disk_used_bytes = Column(BigInteger)
+    disk_total_bytes = Column(BigInteger)
 
     # Network metrics (stored as JSON for flexibility)
     interface_stats = Column(
@@ -664,8 +664,8 @@ class LLMModel(Base):
     display_name = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
     max_tokens = Column(Integer, nullable=True)
-    supports_vision = Column(Boolean, default=False)
-    is_enabled = Column(Boolean, default=True)
+    supports_vision = Column(Boolean, nullable=False, server_default="false", default=False)
+    is_enabled = Column(Boolean, nullable=False, server_default="true", default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

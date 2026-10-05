@@ -184,7 +184,7 @@ describe('Revoke client confirm', () => {
 describe('Add client modal', () => {
   it('opens modal with fields and submits', async () => {
     server.use(
-      http.post('/api/v1/vpn/:instanceId/servers/:serverId/clients', () =>
+      http.post('/api/v1/vpn/servers/:serverId/clients', () =>
         HttpResponse.json({
           id: 99, server_id: 1, user_id: null, name: 'test-client-01',
           description: null, enabled: true, client_type: 'user', auth_type: 'public_key',

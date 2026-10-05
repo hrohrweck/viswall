@@ -10,6 +10,18 @@ import { FirewallSimulator } from '../pages/Firewall/FirewallSimulator'
 import { FirewallTestSuite } from '../pages/Firewall/FirewallTestSuite'
 import { server } from './msw/node'
 
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+    message: vi.fn(),
+  },
+}))
+
 /* -------------------------------------------------------------------------- */
 /*  ResizeObserver polyfill — Tooltip → Radix useSize                         */
 /* -------------------------------------------------------------------------- */
@@ -108,6 +120,13 @@ function installLLMHandlers() {
     http.delete('/api/v1/admin/llm/providers/:id', () =>
       HttpResponse.json(null, { status: 204 }),
     ),
+    http.post('/api/v1/admin/llm/providers/:id/models/sync', () =>
+      HttpResponse.json({ provider_id: 1, discovered: 3, created: 2 }),
+    ),
+    http.patch('/api/v1/admin/llm/models/:id', async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>
+      return HttpResponse.json({ ...mockModels[0], ...body })
+    }),
   )
 }
 
@@ -230,6 +249,58 @@ describe('LLMConfiguration', () => {
     // Should NOT be a global banner at the top — the alert should have role="alert"
     const alerts = screen.getAllByRole('alert')
     expect(alerts.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('models tab: sync from provider imports models (disabled by default)', async () => {
+    installLLMHandlers()
+    const { toast } = await import('sonner')
+    const user = userEvent.setup()
+    const Wrapper = createWrapper()
+    render(<LLMConfiguration />, { wrapper: Wrapper })
+
+    await screen.findByText('Local Ollama')
+
+    const modelsTab = screen.getByRole('tab', { name: /models/i })
+    await user.click(modelsTab)
+
+    // Provider selector + model row visible
+    await waitFor(() => {
+      expect(screen.getByText('qwen3.5:9b')).toBeInTheDocument()
+    })
+
+    // Sync from provider
+    const syncButton = screen.getByRole('button', { name: /sync from provider/i })
+    await user.click(syncButton)
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringMatching(/synced 3 model\(s\).*2 new/i),
+      )
+    })
+  })
+
+  it('models tab: enable switch toggles a model', async () => {
+    installLLMHandlers()
+    const { toast } = await import('sonner')
+    const user = userEvent.setup()
+    const Wrapper = createWrapper()
+    render(<LLMConfiguration />, { wrapper: Wrapper })
+
+    await screen.findByText('Local Ollama')
+
+    const modelsTab = screen.getByRole('tab', { name: /models/i })
+    await user.click(modelsTab)
+
+    const modelSwitch = await screen.findByRole('switch', {
+      name: /toggle model qwen3\.5:9b/i,
+    })
+    await user.click(modelSwitch)
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringContaining('disabled'),
+      )
+    })
   })
 })
 

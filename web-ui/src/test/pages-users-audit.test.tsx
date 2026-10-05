@@ -125,7 +125,7 @@ describe('AuditLogs', () => {
     expect(pageSizeSelect.value).toBe('25')
   })
 
-  it('date filter narrows rows', async () => {
+  it('date filter narrows rows (server-side)', async () => {
     useAuthStore.setState({ token: 'test', user: { id: 1, username: 'admin', email: 'a@b.c', role: 'admin' } })
 
     const dateFixtures: AuditLog[] = [
@@ -134,8 +134,15 @@ describe('AuditLogs', () => {
       { id: 12, user_id: 1, instance_id: null, action: 'user.update', resource_type: 'user', resource_id: '2', old_value: { role: 'user' }, new_value: { role: 'admin' }, ip_address: '10.0.0.1', timestamp: '2026-01-20T18:00:00.000Z' },
     ]
 
+    let capturedStart: string | null = null
     server.use(
-      http.get('/api/v1/audit/logs', () => HttpResponse.json(dateFixtures)),
+      http.get('/api/v1/audit', ({ request }) => {
+        const url = new URL(request.url)
+        capturedStart = url.searchParams.get('start_time')
+        const start = capturedStart ? new Date(capturedStart).getTime() : 0
+        // Simulate the backend narrowing by start_time
+        return HttpResponse.json(dateFixtures.filter((l) => new Date(l.timestamp).getTime() >= start))
+      }),
     )
 
     const Wrapper = createWrapper()
@@ -147,9 +154,18 @@ describe('AuditLogs', () => {
     expect(screen.getByText('firewall.rule.create on firewall_rule #5')).toBeInTheDocument()
     expect(screen.getByText('user.update on user #2')).toBeInTheDocument()
 
-    // Set date from = 2026-01-12 → should remove the Jan 10 row
+    // Set date from = 2026-01-12 → server narrows out the Jan 10 row
     const dateFrom = screen.getByLabelText(/date from/i)
     fireEvent.change(dateFrom, { target: { value: '2026-01-12' } })
+
+    // The query must carry start_time for the backend to filter on
+    // (date input → local midnight; compare instants, not string fragments)
+    await waitFor(() => {
+      expect(capturedStart).not.toBeNull()
+      expect(new Date(capturedStart!).getTime()).toBe(
+        new Date('2026-01-12T00:00:00').getTime(),
+      )
+    })
 
     // auth.login row should disappear (its date is Jan 10, before Jan 12)
     await waitFor(() => {
@@ -170,7 +186,7 @@ describe('AuditLogs', () => {
     ]
 
     server.use(
-      http.get('/api/v1/audit/logs', () => HttpResponse.json(fixturesWithDeleted)),
+      http.get('/api/v1/audit', () => HttpResponse.json(fixturesWithDeleted)),
     )
 
     const Wrapper = createWrapper()

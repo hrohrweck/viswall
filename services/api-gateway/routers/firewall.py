@@ -37,7 +37,7 @@ from shared.schemas import (
 )
 from shared.security import require_auth, require_admin
 from shared.audit_logger import log_audit
-from utils.agent_client import agent_request, AgentClientError
+from utils.agent_client import agent_request, AgentClientError, log_agent_dispatch
 
 router = APIRouter()
 
@@ -853,8 +853,18 @@ async def block_ip(
             path="/block",
             json_data={"ip": ip, "reason": reason},
         )
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="deploy", path="/block", ok=True,
+            detail=f"Blocked {ip} ({reason}, duration {duration})", user_id=admin_id,
+        )
         return {"status": "success", "action": "block", "ip": ip, "duration": duration}
     except AgentClientError as e:
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="deploy", path="/block", ok=False,
+            detail=f"Block {ip} failed: {e}", user_id=admin_id,
+        )
         raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
 
@@ -874,8 +884,18 @@ async def unblock_ip(
             path="/unblock",
             json_data={"ip": ip},
         )
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="deploy", path="/unblock", ok=True,
+            detail=f"Unblocked {ip}", user_id=admin_id,
+        )
         return {"status": "success", "action": "unblock", "ip": ip}
     except AgentClientError as e:
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="deploy", path="/unblock", ok=False,
+            detail=f"Unblock {ip} failed: {e}", user_id=admin_id,
+        )
         raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
 

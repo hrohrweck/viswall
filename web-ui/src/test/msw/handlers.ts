@@ -58,15 +58,15 @@ export const handlers = [
   http.get('/api/v1/routing/rules/:instanceId', () => HttpResponse.json(f.routingRules)),
 
   // --- VPN -------------------------------------------------------------------
-  http.get('/api/v1/vpn/protocols', () => HttpResponse.json(f.vpnProtocols)),
-  http.get('/api/v1/vpn/:instanceId/servers', () => HttpResponse.json(f.vpnServers)),
-  http.get('/api/v1/vpn/:instanceId/servers/:serverId', ({ params }) => {
+  http.get('/api/v1/vpn/protocols/recommendations', () => HttpResponse.json(f.vpnProtocols)),
+  http.get('/api/v1/vpn/servers/:instanceId', () => HttpResponse.json(f.vpnServers)),
+  http.get('/api/v1/vpn/servers/detail/:serverId', ({ params }) => {
     const server = f.vpnServers.find((s) => s.id === Number(params.serverId))
     return server
       ? HttpResponse.json(server)
       : HttpResponse.json({ detail: 'VPN server not found' }, { status: 404 })
   }),
-  http.get('/api/v1/vpn/:instanceId/servers/:serverId/clients', () => HttpResponse.json(f.vpnClients)),
+  http.get('/api/v1/vpn/servers/:serverId/clients', () => HttpResponse.json(f.vpnClients)),
 
   // --- DNS ---------------------------------------------------------------------
   http.get('/api/v1/dns/servers/:instanceId', () => HttpResponse.json(f.dnsServers)),
@@ -127,5 +127,5 @@ export const handlers = [
   http.delete('/api/v1/mail/domains/:domainId', () => HttpResponse.json({ status: 'ok' })),
 
   // --- Audit -----------------------------------------------------------------------
-  http.get('/api/v1/audit/logs', () => HttpResponse.json(f.auditLogs)),
+  http.get('/api/v1/audit', () => HttpResponse.json(f.auditLogs)),
 ]

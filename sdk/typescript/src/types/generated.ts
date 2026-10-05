@@ -1026,9 +1026,26 @@ export interface paths {
   "/api/v1/admin/llm/providers/{provider_id}/test": {
     /**
      * Test Llm Provider
-     * @description Test connectivity to an LLM provider.
+     * @description Test connectivity to an LLM provider with a real (small) chat request.
      */
     post: operations["test_llm_provider_api_v1_admin_llm_providers__provider_id__test_post"];
+  };
+  "/api/v1/admin/llm/providers/{provider_id}/models/discover": {
+    /**
+     * Discover Provider Models
+     * @description List the models a live provider advertises (Ollama /api/tags, OpenAI & Anthropic /models).
+     */
+    get: operations["discover_provider_models_api_v1_admin_llm_providers__provider_id__models_discover_get"];
+  };
+  "/api/v1/admin/llm/providers/{provider_id}/models/sync": {
+    /**
+     * Sync Provider Models
+     * @description Import a provider's advertised models into the registry.
+     *
+     * Newly discovered models are created **disabled**; existing rows keep
+     * their enabled state (so preconfigured models stay active).
+     */
+    post: operations["sync_provider_models_api_v1_admin_llm_providers__provider_id__models_sync_post"];
   };
   "/api/v1/admin/llm/models": {
     /**
@@ -1153,13 +1170,9 @@ export interface components {
       /** Resource Id */
       resource_id: string | null;
       /** Old Value */
-      old_value: {
-        [key: string]: unknown;
-      } | null;
+      old_value: Record<string, never> | null;
       /** New Value */
-      new_value: {
-        [key: string]: unknown;
-      } | null;
+      new_value: Record<string, never> | null;
       /** Ip Address */
       ip_address: string | null;
       /**
@@ -1187,9 +1200,7 @@ export interface components {
       /** Conversation Id */
       conversation_id?: string | null;
       /** Context */
-      context?: {
-        [key: string]: unknown;
-      } | null;
+      context?: Record<string, never> | null;
     };
     /** ChatResponse */
     ChatResponse: {
@@ -1198,9 +1209,7 @@ export interface components {
       /** Message */
       message: string;
       /** Data */
-      data?: {
-        [key: string]: unknown;
-      } | null;
+      data?: Record<string, never> | null;
       /**
        * Can Apply
        * @default false
@@ -1214,9 +1223,7 @@ export interface components {
       /** Config Type */
       config_type: string;
       /** Config */
-      config: {
-        [key: string]: unknown;
-      };
+      config: Record<string, never>;
       /** Question */
       question?: string | null;
     };
@@ -2503,9 +2510,7 @@ export interface components {
       /** Last Seen */
       last_seen: string | null;
       /** Config */
-      config: {
-        [key: string]: unknown;
-      };
+      config: Record<string, never>;
       /**
        * Created At
        * Format: date-time
@@ -2532,9 +2537,7 @@ export interface components {
       /** Capabilities */
       capabilities?: string[] | null;
       /** Config */
-      config?: {
-        [key: string]: unknown;
-      } | null;
+      config?: Record<string, never> | null;
     };
     /** L2TPConfig */
     L2TPConfig: {
@@ -2640,6 +2643,29 @@ export interface components {
       /** Provider Id */
       provider_id: number;
     };
+    /**
+     * LLMModelDiscovery
+     * @description A model advertised by a live provider (not necessarily stored in the DB).
+     */
+    LLMModelDiscovery: {
+      /** Id */
+      id: string;
+      /** Display Name */
+      display_name?: string | null;
+      /** Size */
+      size?: number | null;
+      /** Owned By */
+      owned_by?: string | null;
+    };
+    /** LLMModelDiscoveryResponse */
+    LLMModelDiscoveryResponse: {
+      /** Provider Id */
+      provider_id: number;
+      /** Provider Type */
+      provider_type: string;
+      /** Models */
+      models: components["schemas"]["LLMModelDiscovery"][];
+    };
     /** LLMModelResponse */
     LLMModelResponse: {
       /** Name */
@@ -2669,6 +2695,15 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+    };
+    /** LLMModelSyncResponse */
+    LLMModelSyncResponse: {
+      /** Provider Id */
+      provider_id: number;
+      /** Discovered */
+      discovered: number;
+      /** Created */
+      created: number;
     };
     /** LLMModelUpdate */
     LLMModelUpdate: {
@@ -2736,6 +2771,14 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /**
+     * LLMProviderTestRequest
+     * @description Optional body for the provider test-connection endpoint.
+     */
+    LLMProviderTestRequest: {
+      /** Model */
+      model?: string | null;
     };
     /**
      * LLMProviderType
@@ -2926,9 +2969,7 @@ export interface components {
        */
       groupware_enabled?: boolean;
       /** Llm Config */
-      llm_config?: {
-        [key: string]: unknown;
-      } | null;
+      llm_config?: Record<string, never> | null;
     };
     /** MailDomainResponse */
     MailDomainResponse: {
@@ -2979,9 +3020,7 @@ export interface components {
       /** Instance Id */
       instance_id: number;
       /** Llm Config */
-      llm_config: {
-        [key: string]: unknown;
-      };
+      llm_config: Record<string, never>;
       /**
        * Created At
        * Format: date-time
@@ -3012,9 +3051,7 @@ export interface components {
       /** Groupware Enabled */
       groupware_enabled?: boolean | null;
       /** Llm Config */
-      llm_config?: {
-        [key: string]: unknown;
-      } | null;
+      llm_config?: Record<string, never> | null;
     };
     /** MailMessageActionRequest */
     MailMessageActionRequest: {
@@ -3188,9 +3225,7 @@ export interface components {
       /** Disk Total Bytes */
       disk_total_bytes?: number | null;
       /** Interface Stats */
-      interface_stats?: {
-          [key: string]: unknown;
-        }[] | null;
+      interface_stats?: Record<string, never>[] | null;
       /** Mail Queue Size */
       mail_queue_size?: number | null;
       /** Mail Inbound Count */
@@ -3263,9 +3298,7 @@ export interface components {
     /** MultiFirewallRequest */
     MultiFirewallRequest: {
       /** Firewalls */
-      firewalls: {
-          [key: string]: unknown;
-        }[];
+      firewalls: Record<string, never>[];
       /** Topology */
       topology: {
         [key: string]: string[];
@@ -3279,17 +3312,13 @@ export interface components {
     /** MultiFirewallTestRequest */
     MultiFirewallTestRequest: {
       /** Firewalls */
-      firewalls: {
-          [key: string]: unknown;
-        }[];
+      firewalls: Record<string, never>[];
       /** Topology */
       topology: {
         [key: string]: string[];
       };
       /** Tests */
-      tests: {
-          [key: string]: unknown;
-        }[];
+      tests: Record<string, never>[];
     };
     /** NATRuleCreate */
     NATRuleCreate: {
@@ -3809,9 +3838,7 @@ export interface components {
       /** Queues */
       queues?: components["schemas"]["QoSQueueStats"][];
       /** Raw */
-      raw?: {
-        [key: string]: unknown;
-      } | null;
+      raw?: Record<string, never> | null;
       /**
        * Collected At
        * Format: date-time
@@ -3957,33 +3984,25 @@ export interface components {
     /** RuleSuggestionResponse */
     RuleSuggestionResponse: {
       /** Rule */
-      rule: {
-        [key: string]: unknown;
-      };
+      rule: Record<string, never>;
       /** Explanation */
       explanation: string;
       /** Security Notes */
       security_notes: string;
       /** Suggested Tests */
-      suggested_tests: {
-          [key: string]: unknown;
-        }[];
+      suggested_tests: Record<string, never>[];
     };
     /** SecurityAuditRequest */
     SecurityAuditRequest: {
       /** Rules */
-      rules: {
-          [key: string]: unknown;
-        }[];
+      rules: Record<string, never>[];
       /** Standard */
       standard?: string | null;
     };
     /** SecurityAuditResponse */
     SecurityAuditResponse: {
       /** Findings */
-      findings: {
-          [key: string]: unknown;
-        }[];
+      findings: Record<string, never>[];
       /** Risk Score */
       risk_score: number;
       /** Recommendations */
@@ -4008,13 +4027,9 @@ export interface components {
     /** SimulationResponse */
     SimulationResponse: {
       /** Packet */
-      packet: {
-        [key: string]: unknown;
-      };
+      packet: Record<string, never>;
       /** Matched Rule */
-      matched_rule: {
-        [key: string]: unknown;
-      } | null;
+      matched_rule: Record<string, never> | null;
       /** Final Action */
       final_action: string;
       /** Chain Traversed */
@@ -4026,9 +4041,7 @@ export interface components {
       /** Logs */
       logs: string[];
       /** Nat Translation */
-      nat_translation: {
-        [key: string]: unknown;
-      } | null;
+      nat_translation: Record<string, never> | null;
     };
     /**
      * TSIGAlgorithm
@@ -4066,18 +4079,14 @@ export interface components {
       /** Description */
       description: string;
       /** Rules */
-      rules?: {
-          [key: string]: unknown;
-        }[] | null;
+      rules?: Record<string, never>[] | null;
       /** Instance Id */
       instance_id?: number | null;
     };
     /** TestGenerationResponse */
     TestGenerationResponse: {
       /** Test Cases */
-      test_cases: {
-          [key: string]: unknown;
-        }[];
+      test_cases: Record<string, never>[];
       /** Explanation */
       explanation: string;
       /** Coverage Assessment */
@@ -4086,17 +4095,13 @@ export interface components {
     /** TestResultResponse */
     TestResultResponse: {
       /** Test Case */
-      test_case: {
-        [key: string]: unknown;
-      };
+      test_case: Record<string, never>;
       /** Passed */
       passed: boolean;
       /** Actual Action */
       actual_action: string;
       /** Actual Rule */
-      actual_rule: {
-        [key: string]: unknown;
-      } | null;
+      actual_rule: Record<string, never> | null;
       /** Error Message */
       error_message: string | null;
       /** Execution Time Ms */
@@ -4171,9 +4176,7 @@ export interface components {
       /** Instances */
       instances: number[];
       /** Preferences */
-      preferences: {
-        [key: string]: unknown;
-      };
+      preferences: Record<string, never>;
       /** Last Login */
       last_login: string | null;
       /**
@@ -4202,9 +4205,7 @@ export interface components {
       /** Instances */
       instances?: number[] | null;
       /** Preferences */
-      preferences?: {
-        [key: string]: unknown;
-      } | null;
+      preferences?: Record<string, never> | null;
     };
     /**
      * VPNAuthType
@@ -4531,9 +4532,7 @@ export interface components {
       instance_id: number;
       status: components["schemas"]["VPNStatus"];
       /** Config */
-      config: {
-        [key: string]: unknown;
-      };
+      config: Record<string, never>;
       /** Connected Clients */
       connected_clients: number;
       /** Bytes Received */
@@ -4567,9 +4566,7 @@ export interface components {
       /** Total Bytes Sent */
       total_bytes_sent: number;
       /** Client List */
-      client_list: {
-          [key: string]: unknown;
-        }[];
+      client_list: Record<string, never>[];
     };
     /** VPNServerUpdate */
     VPNServerUpdate: {
@@ -4592,9 +4589,7 @@ export interface components {
       /** Internet Redirect */
       internet_redirect?: boolean | null;
       /** Config */
-      config?: {
-        [key: string]: unknown;
-      } | null;
+      config?: Record<string, never> | null;
     };
     /**
      * VPNStatus
@@ -4908,9 +4903,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": {
-          [key: string]: unknown;
-        };
+        "application/json": Record<string, never>;
       };
     };
     responses: {
@@ -6283,9 +6276,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": {
-          [key: string]: unknown;
-        };
+        "application/json": Record<string, never>;
       };
     };
     responses: {
@@ -6528,9 +6519,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
       /** @description Validation Error */
@@ -6550,9 +6539,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
     };
@@ -8942,9 +8929,7 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        "application/json": {
-          [key: string]: unknown;
-        } | null;
+        "application/json": Record<string, never> | null;
       };
     };
     responses: {
@@ -9198,9 +9183,39 @@ export interface operations {
   };
   /**
    * Test Llm Provider
-   * @description Test connectivity to an LLM provider.
+   * @description Test connectivity to an LLM provider with a real (small) chat request.
    */
   test_llm_provider_api_v1_admin_llm_providers__provider_id__test_post: {
+    parameters: {
+      path: {
+        provider_id: number;
+      };
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["LLMProviderTestRequest"] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Discover Provider Models
+   * @description List the models a live provider advertises (Ollama /api/tags, OpenAI & Anthropic /models).
+   */
+  discover_provider_models_api_v1_admin_llm_providers__provider_id__models_discover_get: {
     parameters: {
       path: {
         provider_id: number;
@@ -9210,7 +9225,35 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": unknown;
+          "application/json": components["schemas"]["LLMModelDiscoveryResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Sync Provider Models
+   * @description Import a provider's advertised models into the registry.
+   *
+   * Newly discovered models are created **disabled**; existing rows keep
+   * their enabled state (so preconfigured models stay active).
+   */
+  sync_provider_models_api_v1_admin_llm_providers__provider_id__models_sync_post: {
+    parameters: {
+      path: {
+        provider_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMModelSyncResponse"];
         };
       };
       /** @description Validation Error */
@@ -9480,9 +9523,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
       /** @description Validation Error */
@@ -9560,9 +9601,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
       /** @description Validation Error */

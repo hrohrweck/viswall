@@ -20,7 +20,11 @@ const actionVariant: Record<string, 'success' | 'danger' | 'warning' | 'info' | 
   update: 'info',
   delete: 'danger',
   deploy: 'warning',
-  login: 'neutral',
+  start: 'success',
+  stop: 'danger',
+  restart: 'warning',
+  enable_groupware: 'success',
+  disable_groupware: 'danger',
 }
 
 /* ── Resolve first token (e.g. "vpn.server.update" → "update") ── */
@@ -33,16 +37,18 @@ export function AuditLogs() {
   const { user } = useAuthStore()
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin'
 
-  /* ── Filter state (client-side; hook has no date params) ── */
+  /* ── Filter state (server-side; backend supports action/resource/date params) ── */
   const [actionFilter, setActionFilter] = useState('')
   const [resourceFilter, setResourceFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
   /* ── Data fetching ── */
-  const params: Record<string, unknown> = {}
+  const params: Record<string, unknown> = { limit: 500 }
   if (actionFilter) params.action = actionFilter
   if (resourceFilter) params.resource_type = resourceFilter
+  if (dateFrom) params.start_time = new Date(`${dateFrom}T00:00:00`).toISOString()
+  if (dateTo) params.end_time = new Date(`${dateTo}T23:59:59.999`).toISOString()
 
   const { data: logs, isLoading, isError, refetch } = useAuditLogs(params)
   const { data: users } = useUsers()
@@ -64,26 +70,6 @@ export function AuditLogs() {
     }
     return m
   }, [instances])
-
-  /* ── Client-side date filtering ── */
-  const filteredLogs = useMemo(() => {
-    if (!logs) return []
-    return logs.filter((log) => {
-      if (dateFrom) {
-        const ts = new Date(log.timestamp)
-        const from = new Date(dateFrom)
-        from.setHours(0, 0, 0, 0)
-        if (ts < from) return false
-      }
-      if (dateTo) {
-        const ts = new Date(log.timestamp)
-        const to = new Date(dateTo)
-        to.setHours(23, 59, 59, 999)
-        if (ts > to) return false
-      }
-      return true
-    })
-  }, [logs, dateFrom, dateTo])
 
   /* ── Admin gate ── */
   if (!isAdmin) {
@@ -200,7 +186,11 @@ export function AuditLogs() {
             <option value="update">Update</option>
             <option value="delete">Delete</option>
             <option value="deploy">Deploy</option>
-            <option value="login">Login</option>
+            <option value="start">Start</option>
+            <option value="stop">Stop</option>
+            <option value="restart">Restart</option>
+            <option value="enable_groupware">Enable Groupware</option>
+            <option value="disable_groupware">Disable Groupware</option>
           </Select>
           <Select
             value={resourceFilter}
@@ -208,12 +198,27 @@ export function AuditLogs() {
             aria-label="Filter by resource"
           >
             <option value="">All Resources</option>
-            <option value="firewall_rule">Firewall Rule</option>
             <option value="instance">Instance</option>
             <option value="user">User</option>
-            <option value="mail_domain">Mail Domain</option>
-            <option value="vpn_server">VPN Server</option>
+            <option value="firewall_rule">Firewall Rule</option>
             <option value="routing_rule">Routing Rule</option>
+            <option value="vpn_server">VPN Server</option>
+            <option value="mail_domain">Mail Domain</option>
+            <option value="dns_server">DNS Server</option>
+            <option value="dns_zone">DNS Zone</option>
+            <option value="dns_zone_dnssec">DNSSEC</option>
+            <option value="dns_tsig_key">TSIG Key</option>
+            <option value="dhcp_server">DHCP Server</option>
+            <option value="dhcp_subnet">DHCP Subnet</option>
+            <option value="dhcp_pool">DHCP Pool</option>
+            <option value="dhcp_reservation">DHCP Reservation</option>
+            <option value="dhcp_option">DHCP Option</option>
+            <option value="dhcp_lease">DHCP Lease</option>
+            <option value="firewall_agent">Firewall Agent</option>
+            <option value="vpn_agent">VPN Agent</option>
+            <option value="dns_agent">DNS Agent</option>
+            <option value="dhcp_agent">DHCP Agent</option>
+            <option value="mail_agent">Mail Agent</option>
           </Select>
           <Input
             type="date"
@@ -234,7 +239,7 @@ export function AuditLogs() {
 
       <DataTable
         columns={columns}
-        data={filteredLogs}
+        data={logs ?? []}
         keyExtractor={(log) => log.id}
         enableSorting
         searchable
