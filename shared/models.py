@@ -171,6 +171,12 @@ class MailDomain(Base):
     # Groupware (SOGo integration)
     groupware_enabled = Column(Boolean, default=False)
 
+    # MTA forwarding: when enabled, all mail for the domain is SMTP-forwarded
+    # to mta_forward_host:mta_forward_port instead of local delivery.
+    mta_forward_enabled = Column(Boolean, default=False, server_default="false", nullable=False)
+    mta_forward_host = Column(String(255), nullable=True)
+    mta_forward_port = Column(Integer, default=25, server_default="25", nullable=False)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
