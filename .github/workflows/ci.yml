@@ -62,6 +62,9 @@ jobs:
         pytest tests/ -v --cov=. --cov-report=xml --cov-report=term --asyncio-mode=auto
 
     - name: Upload coverage
+      # Best effort: a codecov outage must not fail the pipeline (v4 throws
+      # on network errors even with fail_ci_if_error: false).
+      continue-on-error: true
       uses: codecov/codecov-action@v4
       with:
         file: ./services/api-gateway/coverage.xml
