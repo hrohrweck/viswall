@@ -25,3 +25,8 @@ fdd8d6783f00f3b8d1b3ef6f2b17b474f5655a3d:services/dns-service/tests/test_api_aut
 909ad437a70021d713664d73497b8f21a69a3e18:web-ui/src/pages/admin/LLMConfiguration.tsx:password-assignment:155
 909ad437a70021d713664d73497b8f21a69a3e18:web-ui/src/pages/admin/LLMConfiguration.tsx:password-assignment:383
 b97c2dbff66d3e9bde444016a34d8e06317cfd00:web-ui/src/test/shell-topbar.test.tsx:password-assignment:68
+0115502b6314acb685a94c63b381327d459789a0:sdk/cli/viswall_cli/commands/mail.py:password-assignment:155
+0115502b6314acb685a94c63b381327d459789a0:sdk/cli/viswall_cli/commands/mail.py:password-assignment:177
+0115502b6314acb685a94c63b381327d459789a0:sdk/cli/viswall_cli/commands/mail.py:password-assignment:203
+0115502b6314acb685a94c63b381327d459789a0:sdk/cli/viswall_cli/commands/mail.py:password-assignment:229
+22f45633a7c28b9a5fb74085e9d1e65fe17d3295:services/api-gateway/tests/test_mail.py:password-assignment:107

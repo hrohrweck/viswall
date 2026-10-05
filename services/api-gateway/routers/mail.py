@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import datetime
 
 from shared.database import get_db
-from shared.models import MailDomain, MailUser, Instance, User, MailMessage
+from shared.models import MailAlias, MailDomain, MailUser, Instance, User, MailMessage
 from shared.schemas import (
     MailDomainCreate, MailDomainUpdate, MailDomainResponse,
     MailUserCreate, MailUserUpdate, MailUserResponse,
+    MailAliasCreate, MailAliasUpdate, MailAliasResponse,
     MailMessageCreate, MailMessageResponse, MailClassificationResult,
     MailMessageListParams, MailMessageActionRequest,
     LLMConfig
@@ -97,7 +99,7 @@ async def create_domain(
     db.add(domain)
     await db.commit()
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="create", resource_type="mail_domain", resource_id=domain.id, instance_id=instance_id)
+    await log_audit(db=db, user_id=admin_id, action="create", resource_type="mail_domain", resource_id=domain.id, instance_id=instance_id)
 
     await db.refresh(domain)
     
@@ -163,7 +165,7 @@ async def update_domain(
     domain.updated_at = datetime.utcnow()
     await db.commit()
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="update", resource_type="mail_domain", resource_id=domain_id, instance_id=instance_id)
+    await log_audit(db=db, user_id=admin_id, action="update", resource_type="mail_domain", resource_id=domain_id, instance_id=domain.instance_id)
 
     await db.refresh(domain)
     
@@ -190,10 +192,14 @@ async def delete_domain(
     
     instance_id = domain.instance_id
     
-    await db.delete(domain)
-    await db.commit()
+    try:
+        await db.delete(domain)
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete mail domain")
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="delete", resource_type="mail_domain", resource_id=domain_id, instance_id=instance_id)
+    await log_audit(db=db, user_id=admin_id, action="delete", resource_type="mail_domain", resource_id=domain_id, instance_id=instance_id)
 
     
     # Reload mail config
@@ -441,6 +447,171 @@ async def delete_user(
     
     await db.delete(user)
     await db.commit()
+    
+    return None
+
+# ============================================================================
+# MAIL ALIAS ENDPOINTS
+# ============================================================================
+
+@router.get("/aliases/{domain_id}", response_model=List[MailAliasResponse])
+async def get_aliases(
+    domain_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all mail aliases for a domain"""
+    # Verify domain access
+    result = await db.execute(
+        select(MailDomain.instance_id).where(MailDomain.id == domain_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Domain not found")
+    
+    instance_id = row[0]
+    
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one()
+    if user.role != "superadmin" and instance_id not in (user.instances or []):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    result = await db.execute(
+        select(MailAlias).where(MailAlias.domain_id == domain_id)
+    )
+    aliases = result.scalars().all()
+    return [MailAliasResponse.model_validate(a) for a in aliases]
+
+@router.post("/aliases/{domain_id}", response_model=MailAliasResponse, status_code=status.HTTP_201_CREATED)
+async def create_alias(
+    domain_id: int,
+    data: MailAliasCreate,
+    background_tasks: BackgroundTasks,
+    admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new mail alias"""
+    # Verify domain exists
+    result = await db.execute(
+        select(MailDomain).where(MailDomain.id == domain_id)
+    )
+    domain = result.scalar_one_or_none()
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+    
+    # Check for duplicate alias
+    result = await db.execute(
+        select(MailAlias).where(
+            and_(
+                MailAlias.domain_id == domain_id,
+                MailAlias.source == data.source,
+                MailAlias.destination == data.destination
+            )
+        )
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Alias already exists")
+    
+    alias = MailAlias(
+        domain_id=domain_id,
+        source=data.source,
+        destination=data.destination,
+        enabled=data.enabled
+    )
+    
+    db.add(alias)
+    await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=admin_id, action="create", resource_type="mail_alias", resource_id=alias.id, instance_id=domain.instance_id)
+
+    await db.refresh(alias)
+    
+    # Trigger Exim config reload on instance
+    background_tasks.add_task(reload_mail_config, domain.instance_id)
+    
+    return MailAliasResponse.model_validate(alias)
+
+@router.patch("/aliases/{alias_id}", response_model=MailAliasResponse)
+async def update_alias(
+    alias_id: int,
+    data: MailAliasUpdate,
+    background_tasks: BackgroundTasks,
+    admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update a mail alias"""
+    result = await db.execute(
+        select(MailAlias, MailDomain.instance_id)
+        .join(MailDomain)
+        .where(MailAlias.id == alias_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Alias not found")
+    
+    alias, instance_id = row
+    
+    update_data = data.model_dump(exclude_unset=True)
+    
+    # Check for duplicate alias if source or destination changed
+    if "source" in update_data or "destination" in update_data:
+        new_source = update_data.get("source", alias.source)
+        new_destination = update_data.get("destination", alias.destination)
+        result = await db.execute(
+            select(MailAlias).where(
+                and_(
+                    MailAlias.domain_id == alias.domain_id,
+                    MailAlias.source == new_source,
+                    MailAlias.destination == new_destination,
+                    MailAlias.id != alias_id
+                )
+            )
+        )
+        if result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Alias already exists")
+    
+    for field, value in update_data.items():
+        setattr(alias, field, value)
+    
+    alias.updated_at = datetime.utcnow()
+    await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=admin_id, action="update", resource_type="mail_alias", resource_id=alias_id, instance_id=instance_id)
+
+    await db.refresh(alias)
+    
+    # Reload mail config
+    background_tasks.add_task(reload_mail_config, instance_id)
+    
+    return MailAliasResponse.model_validate(alias)
+
+@router.delete("/aliases/{alias_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_alias(
+    alias_id: int,
+    background_tasks: BackgroundTasks,
+    admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a mail alias"""
+    result = await db.execute(
+        select(MailAlias, MailDomain.instance_id)
+        .join(MailDomain)
+        .where(MailAlias.id == alias_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Alias not found")
+    
+    alias, instance_id = row
+    
+    await db.delete(alias)
+    await db.commit()
+    # Audit log
+    await log_audit(db=db, user_id=admin_id, action="delete", resource_type="mail_alias", resource_id=alias_id, instance_id=instance_id)
+
+    
+    # Reload mail config
+    background_tasks.add_task(reload_mail_config, instance_id)
     
     return None
 

@@ -275,3 +275,112 @@ class TestDHCP:
         result = runner.invoke(app, ["dhcp", "lease-release", "55", "--yes"])
         assert result.exit_code == 0
         assert "released" in result.output
+
+
+class TestMailAliases:
+    def test_list_aliases(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/aliases/1",
+            json=[
+                {"id": 1, "source": "sales@example.com", "destination": "team@example.com", "enabled": True},
+                {"id": 2, "source": "support@example.com", "destination": "help@example.com", "enabled": False},
+            ],
+        )
+
+        result = runner.invoke(app, ["mail", "aliases", "--domain-id", "1"])
+        assert result.exit_code == 0
+        assert "sales@example.com" in result.output
+        assert "support@example.com" in result.output
+
+    def test_create_alias(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/aliases/1",
+            method="POST",
+            json={"id": 10, "source": "sales@example.com", "destination": "team@example.com", "enabled": True},
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "mail",
+                "alias-create",
+                "--domain-id",
+                "1",
+                "--source",
+                "sales@example.com",
+                "--destination",
+                "team@example.com",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "created" in result.output
+
+    def test_create_alias_multiple_destinations(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/aliases/1",
+            method="POST",
+            json={"id": 11, "source": "sales@example.com", "destination": "team@example.com", "enabled": True},
+        )
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/aliases/1",
+            method="POST",
+            json={"id": 12, "source": "sales@example.com", "destination": "ops@example.com", "enabled": True},
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "mail",
+                "alias-create",
+                "--domain-id",
+                "1",
+                "--source",
+                "sales@example.com",
+                "--destination",
+                "team@example.com",
+                "--destination",
+                "ops@example.com",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "created" in result.output
+
+    def test_update_alias(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/aliases/10",
+            method="PATCH",
+            json={"id": 10, "source": "sales@example.com", "destination": "new@example.com", "enabled": False},
+        )
+
+        result = runner.invoke(
+            app,
+            ["mail", "alias-update", "10", "--destination", "new@example.com", "--no-enabled"],
+        )
+        assert result.exit_code == 0
+        assert "updated" in result.output
+
+    def test_delete_alias(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/aliases/10",
+            method="DELETE",
+            status_code=204,
+        )
+
+        result = runner.invoke(app, ["mail", "alias-delete", "10", "--yes"])
+        assert result.exit_code == 0
+        assert "deleted" in result.output
