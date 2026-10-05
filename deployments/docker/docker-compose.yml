@@ -173,8 +173,8 @@ services:
   # ============================================================================
 
   # Mail service (Exim MTA + Dovecot IMAP/POP3/LMTP, Postgres-backed).
-  # Under the "mail" profile so normal `up` does NOT bind mail ports while the
-  # legacy exim container still runs. Cutover: docker compose --profile mail up -d mail-service
+  # Under the "mail" profile so a plain `up` does NOT bind mail ports unless
+  # explicitly enabled. Start with: docker compose --profile mail up -d mail-service
   mail-service:
     profiles: ["mail"]
     build:
@@ -198,7 +198,7 @@ services:
     volumes:
       - ${LETSENCRYPT_LIVE:?LETSENCRYPT_LIVE is required}/fullchain.pem:/viswall/certs/server.crt:ro
       - ${LETSENCRYPT_LIVE:?LETSENCRYPT_LIVE is required}/privkey.pem:/viswall/certs/server.key:ro
-      - /opt/viswall/dkim:/opt/viswall/dkim-staging:ro
+      - ../../dkim:/opt/viswall/dkim-staging:ro
       - mail_data:/var/mail
     depends_on:
       postgres:
