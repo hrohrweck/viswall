@@ -33,3 +33,4 @@ fdc9e9ade85814c96b229f343d0599233cfbd0fb:sdk/cli/viswall_cli/commands/llm.py:pas
 fdc9e9ade85814c96b229f343d0599233cfbd0fb:services/api-gateway/tests/test_metrics_collector.py:password-assignment:37
 fdc9e9ade85814c96b229f343d0599233cfbd0fb:shared/llm_client.py:password-assignment:184
 fdd8d6783f00f3b8d1b3ef6f2b17b474f5655a3d:services/dns-service/tests/test_api_auth.py:password-assignment:31
+fdc9e9ade85814c96b229f343d0599233cfbd0fb:services/api-gateway/tests/test_llm_admin.py:password-assignment:83
