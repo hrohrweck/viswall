@@ -1,5 +1,7 @@
 """Tests for the Viswall Python SDK."""
 
+import json
+
 import pytest
 import httpx
 from viswall import ViswallClient, ViswallAPIError, AuthenticationError, NotFoundError
@@ -183,6 +185,84 @@ class TestMailResource:
         client = ViswallClient(base_url="https://test.example.com", token="jwt")
         result = client.mail.list_users(domain_id=5)
         assert len(result) == 1
+        client.close()
+
+    def test_list_aliases(self, httpx_mock):
+        """Test list mail aliases."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/aliases/5",
+            method="GET",
+            json=[{"id": 1, "source": "info@example.com", "destination": "john@example.com"}],
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.mail.list_aliases(domain_id=5)
+        assert len(result) == 1
+        assert result[0]["source"] == "info@example.com"
+
+        request = httpx_mock.get_request()
+        assert request.method == "GET"
+        assert str(request.url) == "https://test.example.com/api/v1/mail/aliases/5"
+        client.close()
+
+    def test_create_alias(self, httpx_mock):
+        """Test create mail alias."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/aliases/5",
+            method="POST",
+            status_code=201,
+            json={"id": 1, "source": "info@example.com", "destination": "john@example.com"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.mail.create_alias(
+            domain_id=5, source="info@example.com", destination="john@example.com"
+        )
+        assert result["id"] == 1
+
+        request = httpx_mock.get_request()
+        assert request.method == "POST"
+        assert str(request.url) == "https://test.example.com/api/v1/mail/aliases/5"
+        assert json.loads(request.content) == {
+            "source": "info@example.com",
+            "destination": "john@example.com",
+            "enabled": True,
+        }
+        client.close()
+
+    def test_update_alias(self, httpx_mock):
+        """Test update mail alias."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/aliases/1",
+            method="PATCH",
+            json={"id": 1, "enabled": False},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.mail.update_alias(alias_id=1, enabled=False)
+        assert result["enabled"] is False
+
+        request = httpx_mock.get_request()
+        assert request.method == "PATCH"
+        assert str(request.url) == "https://test.example.com/api/v1/mail/aliases/1"
+        assert json.loads(request.content) == {"enabled": False}
+        client.close()
+
+    def test_delete_alias(self, httpx_mock):
+        """Test delete mail alias."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/aliases/1",
+            method="DELETE",
+            status_code=204,
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.mail.delete_alias(alias_id=1)
+        assert result is None
+
+        request = httpx_mock.get_request()
+        assert request.method == "DELETE"
+        assert str(request.url) == "https://test.example.com/api/v1/mail/aliases/1"
         client.close()
 
 

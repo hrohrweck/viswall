@@ -1,6 +1,6 @@
 """Mail commands."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import typer
 
@@ -143,6 +143,101 @@ def delete_user(
     try:
         client.mail.delete_user(user_id)
         print_success(f"Mail user {user_id} deleted")
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
+@app.command("aliases")
+def list_aliases(
+    domain_id: int = typer.Option(..., "--domain-id", "-d", help="Domain ID"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+    format: str = typer.Option("table", "--format", "-f"),
+) -> None:
+    """List mail aliases for a domain."""
+    client = get_client(url=url, token=token)
+    try:
+        aliases = client.mail.list_aliases(domain_id)
+        print_result(aliases, format=format, columns=["id", "source", "destination", "enabled"])
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
+@app.command("alias-create")
+def create_alias(
+    domain_id: int = typer.Option(..., "--domain-id", "-d", help="Domain ID"),
+    source: str = typer.Option(..., "--source", "-s", help="Alias address"),
+    destination: List[str] = typer.Option(
+        ..., "--destination", help="Destination address (repeatable)"
+    ),
+    enabled: bool = typer.Option(True, "--enabled/--no-enabled"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+    format: str = typer.Option("json", "--format", "-f"),
+) -> None:
+    """Create a mail alias (one alias per destination)."""
+    client = get_client(url=url, token=token)
+    try:
+        results = []
+        for dest in destination:
+            result = client.mail.create_alias(
+                domain_id, source=source, destination=dest, enabled=enabled
+            )
+            results.append(result)
+        print_result(results, format=format)
+        print_success(f"Mail alias '{source}' created")
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
+@app.command("alias-update")
+def update_alias(
+    alias_id: int = typer.Argument(..., help="Alias ID"),
+    source: Optional[str] = typer.Option(None, "--source", "-s"),
+    destination: Optional[str] = typer.Option(None, "--destination"),
+    enabled: Optional[bool] = typer.Option(None, "--enabled/--no-enabled"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+    format: str = typer.Option("json", "--format", "-f"),
+) -> None:
+    """Update a mail alias."""
+    client = get_client(url=url, token=token)
+    try:
+        kwargs: Dict[str, Any] = {}
+        if source is not None:
+            kwargs["source"] = source
+        if destination is not None:
+            kwargs["destination"] = destination
+        if enabled is not None:
+            kwargs["enabled"] = enabled
+        result = client.mail.update_alias(alias_id, **kwargs)
+        print_result(result, format=format)
+        print_success(f"Mail alias {alias_id} updated")
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
+@app.command("alias-delete")
+def delete_alias(
+    alias_id: int = typer.Argument(..., help="Alias ID"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+) -> None:
+    """Delete a mail alias."""
+    if not yes:
+        confirm = typer.confirm(f"Delete mail alias {alias_id}?")
+        if not confirm:
+            raise typer.Abort()
+
+    client = get_client(url=url, token=token)
+    try:
+        client.mail.delete_alias(alias_id)
+        print_success(f"Mail alias {alias_id} deleted")
     except ViswallAPIError as e:
         print_error(str(e))
         raise typer.Exit(1)

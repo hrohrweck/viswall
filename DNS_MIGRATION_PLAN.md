@@ -69,7 +69,7 @@ the zones' NS records via the viswall console.
 
 ## Cutover runbook (Phase 5 — EXECUTED 2026-09-06 07:12 UTC)
 ```bash
-cd /data/docker/persistent/exim4/viswall/deployments/docker
+cd /data/docker/persistent/viswall/viswall/deployments/docker
 docker update --restart=no dns1 && docker stop dns1          # Webmin :10000 dies too
 DNS_PUBLISH_ADDR=46.4.63.216 DNS_PUBLISH_PORT=53 docker compose up -d dns-service
 for z in hybridz.net triolog.media visionsinmind.com wuehrer.me; do
@@ -127,7 +127,7 @@ A + wildcard A → `85.208.168.4`. `$ttl 38400`.
 
 ### Viswall console (already deployed on this host)
 
-- Stack (compose project `viswall`, working dir `/data/docker/persistent/exim4/viswall/deployments/docker`):
+- Stack (compose project `viswall`, working dir `/data/docker/persistent/viswall/viswall/deployments/docker`):
   `api-gateway` (127.0.0.1:8010→8000, healthy), `web-ui` (127.0.0.1:8088→80),
   `postgres` (127.0.0.1:5432), `redis`, `mail-service`, `sogo`, `grafana`, `prometheus`, `ollama`.
 - Public endpoint: https://viswall.webmasters.co.at (host nginx, TLS LE) → web-ui / api-gateway. Verified HTTP 200.

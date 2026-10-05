@@ -100,6 +100,23 @@ export const handlers = [
       created_at: f.FIXED_NOW, updated_at: f.FIXED_NOW,
     })
   }),
+  http.get('/api/v1/mail/aliases/:domainId', () => HttpResponse.json(f.mailAliases)),
+  http.post('/api/v1/mail/aliases/:domainId', async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json({
+      id: Date.now(),
+      domain_id: Number(params.domainId),
+      ...body,
+      enabled: body.enabled ?? true,
+      created_at: f.FIXED_NOW,
+      updated_at: f.FIXED_NOW,
+    })
+  }),
+  http.patch('/api/v1/mail/aliases/:aliasId', async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json({ id: Number(params.aliasId), ...body })
+  }),
+  http.delete('/api/v1/mail/aliases/:aliasId', () => HttpResponse.json({ status: 'ok' })),
   http.get('/api/v1/mail/messages/:domainId', () => HttpResponse.json(f.mailMessages)),
   http.post('/api/v1/mail/domains/:domainId/dkim/regenerate', () => HttpResponse.json({ status: 'ok' })),
   http.post('/api/v1/mail/messages/:messageId/reclassify', () => HttpResponse.json({ id: 1, status: 'reclassified' })),

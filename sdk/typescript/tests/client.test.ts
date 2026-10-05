@@ -159,6 +159,58 @@ describe('ViswallClient', () => {
     });
   });
 
+  describe('MailResource', () => {
+    it('should list mail aliases for a domain', async () => {
+      server.use(
+        http.get('https://viswall.example.com/api/v1/mail/aliases/1', () => {
+          return HttpResponse.json([{ id: 7, alias: 'sales' }]);
+        }),
+      );
+
+      const result = await client.mail.listAliases(1);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(1);
+    });
+
+    it('should create a mail alias', async () => {
+      server.use(
+        http.post('https://viswall.example.com/api/v1/mail/aliases/1', () => {
+          return HttpResponse.json({ id: 7, alias: 'sales' });
+        }),
+      );
+
+      const result = await client.mail.createAlias(1, {
+        alias: 'sales',
+        destinations: ['user@example.com'],
+      });
+      expect(result).toHaveProperty('id', 7);
+    });
+
+    it('should update a mail alias', async () => {
+      server.use(
+        http.patch('https://viswall.example.com/api/v1/mail/aliases/7', () => {
+          return HttpResponse.json({ id: 7, alias: 'sales-eu' });
+        }),
+      );
+
+      const result = await client.mail.updateAlias(7, { alias: 'sales-eu' });
+      expect(result).toHaveProperty('alias', 'sales-eu');
+    });
+
+    it('should delete a mail alias', async () => {
+      let deleted = false;
+      server.use(
+        http.delete('https://viswall.example.com/api/v1/mail/aliases/7', () => {
+          deleted = true;
+          return HttpResponse.json({ id: 7, deleted: true });
+        }),
+      );
+
+      await client.mail.deleteAlias(7);
+      expect(deleted).toBe(true);
+    });
+  });
+
   describe('Error Handling', () => {
     it('should throw AuthenticationError on 401', async () => {
       server.use(

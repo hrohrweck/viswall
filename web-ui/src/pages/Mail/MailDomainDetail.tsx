@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Key, Trash2, Users, Brain, Globe } from 'lucide-react'
+import { Key, Trash2, Users, Brain, Globe, Forward } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
 import {
   useMailDomain,
@@ -13,6 +13,10 @@ import {
   useEnableGroupware,
   useDisableGroupware,
   useGroupwareStats,
+  useMailAliases,
+  useCreateMailAlias,
+  useUpdateMailAlias,
+  useDeleteMailAlias,
 } from '../../hooks/useApi'
 import {
   PageHeader,
@@ -36,8 +40,17 @@ import {
 import { TabsContent } from '../../components/ui/Tabs'
 import type { MailUser } from '../../types'
 import { formatBytes } from '../../utils/format'
+import { getErrMsg } from '../../lib/utils'
 import { MailClassificationView } from './MailClassificationView'
 import { MailboxForm } from '../../components/forms/MailboxForm'
+import { MailAliasForm } from '../../components/forms/MailAliasForm'
+
+interface AliasGroup {
+  source: string
+  destinations: string[]
+  enabled: boolean
+  aliasIds: number[]
+}
 
 export function MailDomainDetail() {
   const { id } = useParams<{ id: string }>()
@@ -54,13 +67,40 @@ export function MailDomainDetail() {
   const enableGroupware = useEnableGroupware(domainId)
   const disableGroupware = useDisableGroupware(domainId)
   const { data: groupwareStats } = useGroupwareStats(domainId)
+  const { data: aliases } = useMailAliases(selectedInstanceId!, domainId)
+  const createAliasMutation = useCreateMailAlias(selectedInstanceId!, domainId)
+  const updateAliasMutation = useUpdateMailAlias(selectedInstanceId!, domainId)
+  const deleteAliasMutation = useDeleteMailAlias(selectedInstanceId!, domainId)
 
   const [showDeleteDomain, setShowDeleteDomain] = useState(false)
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [deleteUserTarget, setDeleteUserTarget] = useState<MailUser | null>(null)
   const [showDkimConfirm, setShowDkimConfirm] = useState(false)
   const [showGroupwareConfirm, setShowGroupwareConfirm] = useState(false)
+  const [showCreateAlias, setShowCreateAlias] = useState(false)
+  const [editAliasTarget, setEditAliasTarget] = useState<AliasGroup | null>(null)
+  const [deleteAliasTarget, setDeleteAliasTarget] = useState<AliasGroup | null>(null)
   const [activeTab, setActiveTab] = useState('users')
+
+  const aliasGroups = useMemo<AliasGroup[]>(() => {
+    const groups = new Map<string, AliasGroup>()
+    for (const alias of aliases ?? []) {
+      const group = groups.get(alias.source)
+      if (group) {
+        group.destinations.push(alias.destination)
+        group.aliasIds.push(alias.id)
+        group.enabled = group.enabled && alias.enabled
+      } else {
+        groups.set(alias.source, {
+          source: alias.source,
+          destinations: [alias.destination],
+          enabled: alias.enabled,
+          aliasIds: [alias.id],
+        })
+      }
+    }
+    return Array.from(groups.values())
+  }, [aliases])
 
   if (isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-64" /><Skeleton className="h-48" /></div>
   if (!domain) {
@@ -81,9 +121,13 @@ export function MailDomainDetail() {
   }
 
   const handleDeleteDomain = async () => {
-    await deleteDomainMutation.mutateAsync(domain.id)
-    toast.success(`Domain "${domain.domain}" deleted`)
-    navigate('/mail')
+    try {
+      await deleteDomainMutation.mutateAsync(domain.id)
+      toast.success(`Domain "${domain.domain}" deleted`)
+      navigate('/mail')
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
   }
 
   const handleDeleteUser = async () => {
@@ -110,6 +154,65 @@ export function MailDomainDetail() {
     setShowGroupwareConfirm(false)
   }
 
+  const handleCreateAlias = async (values: { source: string; destinations: string[]; enabled: boolean }) => {
+    try {
+      await Promise.all(
+        values.destinations.map((destination) =>
+          createAliasMutation.mutateAsync({ source: values.source, destination, enabled: values.enabled }),
+        ),
+      )
+      toast.success(`Alias "${values.source}" created`)
+      setShowCreateAlias(false)
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
+  }
+
+  const handleEditAlias = async (values: { source: string; destinations: string[]; enabled: boolean }) => {
+    if (!editAliasTarget) return
+    const existing = editAliasTarget
+    const added = values.destinations.filter((destination) => !existing.destinations.includes(destination))
+    const removed = existing.aliasIds.filter(
+      (id, index) => !values.destinations.includes(existing.destinations[index]),
+    )
+    const enabledChanged = values.enabled !== existing.enabled
+    try {
+      await Promise.all([
+        ...added.map((destination) =>
+          createAliasMutation.mutateAsync({ source: existing.source, destination, enabled: values.enabled }),
+        ),
+        ...removed.map((id) => deleteAliasMutation.mutateAsync(id)),
+        ...(enabledChanged
+          ? existing.aliasIds.map((id) => updateAliasMutation.mutateAsync({ id, enabled: values.enabled }))
+          : []),
+      ])
+      toast.success(`Alias "${existing.source}" updated`)
+      setEditAliasTarget(null)
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
+  }
+
+  const handleToggleAlias = async (group: AliasGroup) => {
+    try {
+      await Promise.all(group.aliasIds.map((id) => updateAliasMutation.mutateAsync({ id, enabled: !group.enabled })))
+      toast.success(`Alias "${group.source}" ${group.enabled ? 'disabled' : 'enabled'}`)
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
+  }
+
+  const handleDeleteAlias = async () => {
+    if (!deleteAliasTarget) return
+    try {
+      await Promise.all(deleteAliasTarget.aliasIds.map((id) => deleteAliasMutation.mutateAsync(id)))
+      toast.success(`Alias "${deleteAliasTarget.source}" deleted`)
+      setDeleteAliasTarget(null)
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
+  }
+
   const userColumns = [
     {
       key: 'username',
@@ -133,8 +236,43 @@ export function MailDomainDetail() {
     },
   ]
 
+  const aliasColumns = [
+    {
+      key: 'source',
+      header: 'Source',
+      className: 'font-mono',
+      render: (group: AliasGroup) => (
+        <span className="font-medium text-on-surface">
+          {group.source}@{domain.domain}
+          {group.source === '*' && (
+            <Badge variant="info" className="ml-2">Catch-all</Badge>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'destinations',
+      header: 'Destinations',
+      render: (group: AliasGroup) => (
+        <span className="text-sm text-on-surface-muted">{group.destinations.join(', ')}</span>
+      ),
+    },
+    {
+      key: 'enabled',
+      header: 'Active',
+      render: (group: AliasGroup) => (
+        <Switch
+          checked={group.enabled}
+          onCheckedChange={() => handleToggleAlias(group)}
+          aria-label={`Active: ${group.source}`}
+        />
+      ),
+    },
+  ]
+
   const tabItems = [
     { value: 'users', label: `Mailboxes (${users?.length ?? 0})` },
+    { value: 'forwarding', label: `Forwarding (${aliasGroups.length})` },
     { value: 'classification', label: 'Classification' },
     { value: 'groupware', label: 'Groupware' },
   ]
@@ -200,6 +338,45 @@ export function MailDomainDetail() {
               />
             </TabsContent>
 
+            <TabsContent value="forwarding">
+              <div className="flex items-center justify-between mb-4 mt-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-on-surface">Forwarding</h3>
+                  <p className="text-sm text-on-surface-muted">
+                    Forward mail from an address to one or more external destinations.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCreateAlias(true)}
+                  className={buttonVariants({ size: 'sm' })}
+                >
+                  <Forward className="w-4 h-4" />
+                  Add Alias
+                </button>
+              </div>
+              <DataTable
+                columns={aliasColumns}
+                data={aliasGroups}
+                keyExtractor={(group) => group.source}
+                searchable
+                searchPlaceholder="Search aliases…"
+                rowActions={(group) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger />
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => setEditAliasTarget(group)}>
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem danger onClick={() => setDeleteAliasTarget(group)}>
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                emptyContent={<EmptyState icon={Forward} title="No forwarding rules yet" description="Forward mail for an address — or your whole domain — to external mailboxes." actionLabel="Add Alias" onAction={() => setShowCreateAlias(true)} />}
+              />
+            </TabsContent>
+
             <TabsContent value="classification">
               <div className="mt-4">
                 <MailClassificationView domainId={domainId} />
@@ -261,7 +438,43 @@ export function MailDomainDetail() {
         />
       </Modal>
 
+      <Modal open={showCreateAlias} onClose={() => setShowCreateAlias(false)} title="Add Alias">
+        <MailAliasForm
+          domain={domain.domain}
+          mode="create"
+          loading={createAliasMutation.isPending}
+          onSubmit={handleCreateAlias}
+          onCancel={() => setShowCreateAlias(false)}
+        />
+      </Modal>
+
+      <Modal open={!!editAliasTarget} onClose={() => setEditAliasTarget(null)} title="Edit Alias">
+        {editAliasTarget && (
+          <MailAliasForm
+            domain={domain.domain}
+            mode="edit"
+            initial={{
+              source: editAliasTarget.source,
+              destinations: editAliasTarget.destinations,
+              enabled: editAliasTarget.enabled,
+            }}
+            loading={createAliasMutation.isPending || updateAliasMutation.isPending || deleteAliasMutation.isPending}
+            onSubmit={handleEditAlias}
+            onCancel={() => setEditAliasTarget(null)}
+          />
+        )}
+      </Modal>
+
       <ConfirmDialog open={!!deleteUserTarget} onClose={() => setDeleteUserTarget(null)} onConfirm={handleDeleteUser} title="Delete Mailbox" message={`Delete "${deleteUserTarget?.username}@${domain.domain}"?`} impact="All mail data will be permanently lost." loading={deleteMutation.isPending} />
+      <ConfirmDialog
+        open={!!deleteAliasTarget}
+        onClose={() => setDeleteAliasTarget(null)}
+        onConfirm={handleDeleteAlias}
+        title="Delete Alias"
+        message={`Delete "${deleteAliasTarget?.source}@${domain.domain}"?`}
+        impact={deleteAliasTarget ? `Mail to ${deleteAliasTarget.source}@${domain.domain} will no longer be forwarded to ${deleteAliasTarget.destinations.join(', ')}.` : ''}
+        loading={deleteAliasMutation.isPending}
+      />
       <ConfirmDialog open={showDeleteDomain} onClose={() => setShowDeleteDomain(false)} onConfirm={handleDeleteDomain} title="Delete Domain" message={`Are you sure you want to delete "${domain.domain}"?`} impact={`Removes ${domain.domain} including mailboxes and DNS records.`} loading={deleteDomainMutation.isPending} />
       <ConfirmDialog
         open={showDkimConfirm}

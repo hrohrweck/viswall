@@ -344,6 +344,28 @@ export interface MailUserUpdate {
   vacation_message?: string;
 }
 
+export interface MailAlias {
+  id: number;
+  domain_id: number;
+  source: string;
+  destination: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MailAliasCreate {
+  source: string;
+  destination: string;
+  enabled?: boolean;
+}
+
+export interface MailAliasUpdate {
+  source?: string;
+  destination?: string;
+  enabled?: boolean;
+}
+
 export interface CategoryConfig {
   name: string;
   color: string;

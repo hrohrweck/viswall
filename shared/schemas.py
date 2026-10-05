@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field, IPvAnyNetwork
+import re
+from pydantic import BaseModel, Field, IPvAnyNetwork, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -334,6 +335,61 @@ class MailUserResponse(MailUserBase):
     quota_used: int
     forward_to: List[str]
     vacation_enabled: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Mail Alias Schemas
+_ALIAS_SOURCE_PATTERN = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$")
+_ALIAS_DESTINATION_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def validate_source(value: str) -> str:
+    """Alias source is '*' (catch-all) or a local-part: no '@', no whitespace."""
+    if value != "*" and not _ALIAS_SOURCE_PATTERN.fullmatch(value):
+        raise ValueError("Invalid alias source: must be '*' or a local-part without '@' or whitespace")
+    return value
+
+
+def validate_destination(value: str) -> str:
+    """Alias destination must be a valid email address."""
+    if not _ALIAS_DESTINATION_PATTERN.fullmatch(value):
+        raise ValueError("Invalid alias destination: must be a valid email address")
+    return value
+
+
+class MailAliasBase(BaseModel):
+    source: str = Field(..., max_length=255)
+    destination: str = Field(..., max_length=255)
+    enabled: bool = True
+
+    @field_validator("source")
+    @classmethod
+    def _validate_source(cls, value: str) -> str:
+        return validate_source(value)
+
+    @field_validator("destination")
+    @classmethod
+    def _validate_destination(cls, value: str) -> str:
+        return validate_destination(value)
+
+
+class MailAliasCreate(MailAliasBase):
+    pass
+
+
+class MailAliasUpdate(MailAliasBase):
+    source: Optional[str] = Field(None, max_length=255)
+    destination: Optional[str] = Field(None, max_length=255)
+    enabled: Optional[bool] = None
+
+
+class MailAliasResponse(MailAliasBase):
+    id: int
+    domain_id: int
     created_at: datetime
     updated_at: datetime
 

@@ -55,6 +55,28 @@ export class MailResource {
     return this.client.request('DELETE', `/mail/users/${userId}`);
   }
 
+  async listAliases(domainId: number): Promise<unknown[]> {
+    return this.client.request('GET', `/mail/aliases/${domainId}`);
+  }
+
+  async createAlias(
+    domainId: number,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/mail/aliases/${domainId}`, { data });
+  }
+
+  async updateAlias(
+    aliasId: number,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('PATCH', `/mail/aliases/${aliasId}`, { data });
+  }
+
+  async deleteAlias(aliasId: number): Promise<void> {
+    return this.client.request('DELETE', `/mail/aliases/${aliasId}`);
+  }
+
   async getQueue(instanceId: number): Promise<Record<string, unknown>> {
     return this.client.request('GET', `/mail/queue/${instanceId}`);
   }
