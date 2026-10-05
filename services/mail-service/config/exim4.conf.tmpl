@@ -75,6 +75,14 @@ acl_check_data:
 
 begin routers
 
+mta_forward:
+  driver = manualroute
+  domains = +local_domains
+  condition = ${lookup pgsql{SELECT mta_forward_host FROM mail_domains WHERE lower(domain)=lower('${quote_pgsql:$domain}') AND enabled=TRUE AND mta_forward_enabled=TRUE}{true}{false}}
+  route_data = ${lookup pgsql{SELECT mta_forward_host || '::' || mta_forward_port::text FROM mail_domains WHERE lower(domain)=lower('${quote_pgsql:$domain}') AND enabled=TRUE AND mta_forward_enabled=TRUE}}
+  transport = remote_smtp
+  no_more
+
 # 0) Address is a real mailbox AND has alias rows -> copy to the extra destinations
 #    (unseen) while the message still continues to the mailbox for local delivery.
 alias_copy:
