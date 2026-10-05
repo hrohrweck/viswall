@@ -87,6 +87,10 @@ Viswall separates the control plane (manager) from the data plane (agents). This
 
 ## Production Deployment
 
+### Continuous Deployment (viswall.webmasters.co.at)
+
+Merges to `main` are built and deployed automatically to the production server: CI runs the test suite, then the `Deploy` workflow builds `api-gateway`, `web-ui`, `sogo`, and `dns-service` images on the self-hosted runner (10.80.2.251), pushes them to GHCR, and SSH-deploys them to the server with a health gate and automatic rollback. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the architecture, one-time setup, and rollback procedures.
+
 ### Docker Compose (Single Node)
 
 The simplest production deployment runs the entire control plane on a single Docker host.

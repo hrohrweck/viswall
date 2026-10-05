@@ -1,0 +1,20 @@
+# Production override: run prebuilt GHCR images instead of building on the server.
+#
+# Used by scripts/deploy.sh (and manually via):
+#   VISWALL_TAG=sha-abc1234 docker compose \
+#     -f docker-compose.yml -f docker-compose.prod.yml pull && \
+#   VISWALL_TAG=sha-abc1234 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Covers the custom images built by .github/workflows/deploy.yml for the
+# default compose profile. nginx ("disabled" profile) and mail-service
+# ("mail" profile) are NOT overridden — if ever enabled in production they
+# keep building locally on the server.
+services:
+  api-gateway:
+    image: ghcr.io/hrohrweck/viswall/api-gateway:${VISWALL_TAG:-main}
+  web-ui:
+    image: ghcr.io/hrohrweck/viswall/web-ui:${VISWALL_TAG:-main}
+  sogo:
+    image: ghcr.io/hrohrweck/viswall/sogo:${VISWALL_TAG:-main}
+  dns-service:
+    image: ghcr.io/hrohrweck/viswall/dns-service:${VISWALL_TAG:-main}

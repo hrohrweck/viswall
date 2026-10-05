@@ -1,0 +1,144 @@
+name: Deploy
+
+# Continuous deployment to viswall.webmasters.co.at.
+# Fires automatically after a successful CI run on main (i.e. after every merge),
+# or manually via workflow_dispatch (redeploys).
+# Builds/pushes run on the self-hosted runner at 10.80.2.251 (labels: self-hosted, viswall).
+on:
+  workflow_run:
+    workflows: [Viswall CI/CD]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: viswall-deploy
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+jobs:
+  images:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: [self-hosted, viswall]
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      sha: ${{ steps.meta.outputs.sha }}
+    steps:
+      - name: Compute image tag
+        id: meta
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.sha }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # One build step per custom image used by deployments/docker/docker-compose.yml
+      # (default profile). nginx and mail-service stay build-on-server: their
+      # profiles ("disabled"/"mail") are not active in production.
+      - name: Build & push api-gateway
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/api-gateway/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/hrohrweck/viswall/api-gateway:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/hrohrweck/viswall/api-gateway:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push web-ui
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web-ui
+          file: web-ui/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/hrohrweck/viswall/web-ui:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/hrohrweck/viswall/web-ui:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push sogo
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/sogo-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/hrohrweck/viswall/sogo:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/hrohrweck/viswall/sogo:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push dns-service
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/dns-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/hrohrweck/viswall/dns-service:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/hrohrweck/viswall/dns-service:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+  deploy:
+    needs: images
+    if: always() && needs.images.result == 'success'
+    runs-on: [self-hosted, viswall]
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          fingerprint: ${{ secrets.SSH_FINGERPRINT }}
+          command_timeout: 30m
+          script: |
+            # Repo checkout on the server. Sync it BEFORE invoking deploy.sh:
+            # the script itself lives in the checkout, so the first-ever run
+            # (clone older than this commit) would not find it otherwise.
+            cd /opt/viswall
+            git fetch origin main
+            git reset --hard "${{ needs.images.outputs.sha }}" || git reset --hard origin/main
+            # The GHCR images are private; the workflow token has packages:write,
+            # which is sufficient to pull this repo's own packages. The credential
+            # persists in ~/.docker/config.json for the subsequent compose pull.
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin \
+              || echo "WARNING: ghcr.io login failed — docker compose pull may fail"
+            ./scripts/deploy.sh "${{ needs.images.outputs.tag }}" "${{ needs.images.outputs.sha }}"
