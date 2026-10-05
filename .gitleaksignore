@@ -25,3 +25,6 @@ fdd8d6783f00f3b8d1b3ef6f2b17b474f5655a3d:services/dns-service/tests/test_api_aut
 909ad437a70021d713664d73497b8f21a69a3e18:web-ui/src/pages/admin/LLMConfiguration.tsx:password-assignment:155
 909ad437a70021d713664d73497b8f21a69a3e18:web-ui/src/pages/admin/LLMConfiguration.tsx:password-assignment:383
 b97c2dbff66d3e9bde444016a34d8e06317cfd00:web-ui/src/test/shell-topbar.test.tsx:password-assignment:68
+fdc9e9ade85814c96b229f343d0599233cfbd0fb:sdk/cli/viswall_cli/commands/llm.py:password-assignment:100
+fdc9e9ade85814c96b229f343d0599233cfbd0fb:shared/llm_client.py:password-assignment:184
+fdc9e9ade85814c96b229f343d0599233cfbd0fb:services/api-gateway/tests/test_metrics_collector.py:password-assignment:37
