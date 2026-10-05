@@ -282,6 +282,9 @@ export interface MailDomain {
   llm_enabled: boolean;
   llm_config: Record<string, unknown>;
   groupware_enabled: boolean;
+  mta_forward_enabled: boolean;
+  mta_forward_host?: string | null;
+  mta_forward_port?: number;
   created_at: string;
   updated_at: string;
 }
@@ -297,6 +300,9 @@ export interface MailDomainCreate {
   llm_enabled?: boolean;
   llm_config?: Record<string, unknown>;
   groupware_enabled?: boolean;
+  mta_forward_enabled?: boolean;
+  mta_forward_host?: string | null;
+  mta_forward_port?: number;
 }
 
 export interface MailDomainUpdate {
@@ -309,6 +315,9 @@ export interface MailDomainUpdate {
   llm_enabled?: boolean;
   llm_config?: Record<string, unknown>;
   groupware_enabled?: boolean;
+  mta_forward_enabled?: boolean;
+  mta_forward_host?: string | null;
+  mta_forward_port?: number;
 }
 
 export interface MailUser {
