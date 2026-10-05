@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import datetime
 
@@ -97,7 +98,7 @@ async def create_domain(
     db.add(domain)
     await db.commit()
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="create", resource_type="mail_domain", resource_id=domain.id, instance_id=instance_id)
+    await log_audit(db=db, user_id=admin_id, action="create", resource_type="mail_domain", resource_id=domain.id, instance_id=instance_id)
 
     await db.refresh(domain)
     
@@ -163,7 +164,7 @@ async def update_domain(
     domain.updated_at = datetime.utcnow()
     await db.commit()
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="update", resource_type="mail_domain", resource_id=domain_id, instance_id=instance_id)
+    await log_audit(db=db, user_id=admin_id, action="update", resource_type="mail_domain", resource_id=domain_id, instance_id=domain.instance_id)
 
     await db.refresh(domain)
     
@@ -190,10 +191,14 @@ async def delete_domain(
     
     instance_id = domain.instance_id
     
-    await db.delete(domain)
-    await db.commit()
+    try:
+        await db.delete(domain)
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete mail domain")
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="delete", resource_type="mail_domain", resource_id=domain_id, instance_id=instance_id)
+    await log_audit(db=db, user_id=admin_id, action="delete", resource_type="mail_domain", resource_id=domain_id, instance_id=instance_id)
 
     
     # Reload mail config

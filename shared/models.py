@@ -181,7 +181,7 @@ class MailUser(Base):
     __tablename__ = "mail_users"
 
     id = Column(Integer, primary_key=True)
-    domain_id = Column(Integer, ForeignKey("mail_domains.id"))
+    domain_id = Column(Integer, ForeignKey("mail_domains.id", ondelete="CASCADE"))
     username = Column(String(100), nullable=False)
     password_hash = Column(String(255))
     full_name = Column(String(255))
@@ -204,7 +204,7 @@ class MailMessage(Base):
     __tablename__ = "mail_messages"
 
     id = Column(Integer, primary_key=True)
-    domain_id = Column(Integer, ForeignKey("mail_domains.id"), nullable=False, index=True)
+    domain_id = Column(Integer, ForeignKey("mail_domains.id", ondelete="CASCADE"), nullable=False, index=True)
     message_id = Column(String(255), unique=True, nullable=False)
     sender = Column(String(255), nullable=False)
     recipients = Column(JSON, default=list)
@@ -1064,7 +1064,7 @@ class MailAlias(Base):
     __tablename__ = "mail_aliases"
 
     id = Column(Integer, primary_key=True)
-    domain_id = Column(Integer, ForeignKey("mail_domains.id"), nullable=False, index=True)
+    domain_id = Column(Integer, ForeignKey("mail_domains.id", ondelete="CASCADE"), nullable=False, index=True)
     source = Column(String(255), nullable=False)
     destination = Column(String(255), nullable=False)
     enabled = Column(Boolean, default=True)
