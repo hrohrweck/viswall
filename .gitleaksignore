@@ -28,3 +28,5 @@ b97c2dbff66d3e9bde444016a34d8e06317cfd00:web-ui/src/test/shell-topbar.test.tsx:p
 0115502b6314acb685a94c63b381327d459789a0:sdk/cli/viswall_cli/commands/mail.py:password-assignment:155
 0115502b6314acb685a94c63b381327d459789a0:sdk/cli/viswall_cli/commands/mail.py:password-assignment:177
 0115502b6314acb685a94c63b381327d459789a0:sdk/cli/viswall_cli/commands/mail.py:password-assignment:203
+0115502b6314acb685a94c63b381327d459789a0:sdk/cli/viswall_cli/commands/mail.py:password-assignment:229
+22f45633a7c28b9a5fb74085e9d1e65fe17d3295:services/api-gateway/tests/test_mail.py:password-assignment:107
