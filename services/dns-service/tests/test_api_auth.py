@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 
 from viswall_dns_agent import api as api_module
 from viswall_dns_agent.agent import DNSAgent
 from viswall_dns_agent.config import AgentConfig
+
+# Generated per test run — the fixture key value must never look like a
+# real credential that leaked into the repo.
+TEST_AGENT_KEY = "vw-test-" + uuid.uuid4().hex
 
 
 def _config(tmp_path, api_key: str | None, allow_commands: bool = False) -> AgentConfig:
@@ -28,7 +34,7 @@ def _config(tmp_path, api_key: str | None, allow_commands: bool = False) -> Agen
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    cfg = _config(tmp_path, api_key="placeholder-key")
+    cfg = _config(tmp_path, api_key=TEST_AGENT_KEY)
     monkeypatch.setattr(api_module, "config", cfg)
     monkeypatch.setattr(api_module, "agent", DNSAgent(cfg))
     return TestClient(api_module.app)
@@ -83,7 +89,7 @@ def test_apply_when_key_wrong(client) -> None:
 
 def test_apply_when_key_correct_writes_config(client) -> None:
     response = client.post(
-        "/dns/apply", json=_payload(), headers={"X-Instance-Key": "placeholder-key"}
+        "/dns/apply", json=_payload(), headers={"X-Instance-Key": TEST_AGENT_KEY}
     )
     assert response.status_code == 200
     assert response.json()["success"] is True

@@ -1,5 +1,6 @@
 import pytest
 import pytest_asyncio
+import uuid
 from datetime import datetime, timedelta
 
 from httpx import AsyncClient
@@ -10,6 +11,9 @@ from main import app
 from shared.database import get_db
 from shared.models import Base, DHCPLease, Instance, User
 from shared.security import get_password_hash
+
+# Generated per test run so no static credential-shaped literal lands in the repo.
+TEST_INSTANCE_KEY = "vw-test-" + uuid.uuid4().hex
 
 
 pytestmark = pytest.mark.asyncio
@@ -80,7 +84,7 @@ async def instance():
             name="dhcp-instance-1",
             hostname="dhcp1.example.local",
             api_endpoint="https://dhcp1.example.local",
-            api_key="dhcp-key-1",
+            api_key=TEST_INSTANCE_KEY,
             status="active",
             capabilities=["dhcp"],
         )
