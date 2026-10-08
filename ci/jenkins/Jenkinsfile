@@ -1,0 +1,207 @@
+// Viswall CI — parity with the retired .github/workflows/ci.yml + sdk.yml
+//
+// Jobs: backend (pytest against real Postgres 16 / Redis 7),
+// frontend (lint + tsc + vitest + build), sdk (OpenAPI export/validate,
+// Python SDK tests + ruff + mypy, CLI tests, TypeScript SDK).
+// Runs on the 'build' agent (enterprise host, docker-backed test sidecars).
+//
+// Triggered by the push/pull_request GitHub webhook relayed through
+// https://viswall.webmasters.co.at/jenkins-hook/ into
+// generic-webhook-trigger. Every event starts a build; non-CI events
+// (branch pushes other than main, PR actions like closed/labeled) exit
+// quietly as NOT_BUILT no-ops. On PR events the result is posted to the
+// head commit as status context "jenkins-ci". On a successful main build
+// this pipeline triggers viswall-release.
+
+properties([
+    disableConcurrentBuilds(),
+    buildDiscarder(logRotator(numToKeepStr: '60')),
+    pipelineTriggers([
+        // GWT 2.x pipeline form: GenericTrigger inside pipelineTriggers.
+        // Event variables arrive as build parameters on webhook builds.
+        // Isolated from the vidforge jobs by the dedicated viswall-gwt-token
+        // credential: GWT only invokes jobs whose token matches the webhook
+        // URL, so viswall payloads never start vidforge pipelines.
+        GenericTrigger(
+            genericVariables: [
+                [key: 'REPO', value: '$.repository.full_name'],
+                [key: 'IS_PR', value: '$.pull_request.url'],
+                [key: 'PR_NUMBER', value: '$.number'],
+                [key: 'PR_ACTION', value: '$.action'],
+                [key: 'PR_SHA', value: '$.pull_request.head.sha'],
+                [key: 'BRANCH', value: '$.ref'],
+                [key: 'AFTER', value: '$.after'],
+            ],
+            tokenCredentialId: 'viswall-gwt-token',
+            causeString: 'GitHub event on $REPO',
+            silentResponse: true,
+            printContributedVariables: false,
+            printPostContent: false,
+        ),
+    ]),
+])
+
+def isCiRun() {
+  if (env.IS_PR) {
+    return env.PR_ACTION in ['opened', 'synchronize', 'reopened']
+  }
+  return env.BRANCH == 'refs/heads/main'
+}
+
+pipeline {
+  agent { label 'build' }
+  options {
+    timestamps()
+    timeout(time: 60, unit: 'MINUTES')
+  }
+  environment {
+    // api.github.com path — github.com/<owner>/<repo>/statuses would 404
+    GH_REPO_URL = 'https://api.github.com/repos/hrohrweck/viswall'
+  }
+  stages {
+    stage('resolve event') {
+      steps {
+        script {
+          if (!isCiRun()) {
+            echo "no-op: PR action='${env.PR_ACTION ?: '-'}' branch='${env.BRANCH ?: '-'}'"
+            currentBuild.result = 'NOT_BUILT'
+            return
+          }
+          if (env.IS_PR) {
+            env.CI_SHA = env.PR_SHA
+            env.CI_REFSPEC = "refs/pull/${env.PR_NUMBER}/head"
+            env.CI_NAME = "pr-${env.PR_NUMBER}"
+          } else {
+            env.CI_REFSPEC = 'refs/heads/main'
+            env.CI_NAME = 'main'
+          }
+          echo "CI target: ${env.CI_NAME} ${env.CI_SHA ?: ''}"
+        }
+      }
+    }
+    stage('checkout') {
+      when { expression { isCiRun() } }
+      steps {
+        // viswall is a public repo — anonymous clone is fine.
+        checkout([
+            $class: 'GitSCM',
+            branches: [[name: env.CI_SHA ?: env.CI_REFSPEC]],
+            extensions: [
+                [$class: 'CloneOption', depth: 50, shallow: true, noTags: true],
+                [$class: 'WipeWorkspace'],
+            ],
+            userRemoteConfigs: [[
+                url: 'https://github.com/hrohrweck/viswall.git',
+                refspec: "+${env.CI_REFSPEC}:${env.CI_REFSPEC}",
+            ]],
+        ])
+        script {
+          env.CI_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+          echo "checked out ${env.CI_SHA.take(7)}"
+        }
+      }
+    }
+    stage('backend') {
+      when { expression { isCiRun() } }
+      environment {
+        NET = "vw-net-${BUILD_TAG}"
+        TAG = BUILD_TAG.replaceAll('[^a-zA-Z0-9]', '')
+      }
+      steps {
+        // Self-healing CI base image: rebuilt on the agent whenever absent.
+        sh 'docker image inspect viswall-ci-python:3.12 >/dev/null 2>&1 || docker build -q -f ci/jenkins/Dockerfile.ci-python -t viswall-ci-python:3.12 .'
+        sh '''
+          docker network create $NET >/dev/null 2>&1 || true
+          docker rm -f vw-pg-$TAG vw-redis-$TAG >/dev/null 2>&1 || true
+          docker run -d --name vw-pg-$TAG --network $NET \
+            -e POSTGRES_USER=viswall -e POSTGRES_PASSWORD=viswall \
+            -e POSTGRES_DB=viswall_test postgres:16 >/dev/null
+          docker run -d --name vw-redis-$TAG --network $NET redis:7 >/dev/null
+          for i in $(seq 1 30); do
+            docker exec vw-pg-$TAG pg_isready -U viswall >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec vw-pg-$TAG pg_isready -U viswall
+        '''
+        sh '''
+          docker run --rm --network $NET \
+            -v "$PWD":/repo -w /repo \
+            -e DATABASE_URL=postgresql+asyncpg://viswall:viswall@vw-pg-$TAG:5432/viswall_test \
+            -e REDIS_URL=redis://vw-redis-$TAG:6379/0 \
+            -e JWT_SECRET_KEY=test-secret-key \
+            viswall-ci-python:3.12 \
+            bash /repo/ci/jenkins/scripts/backend_tests.sh
+        '''
+      }
+      post {
+        always {
+          sh 'docker rm -f vw-pg-$TAG vw-redis-$TAG >/dev/null 2>&1 || true; docker network rm $NET >/dev/null 2>&1 || true'
+        }
+      }
+    }
+    stage('frontend') {
+      when { expression { isCiRun() } }
+      steps {
+        sh '''
+          docker run --rm \
+            -v "$PWD":/repo -w /repo \
+            -v viswall-npm-cache:/root/.npm \
+            node:20 \
+            bash /repo/ci/jenkins/scripts/frontend_tests.sh
+        '''
+      }
+    }
+    stage('sdk') {
+      when { expression { isCiRun() } }
+      steps {
+        // OpenAPI export/validation + Python SDK + CLI (ruff/mypy/pytest)
+        sh '''
+          docker run --rm \
+            -v "$PWD":/repo -w /repo \
+            viswall-ci-python:3.12 \
+            bash /repo/ci/jenkins/scripts/sdk_python_tests.sh
+        '''
+        // TypeScript SDK (tsc + vitest + build)
+        sh '''
+          docker run --rm \
+            -v "$PWD":/repo -w /repo \
+            -v viswall-npm-cache:/root/.npm \
+            node:20 \
+            bash /repo/ci/jenkins/scripts/sdk_ts_tests.sh
+        '''
+      }
+    }
+  }
+  post {
+    always {
+      script {
+        // Report the result to GitHub as a commit status (PR checks UI).
+        if (isCiRun() && env.IS_PR && env.CI_SHA) {
+          def state = currentBuild.currentResult == 'SUCCESS' ? 'success'
+                      : currentBuild.currentResult == 'FAILURE' ? 'failure' : 'error'
+          withCredentials([string(credentialsId: 'vidforge-github-pat', variable: 'GH_TOKEN')]) {
+            sh """
+              curl -sS -m 30 -o /dev/null -X POST \
+                -H "Authorization: token \$GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                ${env.GH_REPO_URL}/statuses/${env.CI_SHA} \
+                -d '{"state":"${state}","context":"jenkins-ci","target_url":"${BUILD_URL}","description":"Jenkins CI ${state}"}'
+            """
+          }
+        }
+      }
+    }
+    success {
+      script {
+        if (isCiRun() && env.CI_NAME == 'main') {
+          build job: 'viswall-release',
+                parameters: [string(name: 'GIT_SHA', value: env.CI_SHA)],
+                wait: false
+        }
+      }
+    }
+    cleanup {
+      cleanWs()
+    }
+  }
+}

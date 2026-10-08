@@ -1,0 +1,71 @@
+// Viswall /approve — self-approval bot, parity with vidforge-approve (which
+// itself is a port of the retired .github/workflows/approve.yml).
+//
+// Triggered by the GitHub issue_comment webhook through the relay on
+// viswall.webmasters.co.at into generic-webhook-trigger (token validated
+// via the 'viswall-gwt-token' credential). Semantics preserved exactly:
+//   * only the exact message "/approve" triggers an approval,
+//   * only when the commenter IS the PR author (exits quietly otherwise),
+//   * the approval is posted as a PR review by the vidforge-bot PAT.
+
+properties([
+    disableConcurrentBuilds(),
+    buildDiscarder(logRotator(numToKeepStr: '200')),
+    pipelineTriggers([
+        GenericTrigger(
+            genericVariables: [
+                [key: 'ACTION', value: '$.action'],
+                [key: 'COMMENT_BODY', value: '$.comment.body'],
+                [key: 'COMMENTER', value: '$.comment.user.login'],
+                [key: 'PR_AUTHOR', value: '$.issue.user.login'],
+                [key: 'PR_NUMBER', value: '$.issue.number'],
+                [key: 'PR_IS_PR', value: '$.issue.pull_request.url'],
+                [key: 'REPO', value: '$.repository.full_name'],
+            ],
+            // Only "/approve" comments on this repo even start a build.
+            regexpFilterText: '$REPO $ACTION $COMMENT_BODY',
+            regexpFilterExpression: '^hrohrweck/viswall created /approve$',
+            tokenCredentialId: 'viswall-gwt-token',
+            causeString: '/approve by $COMMENTER',
+            silentResponse: true,
+            printContributedVariables: false,
+            printPostContent: false,
+        ),
+    ]),
+])
+
+pipeline {
+  agent { label 'build' }
+  options { timestamps(); timeout(time: 10, unit: 'MINUTES') }
+  stages {
+    stage('approve') {
+      steps {
+        withCredentials([
+            string(credentialsId: 'vidforge-github-pat', variable: 'GH_TOKEN'),
+        ]) {
+          sh '''
+            set -eu
+            export GH_TOKEN
+            echo "commenter=${COMMENTER:-} author=${PR_AUTHOR:-} pr=#${PR_NUMBER:-} action=${ACTION:-} body='${COMMENT_BODY:-}'"
+            if [ -z "${PR_IS_PR:-}" ]; then
+              echo "no webhook variables (manual registration run) - nothing to do"
+              exit 0
+            fi
+            if [ "$ACTION" != "created" ] || [ "$COMMENT_BODY" != "/approve" ]; then
+              echo "not an /approve comment - nothing to do"
+              exit 0
+            fi
+            if [ "$COMMENTER" != "$PR_AUTHOR" ]; then
+              echo "commenter is not the PR author - ignoring (old behavior: neutral exit)"
+              exit 0
+            fi
+            gh api "repos/hrohrweck/viswall/pulls/$PR_NUMBER/reviews" -X POST \
+              -f event=APPROVE \
+              -f body="Self-approval by PR author via /approve" \
+              --silent && echo "approved PR #$PR_NUMBER"
+          '''
+        }
+      }
+    }
+  }
+}

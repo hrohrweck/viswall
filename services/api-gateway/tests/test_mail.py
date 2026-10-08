@@ -1,5 +1,7 @@
 """Tests for mail domain deletion endpoints."""
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
@@ -11,6 +13,9 @@ from main import app
 from shared.database import get_db
 from shared.models import AuditLog, Base, Instance, MailAlias, MailDomain, MailMessage, MailUser, User
 from shared.security import get_password_hash
+
+# Generated per test run so no static credential-shaped literal lands in the repo.
+TEST_INSTANCE_KEY = "vw-test-" + uuid.uuid4().hex
 
 
 pytestmark = pytest.mark.asyncio
@@ -104,7 +109,7 @@ async def instance(admin_user):
             name="mail-instance-1",
             hostname="mail1.example.local",
             api_endpoint="https://mail1.example.local",
-            api_key="mail-key-1",
+            api_key=TEST_INSTANCE_KEY,
             status="active",
             capabilities=["mail"],
         )

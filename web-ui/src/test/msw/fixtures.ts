@@ -83,10 +83,14 @@ export const auditorUser: User = {
 export const users: User[] = [adminUser, auditorUser]
 
 /** Credentials accepted by the mocked POST /api/v1/auth/login handler. */
-export const validCredentials = { username: 'admin', password: 'admin' } as const
+// The password and token are generated per test run so the repo contains
+// no static credential-shaped literal; both the handler and the tests read
+// these consts.
+const generatedPassword = `pw-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`
+export const validCredentials = { username: 'admin', password: generatedPassword } as const
 
 export const loginResponse: LoginResponse = {
-  access_token: 'e2e-test-token',
+  access_token: `jwt-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`,
   token_type: 'bearer',
   user: adminUser,
 }

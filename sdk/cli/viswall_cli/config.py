@@ -43,7 +43,7 @@ class Config:
 
     def save(self, path: Optional[Path] = None) -> None:
         """Save configuration to file."""
-        config_path = path or DEFAULT_CONFIG_FILE
+        config_path = Path(path or DEFAULT_CONFIG_FILE).expanduser().resolve()
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
         data = {}
@@ -52,7 +52,7 @@ class Config:
         if self.token:
             data["token"] = self.token
 
-        with open(config_path, "w") as f:
+        with config_path.open("w") as f:
             yaml.dump(data, f, default_flow_style=False)
 
     def merge(self, other: "Config") -> "Config":

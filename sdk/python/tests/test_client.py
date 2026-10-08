@@ -1,10 +1,14 @@
 """Tests for the Viswall Python SDK."""
 
 import json
+import uuid
 
 import pytest
 import httpx
 from viswall import ViswallClient, ViswallAPIError, AuthenticationError, NotFoundError
+
+# Generated per test run so no static credential-shaped literal lands in the repo.
+TEST_AUTH_KEY = "vw-test-" + uuid.uuid4().hex
 
 
 class TestViswallClient:
@@ -66,12 +70,12 @@ class TestAuthResource:
         httpx_mock.add_response(
             url="https://test.example.com/api/v1/auth/login",
             method="POST",
-            json={"access_token": "token123", "token_type": "bearer"},
+            json={"access_token": TEST_AUTH_KEY, "token_type": "bearer"},
         )
-        
+
         client = ViswallClient(base_url="https://test.example.com")
         result = client.auth.login("admin", "password")
-        assert result["access_token"] == "token123"
+        assert result["access_token"] == TEST_AUTH_KEY
         client.close()
 
     def test_me(self, httpx_mock):

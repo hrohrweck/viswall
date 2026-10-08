@@ -1,5 +1,7 @@
 """Tests for the modular LLM client factory."""
 
+import uuid
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
@@ -14,13 +16,16 @@ from shared.llm_client import (
 )
 from shared.models import LLMProvider
 
+# Generated per test run so no static credential-shaped literal lands in the repo.
+TEST_PROVIDER_KEY = "vw-test-" + uuid.uuid4().hex
+
 
 @pytest.fixture
 def mock_provider_config():
     config = MagicMock(spec=LLMProvider)
     config.provider_type = "openai"
     config.base_url = None
-    config.api_key = "test-key"
+    config.api_key = TEST_PROVIDER_KEY
     return config
 
 

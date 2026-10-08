@@ -10,9 +10,11 @@ Manages multiple VPN protocols on viswall instances:
 """
 
 import asyncio
+import os
+import re
 import subprocess
 import json
-import os
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
@@ -38,6 +40,10 @@ class WireGuardManager:
     INTERFACE_PREFIX = "wg"
     
     def __init__(self, interface_name: str = "wg0"):
+        # Manager-supplied name feeds both the config path and wg-quick's
+        # argv — restrict it to a safe interface label (IFNAMSIZ = 15).
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,15}", interface_name):
+            raise ValueError(f"invalid WireGuard interface name: {interface_name!r}")
         self.interface_name = interface_name
         self.config_path = f"/etc/wireguard/{interface_name}.conf"
     
@@ -156,11 +162,19 @@ PersistentKeepalive = {client.persistent_keepalive}
     async def apply_config(self, config: str) -> bool:
         """Apply WireGuard configuration and start interface"""
         try:
-            # Write config
-            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-            with open(self.config_path, 'w') as f:
+            # Write config — normalized + contained to /etc/wireguard so a
+            # malformed interface name can never escape the directory.
+            iface = self.interface_name
+            if not re.fullmatch(r"[A-Za-z0-9_-]{1,15}", iface):
+                raise ValueError(f"invalid WireGuard interface name: {iface!r}")
+            base = Path("/etc/wireguard").resolve()
+            target = (base / f"{iface}.conf").resolve()
+            if ".." in iface or not target.is_relative_to(base):
+                raise ValueError(f"refusing to write outside {base}: {iface!r}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open('w') as f:
                 f.write(config)
-            os.chmod(self.config_path, 0o600)
+            os.chmod(target, 0o600)
             
             # Stop existing interface
             await self.stop()
@@ -353,12 +367,17 @@ conn {server_id}
     async def apply_config(self, config: str, secrets: str) -> bool:
         """Apply IPsec configuration"""
         try:
-            with open(self.CONFIG_PATH, 'w') as f:
+            etc = Path("/etc").resolve()
+            conf_path = Path("/etc/ipsec.conf").resolve()
+            secrets_path = Path("/etc/ipsec.secrets").resolve()
+            if not (conf_path.is_relative_to(etc) and secrets_path.is_relative_to(etc)):
+                raise ValueError("refusing to write IPsec config outside /etc")
+            with conf_path.open("w") as f:
                 f.write(config)
-            
-            with open(self.SECRETS_PATH, 'w') as f:
+
+            with secrets_path.open("w") as f:
                 f.write(secrets)
-            os.chmod(self.SECRETS_PATH, 0o600)
+            os.chmod(secrets_path, 0o600)
             
             # Reload strongSwan
             proc = await asyncio.create_subprocess_exec(
@@ -575,7 +594,11 @@ class VPNAgent:
         
         # Write and start
         try:
-            with open(self.openvpn.CONFIG_PATH, 'w') as f:
+            etc = Path("/etc").resolve()
+            ovpn_path = Path("/etc/openvpn/server.conf").resolve()
+            if not ovpn_path.is_relative_to(etc):
+                raise ValueError("refusing to write OpenVPN config outside /etc")
+            with ovpn_path.open("w") as f:
                 f.write(ovpn_config)
             
             proc = await asyncio.create_subprocess_exec(

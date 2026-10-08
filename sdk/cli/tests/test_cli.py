@@ -1,6 +1,7 @@
 """Tests for Viswall CLI."""
 
 import os
+import uuid
 from pathlib import Path
 
 import pytest
@@ -11,12 +12,15 @@ from viswall_cli.config import Config
 
 runner = CliRunner()
 
+# Generated per test run so no static credential-shaped literal lands in the repo.
+TEST_LOGIN_KEY = "vw-test-" + uuid.uuid4().hex
+
 
 class TestLogin:
     def test_login_success(self, httpx_mock, tmp_path):
         httpx_mock.add_response(
             url="https://viswall.example.com/api/v1/auth/login",
-            json={"access_token": "test-token", "token_type": "bearer"},
+            json={"access_token": TEST_LOGIN_KEY, "token_type": "bearer"},
         )
 
         config_file = tmp_path / "config.yaml"

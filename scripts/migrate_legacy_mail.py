@@ -23,6 +23,7 @@ DRY-RUN by default. --commit writes domains + resolvable/derived mailboxes + ali
 Requires: pymysql, psycopg2-binary, bcrypt.
 """
 import os, argparse
+from pathlib import Path
 
 
 def hash_pw(pw: str) -> str:
@@ -219,7 +220,8 @@ def main():
 
     if args.emit_map:
         n = 0
-        with open(args.emit_map, "w") as fh:
+        emit_map = Path(args.emit_map).expanduser().resolve()
+        with emit_map.open("w") as fh:
             for m in mailboxes:
                 c = login_canon.get(m["login"])
                 if c:
