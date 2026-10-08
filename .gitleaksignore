@@ -30,13 +30,3 @@ b97c2dbff66d3e9bde444016a34d8e06317cfd00:web-ui/src/test/shell-topbar.test.tsx:p
 0115502b6314acb685a94c63b381327d459789a0:sdk/cli/viswall_cli/commands/mail.py:password-assignment:203
 0115502b6314acb685a94c63b381327d459789a0:sdk/cli/viswall_cli/commands/mail.py:password-assignment:229
 22f45633a7c28b9a5fb74085e9d1e65fe17d3295:services/api-gateway/tests/test_mail.py:password-assignment:107
-# Jenkins CI/CD migration: generated per-test-run fixture keys and doc
-# references to credential *names* (no real secrets) — false positives.
-2a53f88e78052cb5f68bf6c93916f86a5b05e6a1:services/api-gateway/tests/test_dhcp.py:password-assignment:87
-2a53f88e78052cb5f68bf6c93916f86a5b05e6a1:services/api-gateway/tests/test_dns_dispatch.py:password-assignment:71
-2a53f88e78052cb5f68bf6c93916f86a5b05e6a1:services/api-gateway/tests/test_dns.py:password-assignment:84
-2a53f88e78052cb5f68bf6c93916f86a5b05e6a1:services/api-gateway/tests/test_dns_security.py:password-assignment:67
-2a53f88e78052cb5f68bf6c93916f86a5b05e6a1:services/api-gateway/tests/test_llm_client.py:password-assignment:28
-2a53f88e78052cb5f68bf6c93916f86a5b05e6a1:services/api-gateway/tests/test_mail.py:password-assignment:112
-2a53f88e78052cb5f68bf6c93916f86a5b05e6a1:services/dns-service/tests/test_api_auth.py:password-assignment:37
-f62734fed2a99359416a0ad17298fbf14f2f0654:docs/DEPLOYMENT.md:password-assignment:10
