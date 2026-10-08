@@ -55,7 +55,8 @@ pipeline {
     timeout(time: 60, unit: 'MINUTES')
   }
   environment {
-    GH_REPO_URL = 'https://github.com/hrohrweck/viswall'
+    // api.github.com path — github.com/<owner>/<repo>/statuses would 404
+    GH_REPO_URL = 'https://api.github.com/repos/hrohrweck/viswall'
   }
   stages {
     stage('resolve event') {
