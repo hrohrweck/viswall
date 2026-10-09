@@ -54,9 +54,13 @@ pipeline {
           sh '''
             set -e
             chmod +x ci/jenkins/scripts/deploy_remote.sh
+            # Secrets are PREPENDED to the script stdin: bash -s read-ahead
+            # can swallow anything appended after the script body, so
+            # `source /dev/stdin` in the script is unreliable (racy by
+            # buffer size). Prepending makes the export a plain script line.
             {
-              cat ci/jenkins/scripts/deploy_remote.sh
               printf 'export GH_TOKEN="%s"\\n' "$GH_TOKEN"
+              cat ci/jenkins/scripts/deploy_remote.sh
             } | ssh -i "$DEPLOY_KEY" \
                 -o UserKnownHostsFile="$PWD/jenkins_known_hosts" \
                 -o IdentitiesOnly=yes \
