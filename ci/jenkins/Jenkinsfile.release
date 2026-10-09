@@ -51,8 +51,8 @@ pipeline {
     stage('ghcr login') {
       agent { label 'build' }
       steps {
-        withCredentials([string(credentialsId: 'vidforge-github-pat', variable: 'GH_PAT')]) {
-          sh 'echo "$GH_PAT" | docker login ghcr.io -u vidforge-bot --password-stdin'
+        withCredentials([string(credentialsId: 'viswall-github-pat', variable: 'GH_PAT')]) {
+          sh 'echo "$GH_PAT" | docker login ghcr.io -u hrohrweck --password-stdin'
         }
       }
     }

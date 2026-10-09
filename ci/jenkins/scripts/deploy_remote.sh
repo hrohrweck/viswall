@@ -23,7 +23,7 @@ cd /opt/viswall
 git fetch origin main
 git reset --hard "$GIT_SHA" 2>/dev/null || git reset --hard origin/main
 
-echo "$GH_TOKEN" | docker login ghcr.io -u vidforge-bot --password-stdin \
+echo "$GH_TOKEN" | docker login ghcr.io -u hrohrweck --password-stdin \
   || echo "WARNING: ghcr login failed - continuing with existing credentials"
 
 # Pre-pull the new tag so a transient GHCR rejection (the registry

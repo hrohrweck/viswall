@@ -31,7 +31,7 @@ pipeline {
       steps {
         withCredentials([
             sshUserPrivateKey(credentialsId: 'viswall-deploy-ssh', keyFileVariable: 'DEPLOY_KEY'),
-            string(credentialsId: 'vidforge-github-pat', variable: 'GH_TOKEN'),
+            string(credentialsId: 'viswall-github-pat', variable: 'GH_TOKEN'),
         ]) {
           // Pinned prod host key (matches viswall.webmasters.co.at ed25519 —
           // same host as vidforge.webmasters.co.at, hence the same key).
