@@ -27,6 +27,20 @@ pipeline {
     timeout(time: 70, unit: 'MINUTES')
   }
   stages {
+    stage('checkout scripts') {
+      // Explicit checkout: the deploy script lives in the repo. Needed for
+      // inline (bootstrap) definitions; harmless for from-SCM runs.
+      steps {
+        checkout([
+            $class: 'GitSCM',
+            branches: [[name: 'main']],
+            extensions: [[$class: 'CloneOption', depth: 1, shallow: true]],
+            userRemoteConfigs: [[
+                url: 'https://github.com/hrohrweck/viswall.git',
+            ]],
+        ])
+      }
+    }
     stage('deploy') {
       steps {
         withCredentials([
