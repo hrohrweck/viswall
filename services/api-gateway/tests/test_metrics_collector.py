@@ -1,5 +1,6 @@
 """Tests for the background metrics collector."""
 
+import uuid
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
@@ -16,6 +17,9 @@ pytestmark = pytest.mark.asyncio
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 test_engine = create_async_engine(TEST_DATABASE_URL, future=True)
 TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+
+# Generated per test run so no static credential-shaped literal lands in the repo.
+TEST_INSTANCE_KEY = "vw-test-" + uuid.uuid4().hex
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -34,7 +38,7 @@ async def inactive_instance():
             name="collector-node",
             hostname="node1.example.local",
             api_endpoint="https://node1.example.local/api/v1",
-            api_key="vis_testkey",
+            api_key=TEST_INSTANCE_KEY,
             status="inactive",
         )
         session.add(instance)
