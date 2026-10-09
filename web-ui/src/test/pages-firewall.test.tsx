@@ -66,7 +66,9 @@ describe('FirewallRules', () => {
     await waitFor(() => {
       expect(capturedUrl).toBe('/api/v1/firewall/apply/1')
     })
-  })
+    // The dialog interaction chain is slow on loaded CI agents — allow more
+    // than vitest's 5s default before the whole test times out.
+  }, 20000)
 
   it('deploy dialog: confirm button disabled until review checkbox checked', async () => {
     const Wrapper = createWrapper()

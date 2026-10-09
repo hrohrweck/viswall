@@ -1,5 +1,6 @@
 import pytest
 import pytest_asyncio
+import uuid
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -7,6 +8,9 @@ from main import app
 from shared.database import get_db
 from shared.models import Base, Instance, User
 from shared.security import get_password_hash
+
+# Generated per test run so no static credential-shaped literal lands in the repo.
+TEST_INSTANCE_KEY = "vw-test-" + uuid.uuid4().hex
 
 
 pytestmark = pytest.mark.asyncio
@@ -77,7 +81,7 @@ async def instance(admin_user):
             name="dns-instance-1",
             hostname="dns1.example.local",
             api_endpoint="https://dns1.example.local",
-            api_key="dns-key-1",
+            api_key=TEST_INSTANCE_KEY,
             status="active",
             capabilities=["dns"],
         )

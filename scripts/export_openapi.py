@@ -23,9 +23,12 @@ from main import app
 
 def export_openapi():
     openapi_schema = app.openapi()
-    output_path = Path(__file__).parent.parent / "services" / "api-gateway" / "openapi.json"
-    
-    with open(output_path, "w") as f:
+    repo_root = Path(__file__).resolve().parent.parent
+    output_path = (repo_root / "services" / "api-gateway" / "openapi.json").resolve()
+    if not output_path.is_relative_to(repo_root):
+        raise ValueError(f"refusing to write outside the repository: {output_path}")
+
+    with output_path.open("w") as f:
         json.dump(openapi_schema, f, indent=2, default=str)
     
     print(f"Exported OpenAPI spec to {output_path}")

@@ -1,0 +1,16 @@
+# CI base image for Viswall backend + SDK test runs on the Jenkins 'build'
+# agent. Mirrors services/api-gateway/Dockerfile's system deps so tests run
+# in an environment matching production images. Built once per agent
+# (docker build -f ci/jenkins/Dockerfile.ci-python -t viswall-ci-python:3.12 .);
+# the CI Jenkinsfile rebuilds it automatically when missing.
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gcc libpq-dev bash \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY services/api-gateway/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+    && pip install --no-cache-dir \
+        pytest pytest-asyncio pytest-cov httpx \
+        ruff mypy openapi-spec-validator

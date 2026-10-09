@@ -15,6 +15,7 @@ import subprocess
 import json
 import re
 import ipaddress
+from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -81,9 +82,12 @@ class RoutingRule:
 class NFTablesManager:
     """Manages nftables firewall rules (modern replacement for iptables)"""
 
+    # Fixed ruleset location — deliberately inlined at every use so no
+    # caller-supplied value can influence the path.
+    CONFIG_PATH = "/etc/nftables.conf"
+
     def __init__(self):
         self.ruleset: Dict[str, Any] = {}
-        self.config_path = "/etc/nftables.conf"
 
     def generate_ruleset(
         self,
@@ -412,8 +416,14 @@ table inet viswall {
     async def apply_ruleset(self, ruleset: str) -> bool:
         """Apply nftables ruleset"""
         try:
+            # Normalized + contained to /etc — the ruleset path is fixed and
+            # no caller-supplied value can influence it.
+            conf_path = Path("/etc/nftables.conf").resolve()
+            if not conf_path.is_relative_to(Path("/etc").resolve()):
+                raise ValueError("refusing to write ruleset outside /etc")
+
             # Write config
-            with open(self.config_path, "w") as f:
+            with conf_path.open("w") as f:
                 f.write(ruleset)
 
             # Validate ruleset
@@ -421,7 +431,7 @@ table inet viswall {
                 "nft",
                 "-c",
                 "-f",
-                self.config_path,
+                str(conf_path),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -435,7 +445,7 @@ table inet viswall {
             proc = await asyncio.create_subprocess_exec(
                 "nft",
                 "-f",
-                self.config_path,
+                str(conf_path),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

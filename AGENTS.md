@@ -18,7 +18,7 @@ Viswall is a modern distributed security appliance platform. It's a complete rew
 | **Frontend** | React 18, TypeScript, Vite, TanStack Query, Zustand, Tailwind CSS, Recharts |
 | **Database** | PostgreSQL 16 (primary), Redis 7 (cache/queues) |
 | **Monitoring** | Prometheus, Grafana |
-| **Testing** | pytest (backend), vitest (frontend), GitHub Actions CI/CD |
+| **Testing** | pytest (backend), vitest (frontend), Jenkins CI/CD (10.80.2.251) |
 | **Deployment** | Docker Compose |
 
 ---
@@ -64,7 +64,7 @@ viswall/
 │   ├── docker-compose.yml    # postgres, redis, api-gateway, web-ui, nginx, sogo, prometheus, grafana
 │   ├── nginx/                # nginx reverse proxy with TLS termination (self-signed or Let's Encrypt)
 │   └── .env.example
-└── .github/workflows/ci.yml  # GitHub Actions: test-backend, test-frontend, test-integration
+└── ci/jenkins/               # Jenkins CI/CD pipelines (see ci/jenkins/README.md)
 ```
 
 **Note**: The `source/` directory contains legacy PHP code from the original appliance. It is preserved for reference but NOT used in the modern architecture.
@@ -211,26 +211,27 @@ npm run build      # Production build
 
 ## CI/CD Pipeline
 
-GitHub Actions runs on every push to `main`, `develop`, or `feature/*` branches:
+CI/CD runs on the **self-hosted Jenkins** at `http://10.80.2.251:8081` (mirroring vidForge); pipelines live in `ci/jenkins/` — see `ci/jenkins/README.md`. Triggered by the GitHub webhook (push, pull_request, issue_comment) relayed through `https://viswall.webmasters.co.at/jenkins-hook/`:
 
-- `test-backend` — pytest with PostgreSQL + Redis services
-- `test-frontend` — lint, type-check, vitest
-- `test-integration` — integration tests
-- `GitGuardian Security Checks`
+- `viswall-ci` — backend (pytest with Postgres/Redis sidecars), frontend (lint, type-check, vitest, build), OpenAPI/SDK/CLI validation. PRs get a `jenkins-ci` commit status; a green **main** build triggers release + deploy.
+- `viswall-release` — buildx-builds `api-gateway`, `web-ui`, `sogo`, `dns-service` and pushes them to `ghcr.io/hrohrweck/viswall/*` (tags `sha-<short7>` + `main`).
+- `viswall-deploy` — SSH-deploys the built tag to `viswall.webmasters.co.at` via `scripts/deploy.sh` (backup, health gates, auto-rollback).
+- `viswall-approve` — `/approve` comment by the PR author self-approves via the vidforge-bot PAT (the "Protect main" ruleset requires 1 approval).
+- `security.yml` (GitHub Actions) — gitleaks on every push/PR.
 
 All checks must pass before merging.
 
 ### PR Test Observation Rule
 
-When a PR is filed, the agent **must** monitor CI check results until completion. If any checks are failing:
+When a PR is filed, the agent **must** monitor CI check results until completion — that includes the `jenkins-ci` commit status from Jenkins and the GitHub-hosted gitleaks workflow. If any checks are failing:
 
-1. **Investigate immediately** — fetch logs, reproduce locally, identify root cause.
+1. **Investigate immediately** — fetch logs (Jenkins build console), reproduce locally, identify root cause.
 2. **Fix automatically** — commit corrections directly to the PR branch and re-push.
 3. **Never leave a PR with failing checks** unless the failure is from an upstream/main branch issue outside the PR's scope (document the exception in a PR comment).
 4. **Common CI pitfalls to watch for**:
    - Docker Compose IPv6 subnets must use valid hex-only ULA addresses (e.g., `fd00:42::/64`, not `fd00:viswall::/64`).
-   - `docker compose up` in GitHub Actions requires the runner's Docker daemon to support the network options used.
    - Backend pytest and frontend vitest must both pass locally before pushing.
+   - Merging to `main` triggers a production deploy — the PR must be green first.
 
 ---
 
@@ -252,4 +253,4 @@ These are intentional or known areas needing future work. Agents should be aware
 
 - **Repository**: https://github.com/hrohrweck/viswall
 - **Main branch**: `main`
-- **CI**: GitHub Actions (`.github/workflows/ci.yml`)
+- **CI**: Jenkins (`ci/jenkins/`, http://10.80.2.251:8081) + `security.yml` gitleaks on GitHub

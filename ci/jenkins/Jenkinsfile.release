@@ -1,0 +1,136 @@
+// Viswall release — build & push the 4 GHCR images.
+// Parity with the retired .github/workflows/deploy.yml 'images' job.
+// Differences (deliberate):
+//   * Build cache: type=registry (:buildcache per image) instead of GHA cache.
+//
+// Builds the four custom images the default compose profile runs:
+// api-gateway, web-ui, sogo, dns-service. nginx ("disabled" profile) and
+// mail-service ("mail" profile) keep building locally on the server.
+//
+// Triggered automatically by viswall-ci on a green main build (same head
+// SHA = the old workflow_run CI gate), or manually with parameters.
+// On success this triggers viswall-deploy (serialized there).
+
+properties([
+    parameters([
+        string(name: 'GIT_SHA', defaultValue: '', description: 'Full commit SHA to build (defaults to current main HEAD)'),
+        booleanParam(name: 'SKIP_DEPLOY', defaultValue: false, description: 'Build and push images but do not trigger the deploy job'),
+    ]),
+    disableConcurrentBuilds(),
+])
+
+pipeline {
+  agent none
+  options {
+    timestamps()
+    buildDiscarder(logRotator(numToKeepStr: '60'))
+    timeout(time: 90, unit: 'MINUTES')
+  }
+  environment {
+    GHCR = 'ghcr.io/hrohrweck'
+  }
+  stages {
+    stage('checkout pinned SHA') {
+      agent { label 'build' }
+      steps {
+        checkout([
+            $class: 'GitSCM',
+            branches: [[name: params.GIT_SHA ?: 'main']],
+            extensions: [[$class: 'CloneOption', depth: 1, shallow: true]],
+            userRemoteConfigs: [[
+                url: 'https://github.com/hrohrweck/viswall.git',
+            ]],
+        ])
+        script {
+          env.SHA = params.GIT_SHA ?: sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+          env.TAG = "sha-${env.SHA.take(7)}"
+          echo "Building ${env.TAG} (${env.SHA})"
+        }
+      }
+    }
+    stage('ghcr login') {
+      agent { label 'build' }
+      steps {
+        withCredentials([string(credentialsId: 'vidforge-github-pat', variable: 'GH_PAT')]) {
+          sh 'echo "$GH_PAT" | docker login ghcr.io -u vidforge-bot --password-stdin'
+        }
+      }
+    }
+    stage('buildx builder') {
+      agent { label 'build' }
+      steps {
+        // Registry cache export needs the docker-container driver; the
+        // default docker driver cannot do --cache-to type=registry.
+        sh '''
+          docker buildx inspect viswall-builder >/dev/null 2>&1 \
+            || docker buildx create --name viswall-builder --driver docker-container
+          docker buildx use viswall-builder
+        '''
+      }
+    }
+    stage('api-gateway image') {
+      agent { label 'build' }
+      steps {
+        sh '''
+          docker buildx build --push \
+            --cache-from type=registry,ref=$GHCR/viswall/api-gateway:buildcache \
+            --cache-to type=registry,ref=$GHCR/viswall/api-gateway:buildcache,mode=max \
+            -f services/api-gateway/Dockerfile \
+            -t $GHCR/viswall/api-gateway:$TAG -t $GHCR/viswall/api-gateway:main .
+        '''
+      }
+    }
+    stage('web-ui image') {
+      agent { label 'build' }
+      steps {
+        sh '''
+          docker buildx build --push \
+            --cache-from type=registry,ref=$GHCR/viswall/web-ui:buildcache \
+            --cache-to type=registry,ref=$GHCR/viswall/web-ui:buildcache,mode=max \
+            web-ui -f web-ui/Dockerfile \
+            -t $GHCR/viswall/web-ui:$TAG -t $GHCR/viswall/web-ui:main
+        '''
+      }
+    }
+    stage('sogo image') {
+      agent { label 'build' }
+      steps {
+        sh '''
+          docker buildx build --push \
+            --cache-from type=registry,ref=$GHCR/viswall/sogo:buildcache \
+            --cache-to type=registry,ref=$GHCR/viswall/sogo:buildcache,mode=max \
+            -f services/sogo-service/Dockerfile \
+            -t $GHCR/viswall/sogo:$TAG -t $GHCR/viswall/sogo:main .
+        '''
+      }
+    }
+    stage('dns-service image') {
+      agent { label 'build' }
+      steps {
+        sh '''
+          docker buildx build --push \
+            --cache-from type=registry,ref=$GHCR/viswall/dns-service:buildcache \
+            --cache-to type=registry,ref=$GHCR/viswall/dns-service:buildcache,mode=max \
+            -f services/dns-service/Dockerfile \
+            -t $GHCR/viswall/dns-service:$TAG -t $GHCR/viswall/dns-service:main .
+        '''
+      }
+    }
+  }
+  post {
+    // NOTE: top-level pipeline is `agent none` — only node-free steps
+    // (e.g. `build`) may run here (see vidforge-release for the history).
+    success {
+      script {
+        if (!params.SKIP_DEPLOY) {
+          build job: 'viswall-deploy',
+                parameters: [
+                    string(name: 'GIT_SHA', value: env.SHA),
+                    string(name: 'IMAGE_TAG', value: env.TAG),
+                ],
+                wait: false
+        }
+      }
+    }
+  }
+}

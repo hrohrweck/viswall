@@ -1,0 +1,63 @@
+// Viswall deploy — SSH to prod and run the server-side deploy chain.
+// The remote script (ci/jenkins/scripts/deploy_remote.sh) is a verbatim
+// port of the retired .github/workflows/deploy.yml 'deploy' job: checkout
+// pin → fail-open ghcr login → pre-pull with retries →
+// ./scripts/deploy.sh <tag> <sha> (pin/backup/pull/up/health gates with
+// self-rollback).
+//
+// The script is piped over ssh ('bash -s'), with the image tag / sha as
+// argv and the secrets appended on stdin — secrets never in argv.
+//
+// Triggered automatically by viswall-release on success (serialized via
+// disableConcurrentBuilds), or manually with parameters.
+
+properties([
+    parameters([
+        string(name: 'GIT_SHA', defaultValue: '', description: 'Full commit SHA deployed'),
+        string(name: 'IMAGE_TAG', defaultValue: '', description: 'Image tag, e.g. sha-13eac04'),
+    ]),
+    disableConcurrentBuilds(),
+])
+
+pipeline {
+  agent { label 'build' }
+  options {
+    timestamps()
+    buildDiscarder(logRotator(numToKeepStr: '60'))
+    timeout(time: 70, unit: 'MINUTES')
+  }
+  stages {
+    stage('deploy') {
+      steps {
+        withCredentials([
+            sshUserPrivateKey(credentialsId: 'viswall-deploy-ssh', keyFileVariable: 'DEPLOY_KEY'),
+            string(credentialsId: 'vidforge-github-pat', variable: 'GH_TOKEN'),
+        ]) {
+          // Pinned prod host key (matches viswall.webmasters.co.at ed25519 —
+          // same host as vidforge.webmasters.co.at, hence the same key).
+          writeFile(file: 'jenkins_known_hosts', text: '''viswall.webmasters.co.at ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ8JfmtCtmn8ZqnN56NJfmo9ai4NAysXO1mG0oZB41UT
+''')
+          sh '''
+            set -e
+            chmod +x ci/jenkins/scripts/deploy_remote.sh
+            {
+              cat ci/jenkins/scripts/deploy_remote.sh
+              printf 'export GH_TOKEN="%s"\\n' "$GH_TOKEN"
+            } | ssh -i "$DEPLOY_KEY" \
+                -o UserKnownHostsFile="$PWD/jenkins_known_hosts" \
+                -o IdentitiesOnly=yes \
+                viswall-deploy@viswall.webmasters.co.at 'bash -s' "$IMAGE_TAG" "$GIT_SHA"
+          '''
+        }
+      }
+    }
+  }
+  post {
+    success {
+      echo "Deployed ${params.IMAGE_TAG} (${params.GIT_SHA}) — health gate passed."
+    }
+    failure {
+      echo "Deploy FAILED for ${params.IMAGE_TAG} (${params.GIT_SHA}). Check the server-side deploy.sh output; auto-rollback may have run."
+    }
+  }
+}
