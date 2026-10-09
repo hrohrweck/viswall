@@ -1194,9 +1194,13 @@ export interface components {
       /** Resource Id */
       resource_id: string | null;
       /** Old Value */
-      old_value: Record<string, never> | null;
+      old_value: {
+        [key: string]: unknown;
+      } | null;
       /** New Value */
-      new_value: Record<string, never> | null;
+      new_value: {
+        [key: string]: unknown;
+      } | null;
       /** Ip Address */
       ip_address: string | null;
       /**
@@ -1224,7 +1228,9 @@ export interface components {
       /** Conversation Id */
       conversation_id?: string | null;
       /** Context */
-      context?: Record<string, never> | null;
+      context?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** ChatResponse */
     ChatResponse: {
@@ -1233,7 +1239,9 @@ export interface components {
       /** Message */
       message: string;
       /** Data */
-      data?: Record<string, never> | null;
+      data?: {
+        [key: string]: unknown;
+      } | null;
       /**
        * Can Apply
        * @default false
@@ -1247,7 +1255,9 @@ export interface components {
       /** Config Type */
       config_type: string;
       /** Config */
-      config: Record<string, never>;
+      config: {
+        [key: string]: unknown;
+      };
       /** Question */
       question?: string | null;
     };
@@ -2534,7 +2544,9 @@ export interface components {
       /** Last Seen */
       last_seen: string | null;
       /** Config */
-      config: Record<string, never>;
+      config: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -2561,7 +2573,9 @@ export interface components {
       /** Capabilities */
       capabilities?: string[] | null;
       /** Config */
-      config?: Record<string, never> | null;
+      config?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** L2TPConfig */
     L2TPConfig: {
@@ -3039,8 +3053,22 @@ export interface components {
        * @default false
        */
       groupware_enabled?: boolean;
+      /**
+       * Mta Forward Enabled
+       * @default false
+       */
+      mta_forward_enabled?: boolean;
+      /** Mta Forward Host */
+      mta_forward_host?: string | null;
+      /**
+       * Mta Forward Port
+       * @default 25
+       */
+      mta_forward_port?: number;
       /** Llm Config */
-      llm_config?: Record<string, never> | null;
+      llm_config?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** MailDomainResponse */
     MailDomainResponse: {
@@ -3086,12 +3114,26 @@ export interface components {
        * @default false
        */
       groupware_enabled?: boolean;
+      /**
+       * Mta Forward Enabled
+       * @default false
+       */
+      mta_forward_enabled?: boolean;
+      /** Mta Forward Host */
+      mta_forward_host?: string | null;
+      /**
+       * Mta Forward Port
+       * @default 25
+       */
+      mta_forward_port?: number;
       /** Id */
       id: number;
       /** Instance Id */
       instance_id: number;
       /** Llm Config */
-      llm_config: Record<string, never>;
+      llm_config: {
+        [key: string]: unknown;
+      };
       /**
        * Created At
        * Format: date-time
@@ -3122,7 +3164,15 @@ export interface components {
       /** Groupware Enabled */
       groupware_enabled?: boolean | null;
       /** Llm Config */
-      llm_config?: Record<string, never> | null;
+      llm_config?: {
+        [key: string]: unknown;
+      } | null;
+      /** Mta Forward Enabled */
+      mta_forward_enabled?: boolean | null;
+      /** Mta Forward Host */
+      mta_forward_host?: string | null;
+      /** Mta Forward Port */
+      mta_forward_port?: number | null;
     };
     /** MailMessageActionRequest */
     MailMessageActionRequest: {
@@ -3296,7 +3346,9 @@ export interface components {
       /** Disk Total Bytes */
       disk_total_bytes?: number | null;
       /** Interface Stats */
-      interface_stats?: Record<string, never>[] | null;
+      interface_stats?: {
+          [key: string]: unknown;
+        }[] | null;
       /** Mail Queue Size */
       mail_queue_size?: number | null;
       /** Mail Inbound Count */
@@ -3369,7 +3421,9 @@ export interface components {
     /** MultiFirewallRequest */
     MultiFirewallRequest: {
       /** Firewalls */
-      firewalls: Record<string, never>[];
+      firewalls: {
+          [key: string]: unknown;
+        }[];
       /** Topology */
       topology: {
         [key: string]: string[];
@@ -3383,13 +3437,17 @@ export interface components {
     /** MultiFirewallTestRequest */
     MultiFirewallTestRequest: {
       /** Firewalls */
-      firewalls: Record<string, never>[];
+      firewalls: {
+          [key: string]: unknown;
+        }[];
       /** Topology */
       topology: {
         [key: string]: string[];
       };
       /** Tests */
-      tests: Record<string, never>[];
+      tests: {
+          [key: string]: unknown;
+        }[];
     };
     /** NATRuleCreate */
     NATRuleCreate: {
@@ -3909,7 +3967,9 @@ export interface components {
       /** Queues */
       queues?: components["schemas"]["QoSQueueStats"][];
       /** Raw */
-      raw?: Record<string, never> | null;
+      raw?: {
+        [key: string]: unknown;
+      } | null;
       /**
        * Collected At
        * Format: date-time
@@ -4055,25 +4115,33 @@ export interface components {
     /** RuleSuggestionResponse */
     RuleSuggestionResponse: {
       /** Rule */
-      rule: Record<string, never>;
+      rule: {
+        [key: string]: unknown;
+      };
       /** Explanation */
       explanation: string;
       /** Security Notes */
       security_notes: string;
       /** Suggested Tests */
-      suggested_tests: Record<string, never>[];
+      suggested_tests: {
+          [key: string]: unknown;
+        }[];
     };
     /** SecurityAuditRequest */
     SecurityAuditRequest: {
       /** Rules */
-      rules: Record<string, never>[];
+      rules: {
+          [key: string]: unknown;
+        }[];
       /** Standard */
       standard?: string | null;
     };
     /** SecurityAuditResponse */
     SecurityAuditResponse: {
       /** Findings */
-      findings: Record<string, never>[];
+      findings: {
+          [key: string]: unknown;
+        }[];
       /** Risk Score */
       risk_score: number;
       /** Recommendations */
@@ -4098,9 +4166,13 @@ export interface components {
     /** SimulationResponse */
     SimulationResponse: {
       /** Packet */
-      packet: Record<string, never>;
+      packet: {
+        [key: string]: unknown;
+      };
       /** Matched Rule */
-      matched_rule: Record<string, never> | null;
+      matched_rule: {
+        [key: string]: unknown;
+      } | null;
       /** Final Action */
       final_action: string;
       /** Chain Traversed */
@@ -4112,7 +4184,9 @@ export interface components {
       /** Logs */
       logs: string[];
       /** Nat Translation */
-      nat_translation: Record<string, never> | null;
+      nat_translation: {
+        [key: string]: unknown;
+      } | null;
     };
     /**
      * TSIGAlgorithm
@@ -4150,14 +4224,18 @@ export interface components {
       /** Description */
       description: string;
       /** Rules */
-      rules?: Record<string, never>[] | null;
+      rules?: {
+          [key: string]: unknown;
+        }[] | null;
       /** Instance Id */
       instance_id?: number | null;
     };
     /** TestGenerationResponse */
     TestGenerationResponse: {
       /** Test Cases */
-      test_cases: Record<string, never>[];
+      test_cases: {
+          [key: string]: unknown;
+        }[];
       /** Explanation */
       explanation: string;
       /** Coverage Assessment */
@@ -4166,13 +4244,17 @@ export interface components {
     /** TestResultResponse */
     TestResultResponse: {
       /** Test Case */
-      test_case: Record<string, never>;
+      test_case: {
+        [key: string]: unknown;
+      };
       /** Passed */
       passed: boolean;
       /** Actual Action */
       actual_action: string;
       /** Actual Rule */
-      actual_rule: Record<string, never> | null;
+      actual_rule: {
+        [key: string]: unknown;
+      } | null;
       /** Error Message */
       error_message: string | null;
       /** Execution Time Ms */
@@ -4247,7 +4329,9 @@ export interface components {
       /** Instances */
       instances: number[];
       /** Preferences */
-      preferences: Record<string, never>;
+      preferences: {
+        [key: string]: unknown;
+      };
       /** Last Login */
       last_login: string | null;
       /**
@@ -4276,7 +4360,9 @@ export interface components {
       /** Instances */
       instances?: number[] | null;
       /** Preferences */
-      preferences?: Record<string, never> | null;
+      preferences?: {
+        [key: string]: unknown;
+      } | null;
     };
     /**
      * VPNAuthType
@@ -4603,7 +4689,9 @@ export interface components {
       instance_id: number;
       status: components["schemas"]["VPNStatus"];
       /** Config */
-      config: Record<string, never>;
+      config: {
+        [key: string]: unknown;
+      };
       /** Connected Clients */
       connected_clients: number;
       /** Bytes Received */
@@ -4637,7 +4725,9 @@ export interface components {
       /** Total Bytes Sent */
       total_bytes_sent: number;
       /** Client List */
-      client_list: Record<string, never>[];
+      client_list: {
+          [key: string]: unknown;
+        }[];
     };
     /** VPNServerUpdate */
     VPNServerUpdate: {
@@ -4660,7 +4750,9 @@ export interface components {
       /** Internet Redirect */
       internet_redirect?: boolean | null;
       /** Config */
-      config?: Record<string, never> | null;
+      config?: {
+        [key: string]: unknown;
+      } | null;
     };
     /**
      * VPNStatus
@@ -4675,10 +4767,6 @@ export interface components {
       msg: string;
       /** Error Type */
       type: string;
-      /** Input */
-      input?: unknown;
-      /** Context */
-      ctx?: Record<string, never>;
     };
     /** WireGuardConfig */
     WireGuardConfig: {
@@ -4978,7 +5066,9 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": Record<string, never>;
+        "application/json": {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -6459,7 +6549,9 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": Record<string, never>;
+        "application/json": {
+          [key: string]: unknown;
+        };
       };
     };
     responses: {
@@ -6702,7 +6794,9 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": Record<string, never>;
+          "application/json": {
+            [key: string]: unknown;
+          };
         };
       };
       /** @description Validation Error */
@@ -6722,7 +6816,9 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": Record<string, never>;
+          "application/json": {
+            [key: string]: unknown;
+          };
         };
       };
     };
@@ -9112,7 +9208,9 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        "application/json": Record<string, never> | null;
+        "application/json": {
+          [key: string]: unknown;
+        } | null;
       };
     };
     responses: {
@@ -9706,7 +9804,9 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": Record<string, never>;
+          "application/json": {
+            [key: string]: unknown;
+          };
         };
       };
       /** @description Validation Error */
@@ -9784,7 +9884,9 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": Record<string, never>;
+          "application/json": {
+            [key: string]: unknown;
+          };
         };
       };
       /** @description Validation Error */

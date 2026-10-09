@@ -93,7 +93,10 @@ async def create_domain(
         dmarc_enabled=data.dmarc_enabled,
         spf_enabled=data.spf_enabled,
         llm_enabled=data.llm_enabled,
-        llm_config=llm_config
+        llm_config=llm_config,
+        mta_forward_enabled=data.mta_forward_enabled,
+        mta_forward_host=data.mta_forward_host,
+        mta_forward_port=data.mta_forward_port,
     )
     
     db.add(domain)
@@ -161,7 +164,10 @@ async def update_domain(
     
     for field, value in update_data.items():
         setattr(domain, field, value)
-    
+
+    if domain.mta_forward_enabled and not domain.mta_forward_host:
+        raise HTTPException(status_code=422, detail="mta_forward_host is required when MTA forwarding is enabled")
+
     domain.updated_at = datetime.utcnow()
     await db.commit()
     # Audit log

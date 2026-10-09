@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Key, Trash2, Users, Brain, Globe, Forward } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
@@ -17,6 +17,7 @@ import {
   useCreateMailAlias,
   useUpdateMailAlias,
   useDeleteMailAlias,
+  useUpdateMailDomain,
 } from '../../hooks/useApi'
 import {
   PageHeader,
@@ -36,6 +37,9 @@ import {
   Switch,
   toast,
   buttonVariants,
+  Button,
+  Field,
+  Input,
 } from '../../components/ui'
 import { TabsContent } from '../../components/ui/Tabs'
 import type { MailUser } from '../../types'
@@ -71,6 +75,7 @@ export function MailDomainDetail() {
   const createAliasMutation = useCreateMailAlias(selectedInstanceId!, domainId)
   const updateAliasMutation = useUpdateMailAlias(selectedInstanceId!, domainId)
   const deleteAliasMutation = useDeleteMailAlias(selectedInstanceId!, domainId)
+  const updateDomainMutation = useUpdateMailDomain(selectedInstanceId!)
 
   const [showDeleteDomain, setShowDeleteDomain] = useState(false)
   const [showCreateUser, setShowCreateUser] = useState(false)
@@ -81,6 +86,18 @@ export function MailDomainDetail() {
   const [editAliasTarget, setEditAliasTarget] = useState<AliasGroup | null>(null)
   const [deleteAliasTarget, setDeleteAliasTarget] = useState<AliasGroup | null>(null)
   const [activeTab, setActiveTab] = useState('users')
+  const [mtaEnabled, setMtaEnabled] = useState(false)
+  const [mtaHost, setMtaHost] = useState('')
+  const [mtaPort, setMtaPort] = useState('25')
+  const [mtaError, setMtaError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (domain) {
+      setMtaEnabled(domain.mta_forward_enabled)
+      setMtaHost(domain.mta_forward_host ?? '')
+      setMtaPort(String(domain.mta_forward_port ?? 25))
+    }
+  }, [domain])
 
   const aliasGroups = useMemo<AliasGroup[]>(() => {
     const groups = new Map<string, AliasGroup>()
@@ -213,6 +230,31 @@ export function MailDomainDetail() {
     }
   }
 
+  const handleMtaSave = async () => {
+    const host = mtaHost.trim()
+    if (mtaEnabled && !host) {
+      setMtaError('A forwarding host is required')
+      return
+    }
+    if (host && (/^[a-z][a-z0-9+.-]*:\/\//i.test(host) || /\s/.test(host))) {
+      setMtaError('Invalid host — remove the scheme (http://) and spaces')
+      return
+    }
+    setMtaError(null)
+    const port = Number.parseInt(mtaPort, 10)
+    try {
+      await updateDomainMutation.mutateAsync({
+        id: domain.id,
+        mta_forward_enabled: mtaEnabled,
+        mta_forward_host: host || null,
+        mta_forward_port: Number.isInteger(port) && port > 0 ? port : 25,
+      })
+      toast.success('Delivery settings saved')
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
+  }
+
   const userColumns = [
     {
       key: 'username',
@@ -273,6 +315,7 @@ export function MailDomainDetail() {
   const tabItems = [
     { value: 'users', label: `Mailboxes (${users?.length ?? 0})` },
     { value: 'forwarding', label: `Forwarding (${aliasGroups.length})` },
+    { value: 'delivery', label: 'Delivery' },
     { value: 'classification', label: 'Classification' },
     { value: 'groupware', label: 'Groupware' },
   ]
@@ -375,6 +418,65 @@ export function MailDomainDetail() {
                 )}
                 emptyContent={<EmptyState icon={Forward} title="No forwarding rules yet" description="Forward mail for an address — or your whole domain — to external mailboxes." actionLabel="Add Alias" onAction={() => setShowCreateAlias(true)} />}
               />
+            </TabsContent>
+
+            <TabsContent value="delivery">
+              <div className="mt-4">
+                <Card>
+                  <div className="space-y-6">
+                    <div className="flex items-start justify-between gap-6">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-on-surface">
+                          Forward all incoming mail via SMTP (MTA forwarding)
+                        </p>
+                        <p className="text-sm text-on-surface-muted">
+                          Relay every message arriving for {domain.domain} to an external SMTP server instead of delivering locally.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={mtaEnabled}
+                        onCheckedChange={(checked) => {
+                          setMtaEnabled(checked)
+                          setMtaError(null)
+                        }}
+                        aria-label="MTA forwarding"
+                      />
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-[1fr_9rem]">
+                      <Field
+                        label="Forwarding host"
+                        required={mtaEnabled}
+                        error={mtaError ?? undefined}
+                        helper="Hostname or IP address of the external SMTP server"
+                      >
+                        <Input
+                          aria-label="Forwarding host"
+                          placeholder="e.g. 83.164.137.172 or mail.example.com"
+                          value={mtaHost}
+                          onChange={(e) => setMtaHost(e.target.value)}
+                          disabled={!mtaEnabled}
+                        />
+                      </Field>
+                      <Field label="Port" helper="SMTP port (default 25)">
+                        <Input
+                          aria-label="Forwarding port"
+                          type="number"
+                          value={mtaPort}
+                          onChange={(e) => setMtaPort(e.target.value)}
+                          disabled={!mtaEnabled}
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="flex justify-end gap-3">
+                      <Button onClick={handleMtaSave} disabled={updateDomainMutation.isPending}>
+                        {updateDomainMutation.isPending ? 'Saving…' : 'Save'}
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="classification">

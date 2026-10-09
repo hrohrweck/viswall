@@ -1,5 +1,5 @@
 import re
-from pydantic import BaseModel, Field, IPvAnyNetwork, field_validator
+from pydantic import BaseModel, Field, IPvAnyNetwork, field_validator, model_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -267,6 +267,39 @@ class NetworkInterfaceResponse(NetworkInterfaceBase):
 
 
 # Mail Domain Schemas
+_MTA_HOST_PATTERN = re.compile(
+    r"^"
+    r"(?:"
+    r"(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\."
+    r"(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\."
+    r"(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\."
+    r"(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])"
+    r"|\[[0-9A-Fa-f:.]+\]"
+    r"|[0-9A-Fa-f]*:[0-9A-Fa-f:]*[0-9A-Fa-f]+"
+    r"|[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*"
+    r")"
+    r"$"
+)
+
+
+def validate_mta_forward_host(value: Optional[str]) -> Optional[str]:
+    """MTA forward host must be an IPv4 address, bracketed-or-bare IPv6, or a
+    hostname: no scheme, no path, no whitespace."""
+    if value is None:
+        return None
+    stripped = value.strip()
+    if stripped != value:
+        raise ValueError("mta_forward_host must not have leading or trailing whitespace")
+    if not stripped:
+        raise ValueError("mta_forward_host must not be empty")
+    if not _MTA_HOST_PATTERN.fullmatch(stripped):
+        raise ValueError(
+            "mta_forward_host must be an IPv4 address, IPv6 address, or hostname "
+            "without scheme, path, or whitespace"
+        )
+    return stripped
+
+
 class MailDomainBase(BaseModel):
     domain: str = Field(..., max_length=255)
     enabled: bool = True
@@ -277,10 +310,24 @@ class MailDomainBase(BaseModel):
     spf_enabled: bool = True
     llm_enabled: bool = False
     groupware_enabled: bool = False
+    mta_forward_enabled: bool = False
+    mta_forward_host: Optional[str] = None
+    mta_forward_port: int = Field(default=25, ge=1, le=65535)
+
+    @field_validator("mta_forward_host")
+    @classmethod
+    def _validate_mta_forward_host(cls, value: Optional[str]) -> Optional[str]:
+        return validate_mta_forward_host(value)
 
 
 class MailDomainCreate(MailDomainBase):
     llm_config: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def _mta_forward_host_required_when_enabled(self) -> "MailDomainCreate":
+        if self.mta_forward_enabled and not self.mta_forward_host:
+            raise ValueError("mta_forward_host is required when MTA forwarding is enabled")
+        return self
 
 
 class MailDomainUpdate(BaseModel):
@@ -293,6 +340,14 @@ class MailDomainUpdate(BaseModel):
     llm_enabled: Optional[bool] = None
     groupware_enabled: Optional[bool] = None
     llm_config: Optional[Dict[str, Any]] = None
+    mta_forward_enabled: Optional[bool] = None
+    mta_forward_host: Optional[str] = None
+    mta_forward_port: Optional[int] = Field(None, ge=1, le=65535)
+
+    @field_validator("mta_forward_host")
+    @classmethod
+    def _validate_mta_forward_host(cls, value: Optional[str]) -> Optional[str]:
+        return validate_mta_forward_host(value)
 
 
 class MailDomainResponse(MailDomainBase):

@@ -31,6 +31,13 @@ def hash_pw(pw: str) -> str:
     return bcrypt.hashpw(pw.encode("utf-8")[:72], bcrypt.gensalt()).decode("ascii")
 
 
+def mta_fields_from_legacy(staticroute, staticroute_ip):
+    """Map legacy AdditionalMailDomains staticroute -> modern MTA-forwarding fields."""
+    if staticroute == 1 and staticroute_ip:
+        return (True, str(staticroute_ip).strip(), 25)
+    return (False, None, 25)
+
+
 def quota_to_bytes(q):
     if not q:
         return None
@@ -69,8 +76,10 @@ def main():
 
     myc.execute("SELECT Domain FROM LocalMailDomains WHERE active=1")
     doms = {(r["Domain"] or "").strip().lower() for r in myc.fetchall() if r["Domain"]}
-    myc.execute("SELECT Domain FROM AdditionalMailDomains WHERE active=1")
-    doms |= {(r["Domain"] or "").strip().lower() for r in myc.fetchall() if r["Domain"]}
+    myc.execute("SELECT Domain, staticroute, staticroute_IP FROM AdditionalMailDomains WHERE active=1")
+    add_domains = {(r["Domain"] or "").strip().lower(): (r["staticroute"], r["staticroute_IP"])
+                   for r in myc.fetchall() if r["Domain"]}
+    doms |= set(add_domains)
     doms_by_len = sorted(doms, key=len, reverse=True)
 
     def parse_login(bn):
@@ -281,7 +290,13 @@ def main():
             if row:
                 dom_id[d] = row[0]
             else:
-                pgc.execute("INSERT INTO mail_domains (instance_id, domain, enabled) VALUES (%s,%s,TRUE) RETURNING id", (inst, d))
+                sr, srip = add_domains.get(d, (0, None))
+                mta_enabled, mta_host, mta_port = mta_fields_from_legacy(sr, srip)
+                pgc.execute(
+                    "INSERT INTO mail_domains "
+                    "(instance_id, domain, enabled, mta_forward_enabled, mta_forward_host, mta_forward_port) "
+                    "VALUES (%s,%s,TRUE,%s,%s,%s) RETURNING id",
+                    (inst, d, mta_enabled, mta_host, mta_port))
                 dom_id[d] = pgc.fetchone()[0]
             return dom_id[d]
         for d in sorted(doms):

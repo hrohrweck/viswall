@@ -28,6 +28,9 @@ class MailResource:
         spf_enabled: bool = True,
         llm_enabled: bool = False,
         groupware_enabled: bool = False,
+        mta_forward_enabled: bool = False,
+        mta_forward_host: Optional[str] = None,
+        mta_forward_port: int = 25,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """Create a mail domain.
@@ -43,6 +46,9 @@ class MailResource:
             spf_enabled: Enable SPF
             llm_enabled: Enable LLM classification
             groupware_enabled: Enable groupware (SOGo)
+            mta_forward_enabled: Enable MTA forwarding
+            mta_forward_host: MTA forward host (sent only when not None)
+            mta_forward_port: MTA forward port (default 25)
             
         Returns:
             Created domain
@@ -57,8 +63,12 @@ class MailResource:
             "spf_enabled": spf_enabled,
             "llm_enabled": llm_enabled,
             "groupware_enabled": groupware_enabled,
+            "mta_forward_enabled": mta_forward_enabled,
+            "mta_forward_port": mta_forward_port,
             **kwargs,
         }
+        if mta_forward_host is not None:
+            data["mta_forward_host"] = mta_forward_host
         return self._client._request("POST", f"/mail/domains/{instance_id}", json=data)
 
     def get_domain(self, domain_id: int) -> Dict[str, Any]:

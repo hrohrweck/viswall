@@ -631,3 +631,117 @@ describe('Forwarding edit alias', () => {
     })
   })
 })
+
+/* ================================================================== */
+/*  14 — Delivery tab: MTA forwarding settings                         */
+/* ================================================================== */
+
+describe('MailDomainDetail delivery tab', () => {
+  it('renders MTA switch off with disabled host/port inputs prefilled with port 25', async () => {
+    render(<MailDomainDetail />, { wrapper: (p) => <DetailWrapper initialEntry="/mail/domains/1">{p.children}</DetailWrapper> })
+
+    await waitFor(() => {
+      expect(screen.getByText('example.test')).toBeInTheDocument()
+    })
+
+    await userEvent.click(screen.getByRole('tab', { name: /delivery/i }))
+
+    expect(screen.getByLabelText('MTA forwarding')).toHaveAttribute('data-state', 'unchecked')
+    const hostInput = screen.getByLabelText('Forwarding host')
+    const portInput = screen.getByLabelText('Forwarding port')
+    expect(hostInput).toBeDisabled()
+    expect(portInput).toBeDisabled()
+    expect(portInput).toHaveValue(25)
+  })
+
+  it('fires PATCH with MTA settings and shows success toast when toggled on and saved', async () => {
+    const { toast } = await import('sonner')
+    const patches: Array<{ id: number; body: Record<string, unknown> }> = []
+    server.use(
+      http.patch('*/mail/domains/:id', async ({ request, params }) => {
+        const body = (await request.json()) as Record<string, unknown>
+        patches.push({ id: Number(params.id), body })
+        return HttpResponse.json({ id: Number(params.id), ...body })
+      }),
+    )
+
+    render(<MailDomainDetail />, { wrapper: (p) => <DetailWrapper initialEntry="/mail/domains/1">{p.children}</DetailWrapper> })
+
+    await waitFor(() => {
+      expect(screen.getByText('example.test')).toBeInTheDocument()
+    })
+    await userEvent.click(screen.getByRole('tab', { name: /delivery/i }))
+
+    await userEvent.click(screen.getByLabelText('MTA forwarding'))
+    await userEvent.type(screen.getByLabelText('Forwarding host'), '83.164.137.172')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(patches).toHaveLength(1))
+    expect(patches[0].id).toBe(1)
+    expect(patches[0].body).toEqual({
+      mta_forward_enabled: true,
+      mta_forward_host: '83.164.137.172',
+      mta_forward_port: 25,
+    })
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('Delivery settings saved')
+    })
+  })
+
+  it('shows inline error and does not fire PATCH when enabled without a host', async () => {
+    const patchSpy = vi.fn()
+    server.use(
+      http.patch('*/mail/domains/:id', async () => {
+        patchSpy()
+        return HttpResponse.json({ status: 'ok' })
+      }),
+    )
+
+    render(<MailDomainDetail />, { wrapper: (p) => <DetailWrapper initialEntry="/mail/domains/1">{p.children}</DetailWrapper> })
+
+    await waitFor(() => {
+      expect(screen.getByText('example.test')).toBeInTheDocument()
+    })
+    await userEvent.click(screen.getByRole('tab', { name: /delivery/i }))
+
+    await userEvent.click(screen.getByLabelText('MTA forwarding'))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('A forwarding host is required')).toBeInTheDocument()
+    })
+    expect(patchSpy).not.toHaveBeenCalled()
+  })
+
+  it('fires PATCH with the updated port when only the port changes', async () => {
+    const patches: Array<Record<string, unknown>> = []
+    server.use(
+      http.patch('*/mail/domains/:id', async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>
+        patches.push(body)
+        return HttpResponse.json({ status: 'ok' })
+      }),
+    )
+
+    render(<MailDomainDetail />, { wrapper: (p) => <DetailWrapper initialEntry="/mail/domains/1">{p.children}</DetailWrapper> })
+
+    await waitFor(() => {
+      expect(screen.getByText('example.test')).toBeInTheDocument()
+    })
+    await userEvent.click(screen.getByRole('tab', { name: /delivery/i }))
+
+    await userEvent.click(screen.getByLabelText('MTA forwarding'))
+    await userEvent.type(screen.getByLabelText('Forwarding host'), '83.164.137.172')
+    const portInput = screen.getByLabelText('Forwarding port')
+    await userEvent.clear(portInput)
+    await userEvent.type(portInput, '2525')
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(patches).toHaveLength(1))
+    expect(patches[0]).toEqual({
+      mta_forward_enabled: true,
+      mta_forward_host: '83.164.137.172',
+      mta_forward_port: 2525,
+    })
+  })
+})

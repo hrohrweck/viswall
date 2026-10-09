@@ -5,6 +5,7 @@
 04fc9a9a243107ce27889b5f37cda52fe0c4edec:web-ui/src/components/forms/MailboxForm.tsx:password-assignment:22
 19bbf8c079f27bcc2e095995aa389ce30a6477f0:web-ui/src/test/kit-command.test.tsx:password-assignment:75
 22f45633a7c28b9a5fb74085e9d1e65fe17d3295:services/api-gateway/tests/test_mail.py:password-assignment:107
+2bffcd443d2e6fc1ac742eb7a6a65b7464ded918:sdk/cli/viswall_cli/commands/mail.py:password-assignment:96
 2c8d4320ca37cbee7e0c7651efd8381e062369e2:.gitguardian.yml:password-assignment:3
 3098083b7a97ede1165f1c175d522222a425973c:web-ui/src/test/shell-responsive.test.tsx:password-assignment:34
 35faae8cc6aa684b67ccd0dfe5b27dc8d349395c:web-ui/src/components/forms/MailboxForm.tsx:password-assignment:23
@@ -30,7 +31,7 @@
 909ad437a70021d713664d73497b8f21a69a3e18:web-ui/src/pages/admin/LLMConfiguration.tsx:password-assignment:383
 b97c2dbff66d3e9bde444016a34d8e06317cfd00:web-ui/src/test/shell-topbar.test.tsx:password-assignment:68
 fdc9e9ade85814c96b229f343d0599233cfbd0fb:sdk/cli/viswall_cli/commands/llm.py:password-assignment:100
+fdc9e9ade85814c96b229f343d0599233cfbd0fb:services/api-gateway/tests/test_llm_admin.py:password-assignment:83
 fdc9e9ade85814c96b229f343d0599233cfbd0fb:services/api-gateway/tests/test_metrics_collector.py:password-assignment:37
 fdc9e9ade85814c96b229f343d0599233cfbd0fb:shared/llm_client.py:password-assignment:184
 fdd8d6783f00f3b8d1b3ef6f2b17b474f5655a3d:services/dns-service/tests/test_api_auth.py:password-assignment:31
-fdc9e9ade85814c96b229f343d0599233cfbd0fb:services/api-gateway/tests/test_llm_admin.py:password-assignment:83

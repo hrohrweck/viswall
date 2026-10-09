@@ -117,6 +117,12 @@ export const handlers = [
     return HttpResponse.json({ id: Number(params.aliasId), ...body })
   }),
   http.delete('/api/v1/mail/aliases/:aliasId', () => HttpResponse.json({ status: 'ok' })),
+  // MTA forwarding settings (domain PATCH): non-destructive echo — per-test
+  // recorders via server.use() take precedence and capture the payload.
+  http.patch('/api/v1/mail/domains/:domainId', async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json({ id: Number(params.domainId), ...body })
+  }),
   http.get('/api/v1/mail/messages/:domainId', () => HttpResponse.json(f.mailMessages)),
   http.post('/api/v1/mail/domains/:domainId/dkim/regenerate', () => HttpResponse.json({ status: 'ok' })),
   http.post('/api/v1/mail/messages/:messageId/reclassify', () => HttpResponse.json({ id: 1, status: 'reclassified' })),

@@ -445,3 +445,187 @@ class TestMailAliasEndpoints:
 
         response = await client.delete("/api/v1/mail/aliases/999999", headers=headers)
         assert response.status_code == 404
+
+
+class TestMailDomainMtaForwarding:
+    async def test_create_domain_with_mta_forwarding(self, client: AsyncClient, admin_user, instance):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/domains/{instance.id}",
+            json={
+                "domain": "fwd-create.test",
+                "mta_forward_enabled": True,
+                "mta_forward_host": "smtp.relay.example.net",
+                "mta_forward_port": 2525,
+            },
+            headers=headers,
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["mta_forward_enabled"] is True
+        assert body["mta_forward_host"] == "smtp.relay.example.net"
+        assert body["mta_forward_port"] == 2525
+        domain_id = body["id"]
+
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.id == domain_id))).scalar_one()
+            assert row.mta_forward_enabled is True
+            assert row.mta_forward_host == "smtp.relay.example.net"
+            assert row.mta_forward_port == 2525
+
+    async def test_create_domain_mta_enabled_without_host(self, client: AsyncClient, admin_user, instance):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/domains/{instance.id}",
+            json={"domain": "fwd-nohost.test", "mta_forward_enabled": True},
+            headers=headers,
+        )
+        assert response.status_code == 422
+
+    async def test_create_domain_mta_host_with_forwarding_disabled(self, client: AsyncClient, admin_user, instance):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/domains/{instance.id}",
+            json={
+                "domain": "fwd-disabled.test",
+                "mta_forward_enabled": False,
+                "mta_forward_host": "mx.example.net",
+            },
+            headers=headers,
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["mta_forward_enabled"] is False
+        assert body["mta_forward_host"] == "mx.example.net"
+
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.id == body["id"]))).scalar_one()
+            assert row.mta_forward_enabled is False
+            assert row.mta_forward_host == "mx.example.net"
+
+    async def test_update_domain_enable_mta_with_host(self, client: AsyncClient, admin_user, mail_domain):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.patch(
+            f"/api/v1/mail/domains/{mail_domain.id}",
+            json={"mta_forward_enabled": True, "mta_forward_host": "smtp.example.net"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["mta_forward_enabled"] is True
+        assert body["mta_forward_host"] == "smtp.example.net"
+
+    async def test_update_domain_disable_mta_retains_host(self, client: AsyncClient, admin_user, instance):
+        async with TestSessionLocal() as session:
+            domain = MailDomain(
+                instance_id=instance.id,
+                domain="fwd-existing.test",
+                enabled=True,
+                mta_forward_enabled=True,
+                mta_forward_host="smtp.example.net",
+                mta_forward_port=587,
+            )
+            session.add(domain)
+            await session.commit()
+            await session.refresh(domain)
+            domain_id = domain.id
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.patch(
+            f"/api/v1/mail/domains/{domain_id}",
+            json={"mta_forward_enabled": False},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["mta_forward_enabled"] is False
+        assert body["mta_forward_host"] == "smtp.example.net"
+        assert body["mta_forward_port"] == 587
+
+    async def test_update_domain_enable_mta_without_stored_host(self, client: AsyncClient, admin_user, mail_domain):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.patch(
+            f"/api/v1/mail/domains/{mail_domain.id}",
+            json={"mta_forward_enabled": True},
+            headers=headers,
+        )
+        assert response.status_code == 422
+
+    async def test_update_domain_clear_host_while_enabled(self, client: AsyncClient, admin_user, instance):
+        async with TestSessionLocal() as session:
+            domain = MailDomain(
+                instance_id=instance.id,
+                domain="fwd-clear.test",
+                enabled=True,
+                mta_forward_enabled=True,
+                mta_forward_host="smtp.example.net",
+            )
+            session.add(domain)
+            await session.commit()
+            await session.refresh(domain)
+            domain_id = domain.id
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.patch(
+            f"/api/v1/mail/domains/{domain_id}",
+            json={"mta_forward_host": ""},
+            headers=headers,
+        )
+        assert response.status_code == 422
+
+    async def test_update_domain_invalid_port(self, client: AsyncClient, admin_user, mail_domain):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        for bad_port in (0, 65536):
+            response = await client.patch(
+                f"/api/v1/mail/domains/{mail_domain.id}",
+                json={"mta_forward_port": bad_port},
+                headers=headers,
+            )
+            assert response.status_code == 422, f"port {bad_port} should be rejected"
+
+    async def test_update_domain_invalid_host(self, client: AsyncClient, admin_user, mail_domain):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        for bad_host in ["https://example.com", "has space", "foo/bar"]:
+            response = await client.patch(
+                f"/api/v1/mail/domains/{mail_domain.id}",
+                json={"mta_forward_host": bad_host},
+                headers=headers,
+            )
+            assert response.status_code == 422, f"host {bad_host!r} should be rejected"
+
+    async def test_update_domain_host_only_keeps_default_port(self, client: AsyncClient, admin_user, mail_domain):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.patch(
+            f"/api/v1/mail/domains/{mail_domain.id}",
+            json={"mta_forward_host": "mx.example.net"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["mta_forward_host"] == "mx.example.net"
+        assert body["mta_forward_port"] == 25
+
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.id == mail_domain.id))).scalar_one()
+            assert row.mta_forward_host == "mx.example.net"
+            assert row.mta_forward_port == 25
