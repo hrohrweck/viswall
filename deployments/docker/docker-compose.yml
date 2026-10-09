@@ -42,6 +42,8 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      METRICS_COLLECTOR_ENABLED: ${METRICS_COLLECTOR_ENABLED:-true}
+      METRICS_INTERVAL: ${METRICS_INTERVAL:-60}
     ports:
       - "127.0.0.1:8010:8000"
     depends_on:
@@ -279,7 +281,7 @@ services:
   #   depends_on:
   #     - api-gateway
 
-  # Ollama model pull (runs once on startup)
+  # Ollama model pull (runs on startup, retries until the model is available)
   ollama-pull:
     image: curlimages/curl:latest
     depends_on:
@@ -288,12 +290,14 @@ services:
     command: >
       sh -c "
         echo 'Pulling qwen3.5:9b model...' &&
-        curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"qwen3.5:9b\"}' &&
+        until curl -sf -X POST http://ollama:11434/api/pull -d '{\"name\": \"qwen3.5:9b\", \"stream\": false}'; do
+          echo 'Model pull failed, retrying in 30s...' && sleep 30;
+        done &&
         echo 'Model pull complete.'
       "
     networks:
       - viswall
-    restart: "no"
+    restart: on-failure
 
 volumes:
   postgres_data:

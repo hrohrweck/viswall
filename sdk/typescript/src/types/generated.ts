@@ -1050,9 +1050,26 @@ export interface paths {
   "/api/v1/admin/llm/providers/{provider_id}/test": {
     /**
      * Test Llm Provider
-     * @description Test connectivity to an LLM provider.
+     * @description Test connectivity to an LLM provider with a real (small) chat request.
      */
     post: operations["test_llm_provider_api_v1_admin_llm_providers__provider_id__test_post"];
+  };
+  "/api/v1/admin/llm/providers/{provider_id}/models/discover": {
+    /**
+     * Discover Provider Models
+     * @description List the models a live provider advertises (Ollama /api/tags, OpenAI & Anthropic /models).
+     */
+    get: operations["discover_provider_models_api_v1_admin_llm_providers__provider_id__models_discover_get"];
+  };
+  "/api/v1/admin/llm/providers/{provider_id}/models/sync": {
+    /**
+     * Sync Provider Models
+     * @description Import a provider's advertised models into the registry.
+     *
+     * Newly discovered models are created **disabled**; existing rows keep
+     * their enabled state (so preconfigured models stay active).
+     */
+    post: operations["sync_provider_models_api_v1_admin_llm_providers__provider_id__models_sync_post"];
   };
   "/api/v1/admin/llm/models": {
     /**
@@ -2664,6 +2681,29 @@ export interface components {
       /** Provider Id */
       provider_id: number;
     };
+    /**
+     * LLMModelDiscovery
+     * @description A model advertised by a live provider (not necessarily stored in the DB).
+     */
+    LLMModelDiscovery: {
+      /** Id */
+      id: string;
+      /** Display Name */
+      display_name?: string | null;
+      /** Size */
+      size?: number | null;
+      /** Owned By */
+      owned_by?: string | null;
+    };
+    /** LLMModelDiscoveryResponse */
+    LLMModelDiscoveryResponse: {
+      /** Provider Id */
+      provider_id: number;
+      /** Provider Type */
+      provider_type: string;
+      /** Models */
+      models: components["schemas"]["LLMModelDiscovery"][];
+    };
     /** LLMModelResponse */
     LLMModelResponse: {
       /** Name */
@@ -2693,6 +2733,15 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+    };
+    /** LLMModelSyncResponse */
+    LLMModelSyncResponse: {
+      /** Provider Id */
+      provider_id: number;
+      /** Discovered */
+      discovered: number;
+      /** Created */
+      created: number;
     };
     /** LLMModelUpdate */
     LLMModelUpdate: {
@@ -2760,6 +2809,14 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /**
+     * LLMProviderTestRequest
+     * @description Optional body for the provider test-connection endpoint.
+     */
+    LLMProviderTestRequest: {
+      /** Model */
+      model?: string | null;
     };
     /**
      * LLMProviderType
@@ -4710,10 +4767,6 @@ export interface components {
       msg: string;
       /** Error Type */
       type: string;
-      /** Input */
-      input?: unknown;
-      /** Context */
-      ctx?: Record<string, never>;
     };
     /** WireGuardConfig */
     WireGuardConfig: {
@@ -9411,9 +9464,39 @@ export interface operations {
   };
   /**
    * Test Llm Provider
-   * @description Test connectivity to an LLM provider.
+   * @description Test connectivity to an LLM provider with a real (small) chat request.
    */
   test_llm_provider_api_v1_admin_llm_providers__provider_id__test_post: {
+    parameters: {
+      path: {
+        provider_id: number;
+      };
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["LLMProviderTestRequest"] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Discover Provider Models
+   * @description List the models a live provider advertises (Ollama /api/tags, OpenAI & Anthropic /models).
+   */
+  discover_provider_models_api_v1_admin_llm_providers__provider_id__models_discover_get: {
     parameters: {
       path: {
         provider_id: number;
@@ -9423,7 +9506,35 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": unknown;
+          "application/json": components["schemas"]["LLMModelDiscoveryResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Sync Provider Models
+   * @description Import a provider's advertised models into the registry.
+   *
+   * Newly discovered models are created **disabled**; existing rows keep
+   * their enabled state (so preconfigured models stay active).
+   */
+  sync_provider_models_api_v1_admin_llm_providers__provider_id__models_sync_post: {
+    parameters: {
+      path: {
+        provider_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LLMModelSyncResponse"];
         };
       };
       /** @description Validation Error */

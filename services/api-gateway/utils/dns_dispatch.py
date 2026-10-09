@@ -17,7 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from shared.database import AsyncSessionLocal
 from shared.models import DNSRecord, DNSServer, DNSTSIGKey, DNSZone
-from utils.agent_client import AgentClientError, agent_request
+from utils.agent_client import AgentClientError, agent_request, log_agent_dispatch
 
 logger = logging.getLogger(__name__)
 
@@ -140,35 +140,64 @@ async def build_instance_dns_payload(db: AsyncSession, instance_id: int) -> Dict
     return payload
 
 
-async def apply_dns_config(db: AsyncSession, instance_id: int) -> Dict[str, Any]:
+async def apply_dns_config(
+    db: AsyncSession, instance_id: int, user_id: int = None
+) -> Dict[str, Any]:
     """Push the desired DNS state of an instance to its agent (synchronous)."""
     payload = await build_instance_dns_payload(db, instance_id)
-    result = await agent_request(
-        db=db,
-        instance_id=instance_id,
-        method="POST",
-        path="/dns/apply",
-        json_data=payload,
-        service=DNS_AGENT_SERVICE,
-    )
+    try:
+        result = await agent_request(
+            db=db,
+            instance_id=instance_id,
+            method="POST",
+            path="/dns/apply",
+            json_data=payload,
+            service=DNS_AGENT_SERVICE,
+        )
+    except AgentClientError as exc:
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="dns_agent",
+            action="deploy", path="/dns/apply", ok=False, detail=str(exc),
+            user_id=user_id,
+        )
+        raise
     await db.execute(
         update(DNSServer)
         .where(DNSServer.instance_id == instance_id)
         .values(status="running")
     )
     await db.commit()
+    await log_agent_dispatch(
+        db, instance_id=instance_id, resource_type="dns_agent",
+        action="deploy", path="/dns/apply", ok=True, user_id=user_id,
+    )
     return result
 
 
-async def reload_dns_agent(db: AsyncSession, instance_id: int) -> Dict[str, Any]:
+async def reload_dns_agent(
+    db: AsyncSession, instance_id: int, user_id: int = None
+) -> Dict[str, Any]:
     """Ask the agent to run `rndc reload` without re-applying config."""
-    return await agent_request(
-        db=db,
-        instance_id=instance_id,
-        method="POST",
-        path="/dns/reload",
-        service=DNS_AGENT_SERVICE,
+    try:
+        result = await agent_request(
+            db=db,
+            instance_id=instance_id,
+            method="POST",
+            path="/dns/reload",
+            service=DNS_AGENT_SERVICE,
+        )
+    except AgentClientError as exc:
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="dns_agent",
+            action="deploy", path="/dns/reload", ok=False, detail=str(exc),
+            user_id=user_id,
+        )
+        raise
+    await log_agent_dispatch(
+        db, instance_id=instance_id, resource_type="dns_agent",
+        action="deploy", path="/dns/reload", ok=True, user_id=user_id,
     )
+    return result
 
 
 async def apply_dns_config_task(instance_id: int) -> None:

@@ -12,6 +12,7 @@ import {
   Settings,
   CheckCircle2,
   XCircle,
+  RefreshCw,
 } from 'lucide-react'
 import {
   useLLMProviders,
@@ -23,6 +24,7 @@ import {
   useCreateLLMModel,
   useUpdateLLMModel,
   useDeleteLLMModel,
+  useSyncLLMModels,
   useLLMUseCaseConfigs,
   useUpdateLLMUseCaseConfig,
 } from '../../hooks/useApi'
@@ -39,6 +41,7 @@ import {
   Field,
   Input,
   Select,
+  Switch,
   Card,
   CardBody,
   EmptyState,
@@ -180,10 +183,12 @@ function ProvidersTab() {
     setTestingId(id)
     setTestResult(null)
     try {
-      const result = await testProvider.mutateAsync(id)
-      setTestResult({ id, success: true, message: result.response })
+      const result = await testProvider.mutateAsync({ id })
+      setTestResult({ id, success: true, message: result.response || 'Model responded.' })
     } catch (e) {
-      setTestResult({ id, success: false, message: getErrMsg(e) })
+      const message = getErrMsg(e)
+      setTestResult({ id, success: false, message })
+      toast.error(`Connection test failed: ${message}`)
     } finally {
       setTestingId(null)
     }
@@ -249,6 +254,41 @@ function ProvidersTab() {
         </Button>
       </div>
 
+      {/* Per-provider test result — above the table so it is immediately visible */}
+      {testResult && (
+        <div
+          className={`flex items-start gap-3 p-4 rounded-card border ${
+            testResult.success
+              ? 'border-success bg-success-subtle'
+              : 'border-danger bg-danger-subtle'
+          }`}
+          role="alert"
+        >
+          {testResult.success ? (
+            <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
+          ) : (
+            <XCircle className="h-5 w-5 text-danger shrink-0 mt-0.5" />
+          )}
+          <div className="min-w-0">
+            <p className={`text-sm font-medium ${testResult.success ? 'text-success' : 'text-danger'}`}>
+              {testResult.success
+                ? `Connection successful (${providers?.find((p) => p.id === testResult.id)?.name ?? `provider #${testResult.id}`})`
+                : `Connection failed (${providers?.find((p) => p.id === testResult.id)?.name ?? `provider #${testResult.id}`})`}
+            </p>
+            <p className="text-sm text-on-surface-muted mt-0.5 break-all">
+              {testResult.message}
+            </p>
+          </div>
+          <button
+            onClick={() => setTestResult(null)}
+            className="ml-auto shrink-0 text-on-surface-muted hover:text-on-surface"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <DataTable
         columns={columns}
         data={providers ?? []}
@@ -300,39 +340,6 @@ function ProvidersTab() {
           </div>
         )}
       />
-
-      {/* Per-provider test result */}
-      {testResult && (
-        <div
-          className={`flex items-start gap-3 p-4 rounded-card border ${
-            testResult.success
-              ? 'border-success bg-success-subtle'
-              : 'border-danger bg-danger-subtle'
-          }`}
-          role="alert"
-        >
-          {testResult.success ? (
-            <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
-          ) : (
-            <XCircle className="h-5 w-5 text-danger shrink-0 mt-0.5" />
-          )}
-          <div className="min-w-0">
-            <p className={`text-sm font-medium ${testResult.success ? 'text-success' : 'text-danger'}`}>
-              {testResult.success ? 'Connection successful' : 'Connection failed'}
-            </p>
-            <p className="text-sm text-on-surface-muted mt-0.5 break-all">
-              {testResult.message}
-            </p>
-          </div>
-          <button
-            onClick={() => setTestResult(null)}
-            className="ml-auto shrink-0 text-on-surface-muted hover:text-on-surface"
-            aria-label="Dismiss"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
       {/* Add / Edit modal */}
       <Modal
@@ -448,6 +455,12 @@ function ProvidersTab() {
 /*  MODELS TAB                                                             */
 /* ====================================================================== */
 
+const useCaseLabels: Record<string, string> = {
+  email_classification: 'Email Classification',
+  assistant_chat: 'Assistant Chat',
+  security_audit: 'Security Audit',
+}
+
 const EMPTY_MODEL_FORM: LLMModelCreate = {
   provider_id: 0,
   name: '',
@@ -461,21 +474,66 @@ const EMPTY_MODEL_FORM: LLMModelCreate = {
 function ModelsTab() {
   const { data: providers } = useLLMProviders()
   const { data: models, isLoading } = useLLMModels()
+  const { data: useCaseConfigs } = useLLMUseCaseConfigs()
   const createModel = useCreateLLMModel()
   const updateModel = useUpdateLLMModel()
   const deleteModel = useDeleteLLMModel()
+  const syncModels = useSyncLLMModels()
 
+  const [selectedProviderId, setSelectedProviderId] = useState<number | null>(null)
   const [editing, setEditing] = useState<LLMModel | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<LLMModelCreate>(EMPTY_MODEL_FORM)
   const [deleteTarget, setDeleteTarget] = useState<LLMModel | null>(null)
 
+  /* Default to the default provider, else the first one */
+  const effectiveProviderId =
+    selectedProviderId ??
+    providers?.find((p) => p.is_default)?.id ??
+    providers?.[0]?.id ??
+    null
+
   const providerName = (id: number) =>
     providers?.find((p) => p.id === id)?.name ?? String(id)
 
+  const visibleModels = (models ?? []).filter(
+    (m) => !effectiveProviderId || m.provider_id === effectiveProviderId,
+  )
+
+  /* Which use cases reference each model ("in use" badges) */
+  const getUseCasesForModel = (modelId: number) =>
+    (useCaseConfigs ?? [])
+      .filter((c) => c.model_id === modelId)
+      .map((c) => useCaseLabels[c.use_case] ?? c.use_case)
+
+  const handleToggleModel = async (m: LLMModel, enabled: boolean) => {
+    try {
+      await updateModel.mutateAsync({ id: m.id, is_enabled: enabled })
+      toast.success(enabled ? `Model "${m.name}" enabled` : `Model "${m.name}" disabled`)
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
+  }
+
+  const handleSync = async () => {
+    if (!effectiveProviderId) return
+    try {
+      const result = await syncModels.mutateAsync(effectiveProviderId)
+      if (result.created > 0) {
+        toast.success(
+          `Synced ${result.discovered} model(s) from ${providerName(effectiveProviderId)} — ${result.created} new (disabled by default)`,
+        )
+      } else {
+        toast.success(`Provider is up to date (${result.discovered} model(s) found)`)
+      }
+    } catch (e) {
+      toast.error(getErrMsg(e))
+    }
+  }
+
   const handleOpenCreate = () => {
     setEditing(null)
-    setForm(EMPTY_MODEL_FORM)
+    setForm({ ...EMPTY_MODEL_FORM, provider_id: effectiveProviderId ?? 0 })
     setShowForm(true)
   }
 
@@ -524,17 +582,12 @@ function ModelsTab() {
 
   const columns: Column<LLMModel>[] = [
     {
-      key: 'provider_id',
-      header: 'Provider',
-      render: (m) => providerName(m.provider_id),
-    },
-    {
       key: 'name',
       header: 'Model ID',
       render: (m) => (
         <div>
           <span className="font-mono text-xs">{m.name}</span>
-          {m.display_name && (
+          {m.display_name && m.display_name !== m.name && (
             <p className="text-xs text-on-surface-muted">{m.display_name}</p>
           )}
         </div>
@@ -542,33 +595,81 @@ function ModelsTab() {
     },
     {
       key: 'description',
-      header: 'Use case',
+      header: 'Description',
       render: (m) => (
         <span className="text-on-surface-muted">{m.description || '—'}</span>
       ),
     },
     {
+      key: 'in_use',
+      header: 'Use Cases',
+      render: (m) => {
+        const uses = getUseCasesForModel(m.id)
+        if (uses.length === 0) return <span className="text-on-surface-muted">—</span>
+        return (
+          <div className="flex flex-wrap gap-1">
+            {uses.map((u) => (
+              <Badge key={u} variant="info">{u}</Badge>
+            ))}
+          </div>
+        )
+      },
+    },
+    {
       key: 'is_enabled',
-      header: 'Status',
+      header: 'Enabled',
       render: (m) => (
-        <Badge variant={m.is_enabled ? 'success' : 'neutral'}>
-          {m.is_enabled ? 'Enabled' : 'Disabled'}
-        </Badge>
+        <Switch
+          checked={m.is_enabled}
+          disabled={updateModel.isPending}
+          onCheckedChange={(checked) => handleToggleModel(m, checked)}
+          aria-label={`Toggle model ${m.name}`}
+        />
       ),
     },
   ]
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Field label="Provider">
+            <Select
+              value={effectiveProviderId ?? ''}
+              onChange={(e) => setSelectedProviderId(parseInt(e.target.value))}
+              aria-label="Select provider"
+              className="w-56"
+            >
+              {(providers ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button
+            variant="secondary"
+            icon={RefreshCw}
+            onClick={handleSync}
+            loading={syncModels.isPending}
+            disabled={!effectiveProviderId}
+          >
+            Sync from provider
+          </Button>
+        </div>
         <Button onClick={handleOpenCreate} icon={Plus}>
           Add model
         </Button>
       </div>
 
+      <p className="text-sm text-on-surface-muted">
+        Models listed here can be assigned to use cases. Newly synced models are
+        disabled by default — enable the ones you want to use.
+      </p>
+
       <DataTable
         columns={columns}
-        data={models ?? []}
+        data={visibleModels}
         keyExtractor={(m) => m.id}
         searchable
         searchPlaceholder="Search models…"
@@ -577,7 +678,7 @@ function ModelsTab() {
           <EmptyState
             icon={Cpu}
             title="No models"
-            description="Add an LLM model to get started."
+            description="Sync models from the provider or add one manually."
           />
         }
         rowActions={(m) => (
@@ -737,12 +838,6 @@ function ModelsTab() {
 /* ====================================================================== */
 /*  USE CASES TAB                                                          */
 /* ====================================================================== */
-
-const useCaseLabels: Record<string, string> = {
-  email_classification: 'Email Classification',
-  assistant_chat: 'Assistant Chat',
-  security_audit: 'Security Audit',
-}
 
 function UseCasesTab() {
   const { data: configs, isLoading } = useLLMUseCaseConfigs()

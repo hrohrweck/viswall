@@ -36,7 +36,7 @@ from shared.schemas import (
 )
 from shared.security import require_auth, require_admin
 from shared.audit_logger import log_audit
-from utils.agent_client import agent_request, AgentClientError
+from utils.agent_client import agent_request, AgentClientError, log_agent_dispatch
 
 router = APIRouter()
 
@@ -284,8 +284,16 @@ async def start_server(
         )
         server.status = VPNStatus.RUNNING.value
         await db.commit()
+        await log_agent_dispatch(
+            db, instance_id=server.instance_id, resource_type="vpn_agent",
+            action="start", path="/start", ok=True, user_id=user_id,
+        )
         return {"status": "success", "action": "start", "server_id": server_id}
     except AgentClientError as e:
+        await log_agent_dispatch(
+            db, instance_id=server.instance_id, resource_type="vpn_agent",
+            action="start", path="/start", ok=False, detail=str(e), user_id=user_id,
+        )
         raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
 
@@ -317,8 +325,16 @@ async def stop_server(
         )
         server.status = VPNStatus.STOPPED.value
         await db.commit()
+        await log_agent_dispatch(
+            db, instance_id=server.instance_id, resource_type="vpn_agent",
+            action="stop", path="/stop", ok=True, user_id=user_id,
+        )
         return {"status": "success", "action": "stop", "server_id": server_id}
     except AgentClientError as e:
+        await log_agent_dispatch(
+            db, instance_id=server.instance_id, resource_type="vpn_agent",
+            action="stop", path="/stop", ok=False, detail=str(e), user_id=user_id,
+        )
         raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
 
@@ -360,8 +376,16 @@ async def restart_server(
         )
         server.status = VPNStatus.RUNNING.value
         await db.commit()
+        await log_agent_dispatch(
+            db, instance_id=server.instance_id, resource_type="vpn_agent",
+            action="restart", path="/stop+/start", ok=True, user_id=user_id,
+        )
         return {"status": "success", "action": "restart", "server_id": server_id}
     except AgentClientError as e:
+        await log_agent_dispatch(
+            db, instance_id=server.instance_id, resource_type="vpn_agent",
+            action="restart", path="/stop+/start", ok=False, detail=str(e), user_id=user_id,
+        )
         raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
 

@@ -50,6 +50,17 @@ class BaseLLMProvider(ABC):
         """Send a chat completion request and return the content string."""
         pass
 
+    async def list_models(self) -> List[Dict[str, Any]]:
+        """Query the provider for its available models.
+
+        Returns a list of dicts with at least an "id" key. Raises
+        LLMProviderError when the provider is unreachable or discovery is
+        not supported.
+        """
+        raise LLMProviderError(
+            f"Model discovery is not supported for provider type '{self.provider_config.provider_type}'"
+        )
+
     async def classify(
         self,
         prompt: str,
@@ -109,6 +120,25 @@ class OpenAIProvider(BaseLLMProvider):
         except (KeyError, IndexError) as e:
             raise LLMProviderError(f"Invalid OpenAI response: {e}")
 
+    async def list_models(self) -> List[Dict[str, Any]]:
+        base_url = self.provider_config.base_url or self.DEFAULT_BASE_URL
+        headers = {"Content-Type": "application/json"}
+        if self.provider_config.api_key:
+            headers["Authorization"] = f"Bearer {self.provider_config.api_key}"
+        try:
+            response = await self._client.get(f"{base_url}/models", headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            return [
+                {"id": m["id"], "owned_by": m.get("owned_by")}
+                for m in data.get("data", [])
+                if m.get("id")
+            ]
+        except httpx.HTTPError as e:
+            raise LLMProviderError(f"OpenAI API error: {e}")
+        except (KeyError, TypeError) as e:
+            raise LLMProviderError(f"Invalid OpenAI response: {e}")
+
 
 class AnthropicProvider(BaseLLMProvider):
     """Anthropic Claude API provider"""
@@ -149,6 +179,32 @@ class AnthropicProvider(BaseLLMProvider):
         except (KeyError, IndexError) as e:
             raise LLMProviderError(f"Invalid Anthropic response: {e}")
 
+    async def list_models(self) -> List[Dict[str, Any]]:
+        base_url = self.provider_config.base_url or self.DEFAULT_BASE_URL
+        api_key = self.provider_config.api_key
+        if not api_key:
+            raise LLMProviderError("Anthropic API key is required")
+
+        try:
+            response = await self._client.get(
+                f"{base_url}/models",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            return [
+                {"id": m["id"], "display_name": m.get("display_name")}
+                for m in data.get("data", [])
+                if m.get("id")
+            ]
+        except httpx.HTTPError as e:
+            raise LLMProviderError(f"Anthropic API error: {e}")
+        except (KeyError, TypeError) as e:
+            raise LLMProviderError(f"Invalid Anthropic response: {e}")
+
 
 class OllamaProvider(BaseLLMProvider):
     """Ollama local provider"""
@@ -183,6 +239,26 @@ class OllamaProvider(BaseLLMProvider):
         except httpx.HTTPError as e:
             raise LLMProviderError(f"Ollama API error: {e}")
         except (KeyError, IndexError) as e:
+            raise LLMProviderError(f"Invalid Ollama response: {e}")
+
+    async def list_models(self) -> List[Dict[str, Any]]:
+        base_url = self.provider_config.base_url or self.DEFAULT_BASE_URL
+        try:
+            response = await self._client.get(f"{base_url}/api/tags")
+            response.raise_for_status()
+            data = response.json()
+            return [
+                {
+                    "id": m["name"],
+                    "size": m.get("size"),
+                    "display_name": m.get("model") or m["name"],
+                }
+                for m in data.get("models", [])
+                if m.get("name")
+            ]
+        except httpx.HTTPError as e:
+            raise LLMProviderError(f"Ollama API error: {e}")
+        except (KeyError, TypeError) as e:
             raise LLMProviderError(f"Invalid Ollama response: {e}")
 
 
@@ -223,12 +299,16 @@ class LLMClientFactory:
     """Factory for creating LLM providers and executing use-case requests."""
 
     @staticmethod
-    def create_provider(provider_type: str, provider_config: LLMProviderModel) -> BaseLLMProvider:
+    def create_provider(
+        provider_type: str,
+        provider_config: LLMProviderModel,
+        http_client: Optional[httpx.AsyncClient] = None,
+    ) -> BaseLLMProvider:
         """Create a provider instance by type."""
         provider_class = _PROVIDER_REGISTRY.get(provider_type)
         if not provider_class:
             raise LLMConfigError(f"Unsupported provider type: {provider_type}")
-        return provider_class(provider_config)
+        return provider_class(provider_config, http_client=http_client)
 
     @staticmethod
     async def get_use_case_config(db: AsyncSession, use_case: str) -> Optional[LLMUseCaseConfig]:

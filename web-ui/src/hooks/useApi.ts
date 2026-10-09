@@ -75,6 +75,8 @@ import type {
   LLMModel,
   LLMModelCreate,
   LLMModelUpdate,
+  LLMModelDiscoveryResponse,
+  LLMModelSyncResponse,
   LLMUseCaseConfig,
   LLMUseCaseConfigUpdate,
   LDAPConfig,
@@ -647,7 +649,7 @@ export function useVPNServers(instanceId: number) {
   return useQuery<VPNServer[]>({
     queryKey: queryKeys.vpnServers(instanceId),
     queryFn: async () => {
-      const { data } = await api.get(`/vpn/${instanceId}/servers`)
+      const { data } = await api.get(`/vpn/servers/${instanceId}`)
       return data
     },
     enabled: !!instanceId,
@@ -658,7 +660,7 @@ export function useVPNServer(instanceId: number, serverId: number) {
   return useQuery<VPNServer>({
     queryKey: queryKeys.vpnServer(instanceId, serverId),
     queryFn: async () => {
-      const { data } = await api.get(`/vpn/${instanceId}/servers/${serverId}`)
+      const { data } = await api.get(`/vpn/servers/detail/${serverId}`)
       return data
     },
     enabled: !!instanceId && !!serverId,
@@ -669,7 +671,7 @@ export function useVPNProtocols() {
   return useQuery<VPNProtocolRecommendation[]>({
     queryKey: queryKeys.vpnProtocols,
     queryFn: async () => {
-      const { data } = await api.get('/vpn/protocols')
+      const { data } = await api.get('/vpn/protocols/recommendations')
       return data
     },
   })
@@ -679,7 +681,7 @@ export function useCreateVPNServer(instanceId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (body: VPNServerCreate) => {
-      const { data } = await api.post(`/vpn/${instanceId}/servers`, body)
+      const { data } = await api.post(`/vpn/servers/${instanceId}`, body)
       return data as VPNServer
     },
     onSuccess: () => {
@@ -692,7 +694,7 @@ export function useUpdateVPNServer(instanceId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...body }: VPNServerUpdate & { id: number }) => {
-      const { data } = await api.patch(`/vpn/${instanceId}/servers/${id}`, body)
+      const { data } = await api.patch(`/vpn/servers/${id}`, body)
       return data as VPNServer
     },
     onSuccess: (_, variables) => {
@@ -706,7 +708,7 @@ export function useDeleteVPNServer(instanceId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (serverId: number) => {
-      await api.delete(`/vpn/${instanceId}/servers/${serverId}`)
+      await api.delete(`/vpn/servers/${serverId}`)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.vpnServers(instanceId) })
@@ -718,7 +720,7 @@ export function useVPNClients(instanceId: number, serverId: number) {
   return useQuery<VPNClient[]>({
     queryKey: queryKeys.vpnClients(instanceId, serverId),
     queryFn: async () => {
-      const { data } = await api.get(`/vpn/${instanceId}/servers/${serverId}/clients`)
+      const { data } = await api.get(`/vpn/servers/${serverId}/clients`)
       return data
     },
     enabled: !!instanceId && !!serverId,
@@ -729,7 +731,7 @@ export function useCreateVPNClient(instanceId: number, serverId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (body: VPNClientCreate) => {
-      const { data } = await api.post(`/vpn/${instanceId}/servers/${serverId}/clients`, body)
+      const { data } = await api.post(`/vpn/servers/${serverId}/clients`, body)
       return data as VPNClient
     },
     onSuccess: () => {
@@ -742,7 +744,7 @@ export function useUpdateVPNClient(instanceId: number, serverId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...body }: VPNClientUpdate & { id: number }) => {
-      const { data } = await api.patch(`/vpn/${instanceId}/servers/${serverId}/clients/${id}`, body)
+      const { data } = await api.patch(`/vpn/clients/${id}`, body)
       return data as VPNClient
     },
     onSuccess: () => {
@@ -755,7 +757,7 @@ export function useDeleteVPNClient(instanceId: number, serverId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (clientId: number) => {
-      await api.delete(`/vpn/${instanceId}/servers/${serverId}/clients/${clientId}`)
+      await api.delete(`/vpn/clients/${clientId}`)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.vpnClients(instanceId, serverId) })
@@ -767,7 +769,7 @@ export function useVPNServerAction(instanceId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ serverId, action }: { serverId: number; action: 'start' | 'stop' | 'restart' }) => {
-      const { data } = await api.post(`/vpn/${instanceId}/servers/${serverId}/${action}`)
+      const { data } = await api.post(`/vpn/servers/${serverId}/${action}`)
       return data
     },
     onSuccess: () => {
@@ -816,7 +818,7 @@ export function useAuditLogs(params?: Record<string, unknown>) {
   return useQuery<AuditLog[]>({
     queryKey: queryKeys.auditLogs(params),
     queryFn: async () => {
-      const { data } = await api.get('/audit/logs', { params })
+      const { data } = await api.get('/audit', { params })
       return data
     },
   })
@@ -1536,9 +1538,9 @@ export function useDeleteLLMProvider() {
 
 export function useTestLLMProvider() {
   return useMutation({
-    mutationFn: async (id: number) => {
-      const { data } = await api.post(`/admin/llm/providers/${id}/test`)
-      return data as { status: string; response: string }
+    mutationFn: async ({ id, model }: { id: number; model?: string }) => {
+      const { data } = await api.post(`/admin/llm/providers/${id}/test`, model ? { model } : {})
+      return data as { status: string; response: string; model?: string }
     },
   })
 }
@@ -1589,6 +1591,32 @@ export function useDeleteLLMModel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.llmModels() })
     },
+  })
+}
+
+export function useSyncLLMModels() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (providerId: number) => {
+      const { data } = await api.post(`/admin/llm/providers/${providerId}/models/sync`)
+      return data as LLMModelSyncResponse
+    },
+    onSuccess: (_, providerId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.llmModels() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.llmModels(providerId) })
+    },
+  })
+}
+
+export function useDiscoverLLMModels(providerId: number | null, options?: Partial<UseQueryOptions<LLMModelDiscoveryResponse>>) {
+  return useQuery<LLMModelDiscoveryResponse>({
+    queryKey: [...queryKeys.llmModels(providerId ?? undefined), 'discovered'],
+    queryFn: async () => {
+      const { data } = await api.get(`/admin/llm/providers/${providerId}/models/discover`)
+      return data
+    },
+    enabled: !!providerId,
+    ...options,
   })
 }
 

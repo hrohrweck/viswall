@@ -1,25 +1,35 @@
 """Background metrics collector for viswall instances.
 
-Runs periodically to collect system metrics from active instances
+Runs periodically to collect system metrics from registered instances
 and store them as MetricSnapshot rows in the database.
+
+Until agents report real telemetry (via heartbeat/deploy), metrics are
+simulated per instance. Collection is not restricted to instances with
+status "active": instances are created as "inactive" and only flip to
+"active" once an agent heartbeat arrives, which would otherwise leave
+the dashboards empty forever.
+
+A short Redis lock prevents duplicate collection when the API runs with
+multiple gunicorn workers, each running its own collector loop.
 """
 import asyncio
 import random
 import logging
+import os
 from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database import AsyncSessionLocal
 from shared.models import Instance, MetricSnapshot
 
 logger = logging.getLogger(__name__)
 
 # Configurable via environment variables
-COLLECTION_INTERVAL_SECONDS = int(__import__('os').getenv("METRICS_INTERVAL", "60"))
-METRICS_ENABLED = __import__('os').getenv("METRICS_COLLECTOR_ENABLED", "true").lower() == "true"
+COLLECTION_INTERVAL_SECONDS = int(os.getenv("METRICS_INTERVAL", "60"))
+METRICS_ENABLED = os.getenv("METRICS_COLLECTOR_ENABLED", "true").lower() == "true"
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 
 async def collect_instance_metrics(instance_id: int) -> dict:
@@ -81,9 +91,7 @@ async def collect_instance_metrics(instance_id: int) -> dict:
 
 async def run_metrics_collection_cycle(db: AsyncSession) -> int:
     """Run one collection cycle. Returns number of snapshots inserted."""
-    result = await db.execute(
-        select(Instance).where(Instance.status == "active")
-    )
+    result = await db.execute(select(Instance))
     instances = result.scalars().all()
 
     inserted = 0
@@ -108,6 +116,33 @@ async def run_metrics_collection_cycle(db: AsyncSession) -> int:
     return inserted
 
 
+async def _try_acquire_cycle_lock() -> bool:
+    """Try to claim this collection cycle via a short-lived Redis lock.
+
+    Multiple gunicorn workers each run their own collector loop; only the
+    worker that wins the lock should insert snapshots for this interval.
+    If Redis is unreachable we collect anyway — duplicate snapshots are
+    preferable to none.
+    """
+    try:
+        from redis.asyncio import Redis
+
+        redis = Redis.from_url(REDIS_URL, decode_responses=True)
+        try:
+            acquired = await redis.set(
+                "viswall:metrics:collector_lock",
+                "1",
+                nx=True,
+                ex=max(COLLECTION_INTERVAL_SECONDS - 5, 10),
+            )
+            return bool(acquired)
+        finally:
+            await redis.aclose()
+    except Exception as e:
+        logger.warning(f"Metrics dedup lock unavailable, collecting without it: {e}")
+        return True
+
+
 async def metrics_collector_loop():
     """Background loop that periodically collects metrics."""
     if not METRICS_ENABLED:
@@ -120,8 +155,14 @@ async def metrics_collector_loop():
 
     while True:
         try:
-            async with AsyncSessionLocal() as db:
-                await run_metrics_collection_cycle(db)
+            if await _try_acquire_cycle_lock():
+                # Import lazily: shared.database initialises the session
+                # factory on first use (after init_db), so a module-level
+                # import would bind None and break every cycle.
+                from shared.database import AsyncSessionLocal
+
+                async with AsyncSessionLocal() as db:
+                    await run_metrics_collection_cycle(db)
         except Exception as e:
             logger.error(f"Metrics collection cycle failed: {e}")
 

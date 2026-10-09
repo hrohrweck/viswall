@@ -93,3 +93,45 @@ async def agent_request(
         except Exception as e:
             logger.error(f"Unexpected error calling agent at {url}: {e}")
             raise AgentClientError(f"Unexpected error calling agent: {e}")
+
+
+async def log_agent_dispatch(
+    db: AsyncSession,
+    *,
+    instance_id: int,
+    resource_type: str,
+    action: str = "deploy",
+    path: str = "",
+    ok: bool,
+    detail: str = "",
+    user_id: Optional[int] = None,
+) -> None:
+    """Audit-log a mutating agent dispatch (success or failure).
+
+    Every component operation flows through the gateway, so recording the
+    dispatch here gives all components a central audit trail without agent
+    changes. user_id=None renders as "System" in the UI (background tasks).
+
+    Never raises: a broken audit write must not fail the dispatch itself.
+    """
+    from shared.audit_logger import log_audit
+
+    try:
+        await log_audit(
+            db=db,
+            user_id=user_id,  # type: ignore[arg-type]  # nullable → shown as "System"
+            action=action,
+            resource_type=resource_type,
+            resource_id=str(instance_id),
+            instance_id=instance_id,
+            new_value={
+                "path": path,
+                "status": "success" if ok else "failed",
+                "detail": detail[:300] or None,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Failed to write agent dispatch audit log (%s on instance %s)",
+            action, instance_id, exc_info=True,
+        )

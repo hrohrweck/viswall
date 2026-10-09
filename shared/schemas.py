@@ -727,6 +727,31 @@ class LLMModelResponse(LLMModelBase):
         from_attributes = True
 
 
+class LLMProviderTestRequest(BaseModel):
+    """Optional body for the provider test-connection endpoint."""
+    model: Optional[str] = None
+
+
+class LLMModelDiscovery(BaseModel):
+    """A model advertised by a live provider (not necessarily stored in the DB)."""
+    id: str
+    display_name: Optional[str] = None
+    size: Optional[int] = None
+    owned_by: Optional[str] = None
+
+
+class LLMModelDiscoveryResponse(BaseModel):
+    provider_id: int
+    provider_type: str
+    models: List[LLMModelDiscovery]
+
+
+class LLMModelSyncResponse(BaseModel):
+    provider_id: int
+    discovered: int
+    created: int
+
+
 class LLMUseCase(str, Enum):
     EMAIL_CLASSIFICATION = "email_classification"
     ASSISTANT_CHAT = "assistant_chat"

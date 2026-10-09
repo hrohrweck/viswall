@@ -78,6 +78,7 @@ def delete_provider(
 @app.command("provider-test")
 def test_provider(
     provider_id: int = typer.Argument(..., help="Provider ID"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model to test with"),
     url: Optional[str] = typer.Option(None, "--url", "-u"),
     token: Optional[str] = typer.Option(None, "--token", "-t"),
     format: str = typer.Option("json", "--format", "-f"),
@@ -85,8 +86,28 @@ def test_provider(
     """Test an LLM provider connection."""
     client = get_client(url=url, token=token)
     try:
-        result = client.llm_admin.test_provider(provider_id)
+        result = client.llm_admin.test_provider(provider_id, model=model)
         print_result(result, format=format)
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
+@app.command("provider-sync-models")
+def sync_provider_models(
+    provider_id: int = typer.Argument(..., help="Provider ID"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+    format: str = typer.Option("json", "--format", "-f"),
+) -> None:
+    """Import the models a provider advertises (new ones disabled by default)."""
+    client = get_client(url=url, token=token)
+    try:
+        result = client.llm_admin.sync_provider_models(provider_id)
+        print_result(result, format=format)
+        print_success(
+            f"Discovered {result['discovered']} model(s), imported {result['created']} new"
+        )
     except ViswallAPIError as e:
         print_error(str(e))
         raise typer.Exit(1)

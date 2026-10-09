@@ -176,7 +176,7 @@ class TestApplyActionEndpoint:
     ):
         server_id = await _seed_server_with_zone(instance.id)
 
-        async def _unreachable(db, instance_id):
+        async def _unreachable(db, instance_id, user_id=None):
             raise AgentConnectionError("agent down")
 
         monkeypatch.setattr(dns_router, "apply_dns_config", _unreachable)
@@ -198,7 +198,7 @@ class TestApplyActionEndpoint:
     ):
         server_id = await _seed_server_with_zone(instance.id)
 
-        async def _ok(db, instance_id):
+        async def _ok(db, instance_id, user_id=None):
             return {"success": True, "message": "applied"}
 
         monkeypatch.setattr(dns_router, "apply_dns_config", _ok)

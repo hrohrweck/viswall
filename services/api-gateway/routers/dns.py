@@ -309,7 +309,7 @@ async def server_action(
         server.status = "stopped"
     elif action == "apply":
         try:
-            agent_result = await apply_dns_config(db, server.instance_id)
+            agent_result = await apply_dns_config(db, server.instance_id, user_id=user_id)
             server.status = "running"
             await db.commit()
         except AgentClientError as exc:
@@ -321,7 +321,7 @@ async def server_action(
             ) from exc
     elif action == "reload":
         try:
-            agent_result = await reload_dns_agent(db, server.instance_id)
+            agent_result = await reload_dns_agent(db, server.instance_id, user_id=user_id)
         except AgentClientError as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
