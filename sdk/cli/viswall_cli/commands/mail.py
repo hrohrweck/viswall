@@ -36,6 +36,9 @@ def create_domain(
     spam_enabled: bool = typer.Option(True, "--spam/--no-spam"),
     virus_enabled: bool = typer.Option(True, "--virus/--no-virus"),
     llm_enabled: bool = typer.Option(False, "--llm/--no-llm"),
+    mta_forward_enabled: bool = typer.Option(False, "--mta-forward/--no-mta-forward"),
+    mta_forward_host: Optional[str] = typer.Option(None, "--mta-forward-host"),
+    mta_forward_port: int = typer.Option(25, "--mta-forward-port"),
     url: Optional[str] = typer.Option(None, "--url", "-u"),
     token: Optional[str] = typer.Option(None, "--token", "-t"),
     format: str = typer.Option("json", "--format", "-f"),
@@ -50,6 +53,9 @@ def create_domain(
             spam_enabled=spam_enabled,
             virus_enabled=virus_enabled,
             llm_enabled=llm_enabled,
+            mta_forward_enabled=mta_forward_enabled,
+            mta_forward_host=mta_forward_host,
+            mta_forward_port=mta_forward_port,
         )
         print_result(result, format=format)
         print_success(f"Mail domain '{domain}' created")
@@ -75,6 +81,34 @@ def delete_domain(
     try:
         client.mail.delete_domain(domain_id)
         print_success(f"Mail domain {domain_id} deleted")
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
+@app.command("domain-update")
+def update_domain(
+    domain_id: int = typer.Argument(..., help="Domain ID"),
+    mta_forward: Optional[bool] = typer.Option(None, "--mta-forward/--no-mta-forward"),
+    mta_forward_host: Optional[str] = typer.Option(None, "--mta-forward-host"),
+    mta_forward_port: Optional[int] = typer.Option(None, "--mta-forward-port"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+    format: str = typer.Option("json", "--format", "-f"),
+) -> None:
+    """Update a mail domain."""
+    client = get_client(url=url, token=token)
+    try:
+        kwargs: Dict[str, Any] = {}
+        if mta_forward is not None:
+            kwargs["mta_forward_enabled"] = mta_forward
+        if mta_forward_host is not None:
+            kwargs["mta_forward_host"] = mta_forward_host
+        if mta_forward_port is not None:
+            kwargs["mta_forward_port"] = mta_forward_port
+        result = client.mail.update_domain(domain_id, **kwargs)
+        print_result(result, format=format)
+        print_success(f"Mail domain {domain_id} updated")
     except ViswallAPIError as e:
         print_error(str(e))
         raise typer.Exit(1)

@@ -209,6 +209,28 @@ describe('ViswallClient', () => {
       await client.mail.deleteAlias(7);
       expect(deleted).toBe(true);
     });
+
+    it('should update a mail domain with MTA forwarding settings', async () => {
+      let received: Record<string, unknown> = {};
+      server.use(
+        http.patch('https://viswall.example.com/api/v1/mail/domains/4', async ({ request }) => {
+          received = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ id: 4, ...received });
+        }),
+      );
+
+      const result = await client.mail.updateDomain(4, {
+        mta_forward_enabled: true,
+        mta_forward_host: '83.164.137.172',
+        mta_forward_port: 25,
+      });
+      expect(received).toEqual({
+        mta_forward_enabled: true,
+        mta_forward_host: '83.164.137.172',
+        mta_forward_port: 25,
+      });
+      expect(result).toHaveProperty('mta_forward_host', '83.164.137.172');
+    });
   });
 
   describe('Error Handling', () => {

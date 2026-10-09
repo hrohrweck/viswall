@@ -1,5 +1,6 @@
 """Tests for Viswall CLI."""
 
+import json
 import os
 import uuid
 from pathlib import Path
@@ -388,3 +389,147 @@ class TestMailAliases:
         result = runner.invoke(app, ["mail", "alias-delete", "10", "--yes"])
         assert result.exit_code == 0
         assert "deleted" in result.output
+
+
+class TestMailDomainsMTAForward:
+    def test_create_domain_with_mta_forward(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/1",
+            method="POST",
+            status_code=201,
+            json={"id": 5, "domain": "example.com"},
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "mail",
+                "domain-create",
+                "--instance-id",
+                "1",
+                "--domain",
+                "example.com",
+                "--mta-forward",
+                "--mta-forward-host",
+                "smtp.example.net",
+                "--mta-forward-port",
+                "2525",
+            ],
+        )
+        assert result.exit_code == 0
+
+        request = httpx_mock.get_request()
+        body = json.loads(request.content)
+        assert body["mta_forward_enabled"] is True
+        assert body["mta_forward_host"] == "smtp.example.net"
+        assert body["mta_forward_port"] == 2525
+
+    def test_create_domain_default_mta_forward(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/1",
+            method="POST",
+            status_code=201,
+            json={"id": 5, "domain": "example.com"},
+        )
+
+        result = runner.invoke(
+            app,
+            ["mail", "domain-create", "--instance-id", "1", "--domain", "example.com"],
+        )
+        assert result.exit_code == 0
+
+        request = httpx_mock.get_request()
+        body = json.loads(request.content)
+        assert body["mta_forward_enabled"] is False
+        assert body["mta_forward_port"] == 25
+        assert "mta_forward_host" not in body
+
+    def test_update_domain_disable_mta_forward(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/5",
+            method="PATCH",
+            json={"id": 5, "mta_forward_enabled": False},
+        )
+
+        result = runner.invoke(app, ["mail", "domain-update", "5", "--no-mta-forward"])
+        assert result.exit_code == 0
+        assert "updated" in result.output
+
+        request = httpx_mock.get_request()
+        assert request.method == "PATCH"
+        assert json.loads(request.content) == {"mta_forward_enabled": False}
+
+    def test_update_domain_no_flags(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/5",
+            method="PATCH",
+            json={"id": 5},
+        )
+
+        result = runner.invoke(app, ["mail", "domain-update", "5"])
+        assert result.exit_code == 0
+        assert "updated" in result.output
+
+        request = httpx_mock.get_request()
+        assert request.method == "PATCH"
+        assert json.loads(request.content) == {}
+
+    def test_update_domain_full_mta_forward(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/5",
+            method="PATCH",
+            json={"id": 5, "mta_forward_enabled": True},
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "mail",
+                "domain-update",
+                "5",
+                "--mta-forward",
+                "--mta-forward-host",
+                "smtp.example.net",
+                "--mta-forward-port",
+                "2525",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "updated" in result.output
+
+        request = httpx_mock.get_request()
+        assert json.loads(request.content) == {
+            "mta_forward_enabled": True,
+            "mta_forward_host": "smtp.example.net",
+            "mta_forward_port": 2525,
+        }
+
+    def test_update_domain_error(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/5",
+            method="PATCH",
+            status_code=500,
+            json={"detail": "boom"},
+        )
+
+        result = runner.invoke(app, ["mail", "domain-update", "5", "--no-mta-forward"])
+        assert result.exit_code == 1
+        assert "boom" in result.output

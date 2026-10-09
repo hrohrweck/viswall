@@ -2996,6 +2996,18 @@ export interface components {
        * @default false
        */
       groupware_enabled?: boolean;
+      /**
+       * Mta Forward Enabled
+       * @default false
+       */
+      mta_forward_enabled?: boolean;
+      /** Mta Forward Host */
+      mta_forward_host?: string | null;
+      /**
+       * Mta Forward Port
+       * @default 25
+       */
+      mta_forward_port?: number;
       /** Llm Config */
       llm_config?: {
         [key: string]: unknown;
@@ -3045,6 +3057,18 @@ export interface components {
        * @default false
        */
       groupware_enabled?: boolean;
+      /**
+       * Mta Forward Enabled
+       * @default false
+       */
+      mta_forward_enabled?: boolean;
+      /** Mta Forward Host */
+      mta_forward_host?: string | null;
+      /**
+       * Mta Forward Port
+       * @default 25
+       */
+      mta_forward_port?: number;
       /** Id */
       id: number;
       /** Instance Id */
@@ -3086,6 +3110,12 @@ export interface components {
       llm_config?: {
         [key: string]: unknown;
       } | null;
+      /** Mta Forward Enabled */
+      mta_forward_enabled?: boolean | null;
+      /** Mta Forward Host */
+      mta_forward_host?: string | null;
+      /** Mta Forward Port */
+      mta_forward_port?: number | null;
     };
     /** MailMessageActionRequest */
     MailMessageActionRequest: {
