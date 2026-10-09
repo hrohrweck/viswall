@@ -27,11 +27,25 @@ pipeline {
     timeout(time: 70, unit: 'MINUTES')
   }
   stages {
+    stage('checkout scripts') {
+      // Explicit checkout: the deploy script lives in the repo. Needed for
+      // inline (bootstrap) definitions; harmless for from-SCM runs.
+      steps {
+        checkout([
+            $class: 'GitSCM',
+            branches: [[name: 'main']],
+            extensions: [[$class: 'CloneOption', depth: 1, shallow: true]],
+            userRemoteConfigs: [[
+                url: 'https://github.com/hrohrweck/viswall.git',
+            ]],
+        ])
+      }
+    }
     stage('deploy') {
       steps {
         withCredentials([
             sshUserPrivateKey(credentialsId: 'viswall-deploy-ssh', keyFileVariable: 'DEPLOY_KEY'),
-            string(credentialsId: 'vidforge-github-pat', variable: 'GH_TOKEN'),
+            string(credentialsId: 'viswall-github-pat', variable: 'GH_TOKEN'),
         ]) {
           // Pinned prod host key (matches viswall.webmasters.co.at ed25519 —
           // same host as vidforge.webmasters.co.at, hence the same key).
@@ -40,9 +54,13 @@ pipeline {
           sh '''
             set -e
             chmod +x ci/jenkins/scripts/deploy_remote.sh
+            # Secrets are PREPENDED to the script stdin: bash -s read-ahead
+            # can swallow anything appended after the script body, so
+            # `source /dev/stdin` in the script is unreliable (racy by
+            # buffer size). Prepending makes the export a plain script line.
             {
-              cat ci/jenkins/scripts/deploy_remote.sh
               printf 'export GH_TOKEN="%s"\\n' "$GH_TOKEN"
+              cat ci/jenkins/scripts/deploy_remote.sh
             } | ssh -i "$DEPLOY_KEY" \
                 -o UserKnownHostsFile="$PWD/jenkins_known_hosts" \
                 -o IdentitiesOnly=yes \

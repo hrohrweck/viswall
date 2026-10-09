@@ -179,7 +179,7 @@ pipeline {
         if (isCiRun() && env.IS_PR && env.CI_SHA) {
           def state = currentBuild.currentResult == 'SUCCESS' ? 'success'
                       : currentBuild.currentResult == 'FAILURE' ? 'failure' : 'error'
-          withCredentials([string(credentialsId: 'vidforge-github-pat', variable: 'GH_TOKEN')]) {
+          withCredentials([string(credentialsId: 'viswall-github-pat', variable: 'GH_TOKEN')]) {
             sh """
               curl -sS -m 30 -o /dev/null -X POST \
                 -H "Authorization: token \$GH_TOKEN" \

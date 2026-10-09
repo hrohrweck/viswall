@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 # Remote deploy chain, executed on the prod host by viswall-deploy.
-# Verbatim port of the retired deploy.yml SSH step's remote script, with
+# Port of the retired deploy.yml SSH step's remote script, with
 # vidforge-deploy's robustness (pre-pull retries + deploy.sh retries).
 #
 # Invocation (from the Jenkins agent):
-#   { cat this-file; echo "export GH_TOKEN=..."; } | ssh host 'bash -s' <image_tag> <full_sha>
+#   { printf 'export GH_TOKEN=...'; cat this-file; } | ssh host 'bash -s' <image_tag> <full_sha>
 #
 # Args:   $1 = image tag (e.g. sha-1a2b3c4), $2 = full commit sha
-# Stdin:  this script, followed by `export VAR=value` lines for the secrets
-#         (GH_TOKEN) — secrets travel over stdin, never as ssh argv.
+# Stdin:  secret `export VAR=value` lines FIRST, then this script — secrets
+#         travel over stdin, never as ssh argv. (They must precede the
+#         script: bash -s read-ahead makes anything appended after the
+#         body unreliable to read back via /dev/stdin.)
 
 set -x
 
 IMAGE_TAG="${1:?usage: deploy_remote.sh <image_tag> <full_sha>}"
 GIT_SHA="${2:?usage: deploy_remote.sh <image_tag> <full_sha>}"
-# shellcheck disable=SC1090 — secret exports are appended on stdin
-source /dev/stdin
 
 # /opt/viswall is the CD-managed checkout. Sync it BEFORE invoking
 # deploy.sh: the script itself lives in the checkout.
@@ -23,7 +23,7 @@ cd /opt/viswall
 git fetch origin main
 git reset --hard "$GIT_SHA" 2>/dev/null || git reset --hard origin/main
 
-echo "$GH_TOKEN" | docker login ghcr.io -u vidforge-bot --password-stdin \
+echo "$GH_TOKEN" | docker login ghcr.io -u hrohrweck --password-stdin \
   || echo "WARNING: ghcr login failed - continuing with existing credentials"
 
 # Pre-pull the new tag so a transient GHCR rejection (the registry

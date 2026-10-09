@@ -51,8 +51,8 @@ pipeline {
     stage('ghcr login') {
       agent { label 'build' }
       steps {
-        withCredentials([string(credentialsId: 'vidforge-github-pat', variable: 'GH_PAT')]) {
-          sh 'echo "$GH_PAT" | docker login ghcr.io -u vidforge-bot --password-stdin'
+        withCredentials([string(credentialsId: 'viswall-github-pat', variable: 'GH_PAT')]) {
+          sh 'echo "$GH_PAT" | docker login ghcr.io -u hrohrweck --password-stdin'
         }
       }
     }
@@ -72,11 +72,17 @@ pipeline {
       agent { label 'build' }
       steps {
         sh '''
-          docker buildx build --push \
-            --cache-from type=registry,ref=$GHCR/viswall/api-gateway:buildcache \
-            --cache-to type=registry,ref=$GHCR/viswall/api-gateway:buildcache,mode=max \
-            -f services/api-gateway/Dockerfile \
-            -t $GHCR/viswall/api-gateway:$TAG -t $GHCR/viswall/api-gateway:main .
+          CACHE_REF="$GHCR/viswall/api-gateway:buildcache"
+          CACHE_ARGS=""
+          # First-ever build: the buildcache tag does not exist yet and a
+          # registry cache-from would abort the build — only pass it when present.
+          if docker buildx imagetools inspect "$CACHE_REF" >/dev/null 2>&1; then
+            CACHE_ARGS="--cache-from type=registry,ref=$CACHE_REF"
+          fi
+          docker buildx build --push $CACHE_ARGS \
+            --cache-to type=registry,ref=$CACHE_REF,mode=max \
+            -f services/api-gateway/Dockerfile . \
+            -t $GHCR/viswall/api-gateway:$TAG -t $GHCR/viswall/api-gateway:main
         '''
       }
     }
@@ -84,9 +90,15 @@ pipeline {
       agent { label 'build' }
       steps {
         sh '''
-          docker buildx build --push \
-            --cache-from type=registry,ref=$GHCR/viswall/web-ui:buildcache \
-            --cache-to type=registry,ref=$GHCR/viswall/web-ui:buildcache,mode=max \
+          CACHE_REF="$GHCR/viswall/web-ui:buildcache"
+          CACHE_ARGS=""
+          # First-ever build: the buildcache tag does not exist yet and a
+          # registry cache-from would abort the build — only pass it when present.
+          if docker buildx imagetools inspect "$CACHE_REF" >/dev/null 2>&1; then
+            CACHE_ARGS="--cache-from type=registry,ref=$CACHE_REF"
+          fi
+          docker buildx build --push $CACHE_ARGS \
+            --cache-to type=registry,ref=$CACHE_REF,mode=max \
             web-ui -f web-ui/Dockerfile \
             -t $GHCR/viswall/web-ui:$TAG -t $GHCR/viswall/web-ui:main
         '''
@@ -96,11 +108,17 @@ pipeline {
       agent { label 'build' }
       steps {
         sh '''
-          docker buildx build --push \
-            --cache-from type=registry,ref=$GHCR/viswall/sogo:buildcache \
-            --cache-to type=registry,ref=$GHCR/viswall/sogo:buildcache,mode=max \
-            -f services/sogo-service/Dockerfile \
-            -t $GHCR/viswall/sogo:$TAG -t $GHCR/viswall/sogo:main .
+          CACHE_REF="$GHCR/viswall/sogo:buildcache"
+          CACHE_ARGS=""
+          # First-ever build: the buildcache tag does not exist yet and a
+          # registry cache-from would abort the build — only pass it when present.
+          if docker buildx imagetools inspect "$CACHE_REF" >/dev/null 2>&1; then
+            CACHE_ARGS="--cache-from type=registry,ref=$CACHE_REF"
+          fi
+          docker buildx build --push $CACHE_ARGS \
+            --cache-to type=registry,ref=$CACHE_REF,mode=max \
+            -f services/sogo-service/Dockerfile . \
+            -t $GHCR/viswall/sogo:$TAG -t $GHCR/viswall/sogo:main
         '''
       }
     }
@@ -108,11 +126,17 @@ pipeline {
       agent { label 'build' }
       steps {
         sh '''
-          docker buildx build --push \
-            --cache-from type=registry,ref=$GHCR/viswall/dns-service:buildcache \
-            --cache-to type=registry,ref=$GHCR/viswall/dns-service:buildcache,mode=max \
-            -f services/dns-service/Dockerfile \
-            -t $GHCR/viswall/dns-service:$TAG -t $GHCR/viswall/dns-service:main .
+          CACHE_REF="$GHCR/viswall/dns-service:buildcache"
+          CACHE_ARGS=""
+          # First-ever build: the buildcache tag does not exist yet and a
+          # registry cache-from would abort the build — only pass it when present.
+          if docker buildx imagetools inspect "$CACHE_REF" >/dev/null 2>&1; then
+            CACHE_ARGS="--cache-from type=registry,ref=$CACHE_REF"
+          fi
+          docker buildx build --push $CACHE_ARGS \
+            --cache-to type=registry,ref=$CACHE_REF,mode=max \
+            -f services/dns-service/Dockerfile . \
+            -t $GHCR/viswall/dns-service:$TAG -t $GHCR/viswall/dns-service:main
         '''
       }
     }
