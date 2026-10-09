@@ -7,7 +7,7 @@ Every merge to `main` that passes CI is built and deployed automatically to the 
 ```
 GitHub webhook (push / pull_request / issue_comment)
  └─ https://viswall.webmasters.co.at/jenkins-hook/…   (host nginx on boseman → Jenkins)
-     └─ Jenkins generic-webhook-trigger (token: viswall-gwt-token credential)
+     └─ Jenkins generic-webhook-trigger (credential viswall-gwt-token)
          ├─ viswall-ci      (agent 'build')
          │    backend tests (Postgres/Redis sidecars), frontend, OpenAPI/SDK/CLI
          │    PRs → "jenkins-ci" commit status; green main → trigger release

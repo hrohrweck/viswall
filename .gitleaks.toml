@@ -98,6 +98,13 @@ paths = [
   '''(^|/)config/.*\.conf(\.ext)?(\.tmpl)?$''',
   # Migration scripts read credentials from env vars, no hardcoded secrets.
   '''scripts/migrate_legacy.*\.py''',
+  # Test suites generate fixture keys per test run (no static secrets);
+  # path-based so squash merges / new commits don't need fresh fingerprints.
+  '''services/api-gateway/tests/test_.*\.py''',
+  '''services/dns-service/tests/.*\.py''',
+  '''sdk/python/tests/.*\.py''',
+  '''sdk/cli/tests/.*\.py''',
+  '''web-ui/src/test/.*''',
 ]
 # Substrings that are intentionally not secrets.
 regexes = [
