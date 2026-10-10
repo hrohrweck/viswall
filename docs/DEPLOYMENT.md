@@ -20,7 +20,8 @@ GitHub webhook (push / pull_request / issue_comment)
                 pin checkout → ghcr login → pre-pull (3 retries)
                 ./scripts/deploy.sh <tag> <sha>
                   (pg_dump backup → compose pull/up incl. mail profile
-                   → health gates → auto-rollback)
+                   → health gates → read-only regression suite
+                   → auto-rollback on failure)
 
 viswall-approve: "/approve" comment by the PR author → vidforge-bot posts
 the approving review (the "Protect main" ruleset requires 1 approval).
@@ -76,8 +77,9 @@ The pre-CD deployment at `/data/docker/persistent/viswall/viswall/` is retired: 
 4. **Health gates** (300 s each):
    - in-container `GET http://127.0.0.1:8000/health` on api-gateway;
    - public probe of `PUBLIC_HEALTH_URL` (default `https://viswall.webmasters.co.at/`).
-5. **Success** — writes the tag to `deployments/docker/.last-good-tag`, prunes dangling images.
-   **Failure** — rolls the stack back to `.last-good-tag` and exits 1. On the very first deploy (no known-good tag) the current state is left in place for manual inspection rather than taking a live site down.
+5. **Post-deploy regression suite** — `tests/post_deploy/smoke.py` (stdlib-only, read-only) runs against the public URL: health, web UI, OpenAPI, login + JWT round-trip, core listings (instances, users, audit, metrics), instance-scoped reads, Prometheus endpoint. Credentials come from `SMOKE_USERNAME`/`SMOKE_PASSWORD` (env or `deployments/docker/.env`); if unset the suite is skipped with a warning — see `tests/post_deploy/README.md` for the one-time setup.
+6. **Success** — writes the tag to `deployments/docker/.last-good-tag`, prunes dangling images.
+   **Failure** — rolls the stack back to `.last-good-tag` and exits (health gate: exit 1, regression suite: exit 3 — the remote wrapper never retries a rolled-back deploy). On the very first deploy (no known-good tag) the current state is left in place for manual inspection rather than taking a live site down.
 
 ## Rollback & manual operations
 
@@ -106,6 +108,7 @@ Database dumps are **not** restored automatically. The latest dumps live in
 | `docker pull … denied` in viswall-deploy | GHCR credential issue — `viswall-github-pat` must have packages write for `ghcr.io/hrohrweck/viswall/*` (a classic PAT; the vidforge-bot fine-grained PAT is denied on these packages). Check the `docker login` output in the deploy log. |
 | Job green but server not updated | Pre-#66 failure mode (silent ssh death). Deploy jobs now verify `.last-good-tag` on the server against the requested tag — if you see a success without convergence, check the `verify` stage. |
 | Health gate fails, rollback runs | Check `docker compose logs api-gateway` (often a migration or bad env in `.env`) and whether the public URL responds. |
+| Regression suite fails, rollback runs (exit 3 in deploy log) | The deploy log lists every failed check. Reproduce against the rolled-back stack with the manual run from `tests/post_deploy/README.md`, fix, and merge again. |
 | `git reset --hard` fails in deploy | Ownership/permission on `/opt/viswall` (must be writable by `viswall-deploy`) or a fetch-auth failure of the server's deploy key. |
 | PR shows no `jenkins-ci` status | The PR head was pushed before the Jenkins setup existed, or the commit-status POST failed (PAT scope). Re-run `viswall-ci` manually with the event vars left empty and `CI_SHA` handling via checkout. |
 | DNS or mail regressions | `dns-service` publishes authoritative DNS on 46.4.63.216:53 — a failed deploy rolls back automatically; verify with `dig @46.4.63.216 <zone> SOA`. |

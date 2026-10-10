@@ -53,13 +53,26 @@ docker image inspect "ghcr.io/hrohrweck/viswall/api-gateway:$IMAGE_TAG" >/dev/nu
 # idle periods have killed the ssh session mid-run (deploy #8 reported a
 # false success), and the Jenkins job re-verifies .last-good-tag afterwards
 # anyway.
+#
+# Exit code 3 means the post-deploy regression suite failed and deploy.sh
+# already rolled the stack back to the previous tag. The outcome is
+# deterministic — retrying would deploy the same bad version again — so
+# give up immediately.
 DEPLOY_OK=0
 for deploy_attempt in 1 2 3; do
-  if ./scripts/deploy.sh "$IMAGE_TAG" "$GIT_SHA"; then
+  set +e
+  ./scripts/deploy.sh "$IMAGE_TAG" "$GIT_SHA"
+  DEPLOY_RC=$?
+  set -e
+  if [ "$DEPLOY_RC" = "0" ]; then
     DEPLOY_OK=1
     break
   fi
-  echo "WARNING: deploy.sh attempt $deploy_attempt exited non-zero (backups from each attempt are kept); retrying in 10s"
+  if [ "$DEPLOY_RC" = "3" ]; then
+    echo "FATAL: post-deploy regression suite failed for $IMAGE_TAG — stack rolled back to the previous tag; not retrying"
+    exit 3
+  fi
+  echo "WARNING: deploy.sh attempt $deploy_attempt exited with rc=$DEPLOY_RC (backups from each attempt are kept); retrying in 10s"
   sleep 10
 done
 if [ "$DEPLOY_OK" != "1" ]; then

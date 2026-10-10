@@ -119,11 +119,52 @@ rollback() {
         # than taking a live site down; an operator investigates from here.
         log "No .last-good-tag recorded — leaving current state in place"
     fi
-    exit 1
+    # Exit codes distinguish why: 1 = health gate, 3 = regression suite (the
+    # remote wrapper must NOT retry a rolled-back deploy — the outcome is
+    # deterministic and retrying would put the bad version live again).
+    exit "${1:-1}"
 }
 
 wait_for "api-gateway /health" api_healthy || rollback
 wait_for "public URL $PUBLIC_HEALTH_URL" public_healthy || rollback
+
+# ---------------------------------------------------------------------------
+# 4.5 Post-deploy regression suite (read-only API checks).
+#     Runs BEFORE .last-good-tag is updated, so a failure rolls back to the
+#     previous known-good tag. Credentials come from the environment or
+#     deployments/docker/.env; with no credentials configured the suite is
+#     skipped (config gap, not a regression — documented in
+#     tests/post_deploy/README.md).
+# ---------------------------------------------------------------------------
+smoke_env_var() {
+    # smoke_env_var <NAME> — value from the environment, else from .env
+    # (quotes stripped the way docker compose parses .env values).
+    local name="$1" value=""
+    value="${!name:-}"
+    if [ -z "$value" ] && [ -f .env ]; then
+        value="$(sed -n "s/^${name}=//p" .env | head -1)"
+        case "$value" in
+            \"*\") value="${value#\"}"; value="${value%\"}" ;;
+            \'*\') value="${value#\'}"; value="${value%\'}" ;;
+        esac
+    fi
+    printf '%s' "$value"
+}
+
+SMOKE_USER="$(smoke_env_var SMOKE_USERNAME)"
+SMOKE_PASS="$(smoke_env_var SMOKE_PASSWORD)"
+if [ -n "$SMOKE_USER" ] && [ -n "$SMOKE_PASS" ]; then
+    log "Running post-deploy regression suite against $PUBLIC_HEALTH_URL"
+    if SMOKE_BASE_URL="$PUBLIC_HEALTH_URL" SMOKE_USERNAME="$SMOKE_USER" SMOKE_PASSWORD="$SMOKE_PASS" \
+        python3 "$DEPLOY_DIR/tests/post_deploy/smoke.py"; then
+        log "Post-deploy regression suite passed"
+    else
+        log "FAIL: post-deploy regression suite failed for $TAG"
+        rollback 3
+    fi
+else
+    log "WARNING: SMOKE_USERNAME/SMOKE_PASSWORD not configured — skipping post-deploy regression suite (see tests/post_deploy/README.md)"
+fi
 
 # ---------------------------------------------------------------------------
 # 5. Success: record the known-good tag, tidy up.
