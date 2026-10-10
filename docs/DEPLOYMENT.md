@@ -54,7 +54,7 @@ Third-party images (postgres, redis, prometheus, grafana, ollama) are pulled dir
 | Compose env | `/opt/viswall/deployments/docker/.env` (0600, copied from the retired pre-CD deployment at `/data/docker/persistent/viswall/viswall/`) |
 | Deploy SSH user | `viswall-deploy` (member of `docker`) |
 | Jenkins | `http://10.80.2.251:8081` on `enterprise` (docker compose at `/naspool/CI/`, home `/naspool/CI/jenkins_home`); jobs `viswall-ci`, `viswall-release`, `viswall-deploy`, `viswall-approve` — "Pipeline script from SCM", branch `**/main` |
-| Jenkins credentials | `viswall-gwt-token` (webhook token), `viswall-deploy-ssh` (deploy SSH key), `vidforge-github-pat` (GitHub PAT of `vidforge-bot`, shared with the vidforge jobs: commit statuses, PR approvals, GHCR push/pull) |
+| Jenkins credentials | `viswall-gwt-token` (webhook token), `viswall-deploy-ssh` (deploy SSH key), `viswall-github-pat` (hrohrweck classic PAT, `repo` + `write:packages` — commit statuses, GHCR push/pull; CI runs the backend suite with a single-alembic-head guard) |
 | Webhook | repo hook (push, pull_request, issue_comment) → `https://viswall.webmasters.co.at/jenkins-hook/generic-webhook-trigger/invoke?token=…`; relayed by the `/jenkins-hook/` location in `viswall.conf` on the host nginx → `http://10.80.2.251:8081/` |
 | Git access on server | read-only deploy key `deploy: boseman/viswall.webmasters.co.at` → `/home/viswall-deploy/.ssh/viswall_deploy_key` |
 
@@ -103,7 +103,8 @@ Database dumps are **not** restored automatically. The latest dumps live in
 | Jenkins job stuck in *Queue* | 'build' agent offline — check `docker ps | grep jenkins` and node status on `http://10.80.2.251:8081/computer/`. |
 | Merge produces no Jenkins build | Webhook delivery failing — GitHub repo → Settings → Webhooks → recent deliveries; relay path must exist in `viswall.conf` and the `viswall-gwt-token` secret must match the token in the webhook URL. |
 | vidforge jobs start on viswall events (or vice versa) | Token leak/mixup — each repo's webhook URL must carry its own GWT token; jobs match by `tokenCredentialId`. |
-| `docker pull … denied` in viswall-deploy | GHCR credential issue — `vidforge-github-pat` must have packages write for `ghcr.io/hrohrweck/viswall/*`; check the `docker login` output in the deploy log. |
+| `docker pull … denied` in viswall-deploy | GHCR credential issue — `viswall-github-pat` must have packages write for `ghcr.io/hrohrweck/viswall/*` (a classic PAT; the vidforge-bot fine-grained PAT is denied on these packages). Check the `docker login` output in the deploy log. |
+| Job green but server not updated | Pre-#66 failure mode (silent ssh death). Deploy jobs now verify `.last-good-tag` on the server against the requested tag — if you see a success without convergence, check the `verify` stage. |
 | Health gate fails, rollback runs | Check `docker compose logs api-gateway` (often a migration or bad env in `.env`) and whether the public URL responds. |
 | `git reset --hard` fails in deploy | Ownership/permission on `/opt/viswall` (must be writable by `viswall-deploy`) or a fetch-auth failure of the server's deploy key. |
 | PR shows no `jenkins-ci` status | The PR head was pushed before the Jenkins setup existed, or the commit-status POST failed (PAT scope). Re-run `viswall-ci` manually with the event vars left empty and `CI_SHA` handling via checkout. |
