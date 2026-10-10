@@ -10,5 +10,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     exclude: [...configDefaults.exclude, 'e2e/**'],
+    // Dialog-interaction tests (userEvent chains + waitFor) routinely exceed
+    // vitest's 5s default on the loaded shared CI agent; failures rotated
+    // between unrelated test files across runs.
+    testTimeout: 20_000,
   },
 })
