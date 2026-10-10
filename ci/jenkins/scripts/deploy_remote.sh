@@ -49,19 +49,23 @@ docker image inspect "ghcr.io/hrohrweck/viswall/api-gateway:$IMAGE_TAG" >/dev/nu
 
 # deploy.sh is safely re-runnable (idempotent pin/backup/pull/up/gate with
 # self-rollback). GHCR sometimes throttles the burst of manifest HEADs that
-# follows our pre-pull, so retry the whole call before giving up.
+# follows our pre-pull, so retry before giving up. Short sleeps only: long
+# idle periods have killed the ssh session mid-run (deploy #8 reported a
+# false success), and the Jenkins job re-verifies .last-good-tag afterwards
+# anyway.
 DEPLOY_OK=0
 for deploy_attempt in 1 2 3; do
   if ./scripts/deploy.sh "$IMAGE_TAG" "$GIT_SHA"; then
     DEPLOY_OK=1
     break
   fi
-  echo "WARNING: deploy.sh attempt $deploy_attempt exited non-zero (backups from each attempt are kept); retrying in 30s"
-  sleep 30
+  echo "WARNING: deploy.sh attempt $deploy_attempt exited non-zero (backups from each attempt are kept); retrying in 10s"
+  sleep 10
 done
 if [ "$DEPLOY_OK" != "1" ]; then
   echo "FATAL: deploy.sh failed after 3 attempts - stack may have been rolled back"
   exit 1
 fi
 
+echo "LAST_GOOD_TAG=$(cat deployments/docker/.last-good-tag 2>/dev/null || echo missing)"
 echo "Deployed $IMAGE_TAG ($GIT_SHA) successfully"

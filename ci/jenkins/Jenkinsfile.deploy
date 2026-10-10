@@ -69,6 +69,32 @@ pipeline {
         }
       }
     }
+    stage('verify') {
+      steps {
+        // Independent outcome check: an ssh session that dies mid-deploy has
+        // reported a false SUCCESS before (deploy #8). Trust only the
+        // server-side last-good marker, written after the health gates.
+        withCredentials([
+            sshUserPrivateKey(credentialsId: 'viswall-deploy-ssh', keyFileVariable: 'DEPLOY_KEY'),
+        ]) {
+          writeFile(file: 'jenkins_known_hosts', text: '''viswall.webmasters.co.at ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ8JfmtCtmn8ZqnN56NJfmo9ai4NAysXO1mG0oZB41UT
+''')
+          sh '''
+            set -e
+            LAST_TAG=$(ssh -i "$DEPLOY_KEY" \
+                -o UserKnownHostsFile="$PWD/jenkins_known_hosts" \
+                -o IdentitiesOnly=yes \
+                viswall-deploy@viswall.webmasters.co.at \
+                'cat /opt/viswall/deployments/docker/.last-good-tag 2>/dev/null || echo missing')
+            echo "server .last-good-tag = $LAST_TAG, expected $IMAGE_TAG"
+            [ "$LAST_TAG" = "$IMAGE_TAG" ] || {
+              echo "FATAL: server did not converge on $IMAGE_TAG (still at $LAST_TAG)"
+              exit 1
+            }
+          '''
+        }
+      }
+    }
   }
   post {
     success {
