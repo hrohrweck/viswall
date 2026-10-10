@@ -5,4 +5,14 @@
 set -euo pipefail
 cd /repo/services/api-gateway
 export PYTHONPATH=/repo
+
+# Migration graph must stay linear: two heads break `alembic upgrade head`
+# in production (happened when two PRs with migrations merged in parallel).
+HEADS=$(python -m alembic heads 2>/dev/null | grep -cE "^[0-9a-f]{6,}" || true)
+if [ "$HEADS" != "1" ]; then
+  echo "FAIL: alembic reports $HEADS head revisions — merge them (alembic merge) or re-parent before merging:"
+  python -m alembic heads
+  exit 1
+fi
+
 pytest tests/ --asyncio-mode=auto -q

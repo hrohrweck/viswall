@@ -9,7 +9,7 @@ Also backfills llm_models booleans left NULL by the original registry seed
 GET /admin/llm/models fail response validation with a 500.
 
 Revision ID: a7c91d4e2f50
-Revises: 7383bc760d32
+Revises: e8f1a3b5c7d9
 Create Date: 2026-10-05
 """
 
@@ -19,7 +19,10 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "a7c91d4e2f50"
-down_revision = "7383bc760d32"
+# Re-parented onto the mta-forwarding migration: PR #61 and PR #60 both
+# branched from 7383bc760d32, which left two heads after both merged and
+# made `alembic upgrade head` fail (production rollback, 2026-10-09).
+down_revision = "e8f1a3b5c7d9"
 branch_labels = None
 depends_on = None
 
