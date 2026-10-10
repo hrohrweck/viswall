@@ -24,5 +24,8 @@ run manually with `GIT_SHA` + `IMAGE_TAG` to redeploy an existing tag.
 
 Jenkins credentials used: `viswall-gwt-token` (webhook token),
 `viswall-deploy-ssh` (deploy key for the prod server),
-`vidforge-github-pat` (GitHub PAT of `vidforge-bot` — commit statuses,
-PR approvals, GHCR push; verified to cover this repo).
+`viswall-github-pat` (hrohrweck classic PAT, `repo` + `write:packages` —
+commit statuses, GHCR push/pull for this repo's packages).
+`viswall-approve` uses the vidforge-bot PAT for PR reviews (approving
+hrohrweck-authored PRs with the owner token would be self-approval and
+is rejected by GitHub).
