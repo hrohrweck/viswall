@@ -202,6 +202,33 @@ export const latestMetric: MetricSnapshot = {
   mail_virus_count: 1,
 }
 
+/**
+ * Historical snapshots, oldest first (naive-UTC timestamps, matching the
+ * backend). Interface counters increase between snapshots so the Network
+ * Interfaces histograms have real deltas to plot.
+ */
+export const metricsHistory: MetricSnapshot[] = [
+  {
+    ...latestMetric,
+    id: 101,
+    timestamp: '2026-01-05T11:58:00',
+    interface_stats: [
+      { name: 'wan0', rx_bytes: 800_000_000, tx_bytes: 300_000_000 },
+      { name: 'lan0', rx_bytes: 230_000_000, tx_bytes: 680_000_000 },
+    ],
+  },
+  {
+    ...latestMetric,
+    id: 102,
+    timestamp: '2026-01-05T11:59:00',
+    interface_stats: [
+      { name: 'wan0', rx_bytes: 806_000_000, tx_bytes: 305_000_000 },
+      { name: 'lan0', rx_bytes: 235_000_000, tx_bytes: 685_000_000 },
+    ],
+  },
+  latestMetric,
+]
+
 export const firewallRules: FirewallRule[] = [
   {
     id: 1,

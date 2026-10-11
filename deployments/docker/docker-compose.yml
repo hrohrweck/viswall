@@ -55,6 +55,10 @@ services:
       - viswall
     volumes:
       - ../../shared:/app/shared:ro
+      # Host /proc read-only: lets the metrics collector report the
+      # appliance's real network interfaces instead of the container's
+      # virtual eth0 (metrics_collector._interface_stats).
+      - /proc:/host/proc:ro
     restart: unless-stopped
 
   # Web UI
