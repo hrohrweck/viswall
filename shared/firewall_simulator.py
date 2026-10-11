@@ -10,6 +10,10 @@ from typing import List, Dict, Any, Optional, Tuple
 from enum import Enum
 import json
 import random
+
+# Simulation-only randomness, but drawn from the OS CSPRNG so the module
+# never touches the deterministic Mersenne-Twister generator.
+_rng = random.SystemRandom()
 from datetime import datetime
 
 
@@ -762,14 +766,14 @@ class TestSuiteLibrary:
     ) -> TestCase:
         """Create a custom test case"""
         return TestCase(
-            id=f"custom-{random.randint(1000, 9999)}",
+            id=f"custom-{_rng.randint(1000, 9999)}",
             name=name,
             description=kwargs.get("description", ""),
             packet=NetworkPacket(
                 src_ip=src_ip,
                 dst_ip=dst_ip,
                 protocol=Protocol(protocol),
-                src_port=kwargs.get("src_port", random.randint(10000, 65000)),
+                src_port=kwargs.get("src_port", _rng.randint(10000, 65000)),
                 dst_port=dst_port,
                 interface_in=kwargs.get("interface_in", "eth1"),
                 interface_out=kwargs.get("interface_out", "eth0"),

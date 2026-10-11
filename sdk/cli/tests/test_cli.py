@@ -74,6 +74,56 @@ class TestConfig:
         assert "https://viswall.example.com" in result.output
         assert "my-secre...oken" in result.output
 
+    def test_save_writes_owner_only_permissions(self, tmp_path):
+        from viswall_cli.config import Config
+
+        config_file = tmp_path / "config.yaml"
+        Config(url="https://viswall.example.com", token=TEST_LOGIN_KEY).save(config_file)
+
+        assert (config_file.stat().st_mode & 0o777) == 0o600
+        loaded = Config.from_file(config_file)
+        assert loaded.token == TEST_LOGIN_KEY
+
+    def test_save_tightens_existing_loose_permissions(self, tmp_path):
+        import os
+
+        from viswall_cli.config import Config
+
+        config_file = tmp_path / "config.yaml"
+        fd = os.open(config_file, os.O_WRONLY | os.O_CREAT, 0o644)
+        os.close(fd)
+
+        Config(url="https://viswall.example.com", token=TEST_LOGIN_KEY).save(config_file)
+
+        assert (config_file.stat().st_mode & 0o777) == 0o600
+
+    def test_from_file_tightens_legacy_loose_file(self, tmp_path):
+        import stat
+
+        from viswall_cli.config import Config
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("url: https://viswall.example.com\n")
+        # Simulate a legacy file the old CLI wrote under a default umask:
+        # owner rw plus group/other read.
+        config_file.chmod(0o600 | stat.S_IRGRP | stat.S_IROTH)
+
+        loaded = Config.from_file(config_file)
+
+        assert loaded.url == "https://viswall.example.com"
+        assert (config_file.stat().st_mode & 0o777) == 0o600
+
+    def test_rejects_non_http_url_scheme(self):
+        from viswall_cli.config import Config
+
+        for scheme_url in (
+            "ftp://files.example.com/pub",
+            "gopher://legacy.example.org",
+            "javascript:alert(1)",
+        ):
+            with pytest.raises(ValueError, match="http"):
+                Config(url=scheme_url)
+
 
 class TestInstances:
     def test_list_instances(self, httpx_mock, monkeypatch):
