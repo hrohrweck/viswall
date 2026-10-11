@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     JSON,
     Text,
     Float,
@@ -244,6 +245,9 @@ class MetricSnapshot(Base):
     """Time-series metrics from instances"""
 
     __tablename__ = "metric_snapshots"
+    __table_args__ = (
+        Index("ix_metric_snapshots_instance_timestamp", "instance_id", "timestamp"),
+    )
 
     id = Column(Integer, primary_key=True)
     instance_id = Column(Integer, ForeignKey("instances.id"))

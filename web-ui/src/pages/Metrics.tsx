@@ -250,6 +250,10 @@ export function Metrics() {
   const system = latest
   const counts = dashboard
 
+  // Only deployed functions get metric sections on a host — mail
+  // telemetry does not exist for hosts without mail domains.
+  const mailDeployed = (counts?.mail_domain_count ?? 0) > 0
+
   const statCards = [
     {
       label: 'CPU Usage',
@@ -276,13 +280,17 @@ export function Metrics() {
         ? `${formatBytes(system.disk_used_bytes)} / ${formatBytes(system.disk_total_bytes)}`
         : 'Current',
     },
-    {
-      label: 'Mail Queue',
-      value: system?.mail_queue_size?.toString() ?? '-',
-      icon: Mail,
-      color: 'green',
-      detail: 'Messages',
-    },
+    ...(mailDeployed
+      ? [
+          {
+            label: 'Mail Queue',
+            value: system?.mail_queue_size?.toString() ?? '-',
+            icon: Mail,
+            color: 'green',
+            detail: 'Messages',
+          },
+        ]
+      : []),
   ]
 
   /* ── Segmented time-range control ── */
@@ -309,11 +317,11 @@ export function Metrics() {
     <div>
       <PageHeader
         title="Metrics"
-        description="System resource usage and mail activity"
+        description="Host resource usage and metrics of the functions deployed on this instance"
         secondaryActions={[timeRangeControl]}
       />
 
-      {/* ── Count Cards ── */}
+      {/* ── Count Cards (deployed functions only) ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 mb-6">
         {dashboardLoading ? (
           <>
@@ -322,47 +330,42 @@ export function Metrics() {
             <Skeleton className="h-20" />
           </>
         ) : (
-          <>
-            <Card>
-              <div className="flex items-center gap-3">
-                <div className={cn('p-2 rounded-lg', CARD_COLORS.blue.bg)}>
-                  <Activity className={cn('w-5 h-5', CARD_COLORS.blue.icon)} />
+          (
+            [
+              {
+                count: counts?.firewall_rule_count ?? 0,
+                label: 'Firewall Rules',
+                icon: Activity,
+                color: 'blue',
+              },
+              {
+                count: counts?.mail_domain_count ?? 0,
+                label: 'Mail Domains',
+                icon: Mail,
+                color: 'purple',
+              },
+              {
+                count: counts?.vpn_server_count ?? 0,
+                label: 'VPN Servers',
+                icon: Network,
+                color: 'indigo',
+              },
+            ] as const
+          )
+            .filter(({ count }) => count > 0)
+            .map(({ count, label, icon: Icon, color }) => (
+              <Card key={label}>
+                <div className="flex items-center gap-3">
+                  <div className={cn('p-2 rounded-lg', CARD_COLORS[color].bg)}>
+                    <Icon className={cn('w-5 h-5', CARD_COLORS[color].icon)} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-on-surface-muted">{label}</p>
+                    <p className="text-2xl font-bold text-on-surface">{count}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-on-surface-muted">Firewall Rules</p>
-                  <p className="text-2xl font-bold text-on-surface">
-                    {counts?.firewall_rule_count ?? 0}
-                  </p>
-                </div>
-              </div>
-            </Card>
-            <Card>
-              <div className="flex items-center gap-3">
-                <div className={cn('p-2 rounded-lg', CARD_COLORS.purple.bg)}>
-                  <Mail className={cn('w-5 h-5', CARD_COLORS.purple.icon)} />
-                </div>
-                <div>
-                  <p className="text-sm text-on-surface-muted">Mail Domains</p>
-                  <p className="text-2xl font-bold text-on-surface">
-                    {counts?.mail_domain_count ?? 0}
-                  </p>
-                </div>
-              </div>
-            </Card>
-            <Card>
-              <div className="flex items-center gap-3">
-                <div className={cn('p-2 rounded-lg', CARD_COLORS.indigo.bg)}>
-                  <Network className={cn('w-5 h-5', CARD_COLORS.indigo.icon)} />
-                </div>
-                <div>
-                  <p className="text-sm text-on-surface-muted">VPN Servers</p>
-                  <p className="text-2xl font-bold text-on-surface">
-                    {counts?.vpn_server_count ?? 0}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </>
+              </Card>
+            ))
         )}
       </div>
 
@@ -394,7 +397,12 @@ export function Metrics() {
       </div>
 
       {/* ── Charts ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div
+        className={cn(
+          'grid gap-6 mb-6',
+          mailDeployed ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1',
+        )}
+      >
         <Card title="System Resources">
           {historicalLoading ? (
             <Skeleton className="h-[250px] w-full" />
@@ -440,30 +448,32 @@ export function Metrics() {
           )}
         </Card>
 
-        <Card title="Mail Activity">
-          {historicalLoading ? (
-            <Skeleton className="h-[250px] w-full" />
-          ) : historicalError ? (
-            <QueryError onRetry={() => void refetchHistorical()} />
-          ) : mailChartData.length === 0 ? (
-            <p className="text-sm text-on-surface-muted text-center py-12">
-              No metrics in range
-            </p>
-          ) : (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={mailChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chartThemeTokens.grid} />
-                <XAxis dataKey="time" tick={{ fill: chartThemeTokens.axis }} />
-                <YAxis tick={{ fill: chartThemeTokens.axis }} />
-                <Tooltip />
-                <Bar dataKey="inbound" fill={CHART.primary} name="Inbound" />
-                <Bar dataKey="outbound" fill={CHART.secondary} name="Outbound" />
-                <Bar dataKey="spam" fill={CHART.danger} name="Spam" />
-                <Bar dataKey="virus" fill={CHART.tertiary} name="Virus" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
+        {mailDeployed && (
+          <Card title="Mail Activity">
+            {historicalLoading ? (
+              <Skeleton className="h-[250px] w-full" />
+            ) : historicalError ? (
+              <QueryError onRetry={() => void refetchHistorical()} />
+            ) : mailChartData.length === 0 ? (
+              <p className="text-sm text-on-surface-muted text-center py-12">
+                No metrics in range
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={mailChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartThemeTokens.grid} />
+                  <XAxis dataKey="time" tick={{ fill: chartThemeTokens.axis }} />
+                  <YAxis tick={{ fill: chartThemeTokens.axis }} />
+                  <Tooltip />
+                  <Bar dataKey="inbound" fill={CHART.primary} name="Inbound" />
+                  <Bar dataKey="outbound" fill={CHART.secondary} name="Outbound" />
+                  <Bar dataKey="spam" fill={CHART.danger} name="Spam" />
+                  <Bar dataKey="virus" fill={CHART.tertiary} name="Virus" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+        )}
       </div>
 
       {/* ── Network Interfaces ── */}
