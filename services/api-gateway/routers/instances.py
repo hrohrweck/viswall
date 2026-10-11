@@ -182,7 +182,7 @@ async def reveal_instance_api_key(
         instance_id=instance_id,
     )
 
-    return InstanceApiKeyResponse(instance_id=instance_id, api_key=instance.api_key)
+    return {"instance_id": instance_id, "api_key": instance.api_key}
 
 @router.post("/{instance_id}/heartbeat")
 async def instance_heartbeat(
