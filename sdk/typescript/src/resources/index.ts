@@ -3,6 +3,7 @@ export { InstancesResource } from './instances';
 export { UsersResource } from './users';
 export { FirewallResource } from './firewall';
 export { RoutingResource } from './routing';
+export { NetworkResource } from './network';
 export { MailResource } from './mail';
 export { MetricsResource } from './metrics';
 export { AuditResource } from './audit';

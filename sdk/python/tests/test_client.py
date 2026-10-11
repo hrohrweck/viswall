@@ -9,6 +9,7 @@ from viswall import ViswallClient, ViswallAPIError, AuthenticationError, NotFoun
 
 # Generated per test run so no static credential-shaped literal lands in the repo.
 TEST_AUTH_KEY = "vw-test-" + uuid.uuid4().hex
+TEST_REVEALED_KEY = "vis_" + uuid.uuid4().hex
 
 
 class TestViswallClient:
@@ -395,4 +396,93 @@ class TestMailResourceMTAForward:
             "mta_forward_host": "smtp.example.net",
             "mta_forward_port": 2525,
         }
+        client.close()
+
+class TestNetworkResource:
+    """Test NetworkResource (host interface management)."""
+
+    def test_list_interfaces(self, httpx_mock):
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/network/interfaces/1",
+            method="GET",
+            json=[{"id": 1, "name": "ens18", "config_type": "static"}],
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.network.list_interfaces(instance_id=1)
+        assert len(result) == 1
+        assert result[0]["name"] == "ens18"
+        client.close()
+
+    def test_create_interface(self, httpx_mock):
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/network/interfaces/1",
+            method="POST",
+            status_code=201,
+            json={"id": 1, "name": "ens18", "config_type": "static"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.network.create_interface(
+            1, name="ens18", config_type="static",
+            ip_address="10.0.0.5", netmask="255.255.255.0",
+        )
+        assert result["id"] == 1
+        request = httpx_mock.get_requests()[-1]
+        assert request.read() == (
+            b'{"name":"ens18","config_type":"static",'
+            b'"ip_address":"10.0.0.5","netmask":"255.255.255.0"}'
+        )
+        client.close()
+
+    def test_live_interfaces(self, httpx_mock):
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/network/interfaces/1/live",
+            method="GET",
+            json={"interfaces": [], "default_route_interface": "wan0",
+                  "default_gateway": "203.0.113.1"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.network.live_interfaces(1)
+        assert result["default_route_interface"] == "wan0"
+        client.close()
+
+    def test_apply_interfaces_default_force_false(self, httpx_mock):
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/network/interfaces/1/apply",
+            method="POST",
+            json={"success": True, "changes": [], "message": "ok"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.network.apply_interfaces(1)
+        assert result["success"] is True
+        request = httpx_mock.get_requests()[-1]
+        assert request.read() == b'{"force":false}'
+        client.close()
+
+    def test_apply_interfaces_force_true(self, httpx_mock):
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/network/interfaces/1/apply",
+            method="POST",
+            json={"success": True, "changes": [], "message": "ok"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        client.network.apply_interfaces(1, force=True)
+        request = httpx_mock.get_requests()[-1]
+        assert request.read() == b'{"force":true}'
+        client.close()
+
+    def test_reveal_api_key(self, httpx_mock):
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/instances/1/api-key",
+            method="GET",
+            json={"instance_id": 1, "api_key": TEST_REVEALED_KEY},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.instances.reveal_api_key(1)
+        assert result["api_key"] == TEST_REVEALED_KEY
         client.close()

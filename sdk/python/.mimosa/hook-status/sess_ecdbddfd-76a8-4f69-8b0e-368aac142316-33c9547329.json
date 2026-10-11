@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "mimosa-hook-status/v1",
+  "recordedAt": "2026-10-06T20:52:15.241Z",
+  "sessionId": "sess_ecdbddfd-76a8-4f69-8b0e-368aac142316",
+  "event": "PostToolUse",
+  "toolName": "Edit",
+  "file": "/home/sysop/source/private/viswall/sdk/python/tests/test_client.py",
+  "outcome": "inconclusive",
+  "coverage": "partial",
+  "findingCount": 0,
+  "durationMs": 4,
+  "hostState": "hook_complete",
+  "reportHint": ".mimosa/reports/"
+}

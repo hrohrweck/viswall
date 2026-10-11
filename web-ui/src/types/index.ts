@@ -263,10 +263,70 @@ export interface NetworkInterface {
   ip_address: string | null;
   netmask: string | null;
   gateway: string | null;
+  mtu: number | null;
   bandwidth_in: number | null;
   bandwidth_out: number | null;
+  description: string | null;
   enabled: boolean;
   updated_at: string;
+}
+
+export interface NetworkInterfaceCreate {
+  name: string;
+  type?: string;
+  config_type?: string;
+  ip_address?: string | null;
+  netmask?: string | null;
+  gateway?: string | null;
+  mtu?: number | null;
+  bandwidth_in?: number | null;
+  bandwidth_out?: number | null;
+  description?: string | null;
+  enabled?: boolean;
+}
+
+export interface NetworkInterfaceUpdate {
+  name?: string;
+  type?: string;
+  config_type?: string;
+  ip_address?: string | null;
+  netmask?: string | null;
+  gateway?: string | null;
+  mtu?: number | null;
+  bandwidth_in?: number | null;
+  bandwidth_out?: number | null;
+  description?: string | null;
+  enabled?: boolean;
+}
+
+export interface InterfaceLiveState {
+  name: string;
+  operstate: string;
+  up: boolean;
+  mtu: number | null;
+  mac: string | null;
+  addresses: Array<{ address: string; prefixlen: number }>;
+  has_default_route: boolean;
+}
+
+export interface InterfaceLiveStateResponse {
+  interfaces: InterfaceLiveState[];
+  default_route_interface: string | null;
+  default_gateway: string | null;
+}
+
+export interface InterfaceApplyResult {
+  success: boolean;
+  changes: Array<{ interface: string; action: string; detail: string; ok: boolean }>;
+  default_route_interface: string | null;
+  netplan_file: string | null;
+  netplan_written: boolean;
+  message: string;
+}
+
+export interface InstanceApiKey {
+  instance_id: number;
+  api_key: string;
 }
 
 export interface MailDomain {

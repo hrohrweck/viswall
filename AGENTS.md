@@ -40,10 +40,11 @@ viswall/
 │   ├── firewall-service/     # Agent code (1,223 lines) — wired into docker-compose (commented by default)
 │   ├── mail-service/         # Agent code (902 lines) — wired into docker-compose (commented by default)
 │   ├── vpn-service/          # Agent code (573 lines) — wired into docker-compose (commented by default)
-│   └── sogo-service/         # SOGo groupware (CalDAV/CardDAV/ActiveSync) — wired into docker-compose
+│   ├── sogo-service/         # SOGo groupware (CalDAV/CardDAV/ActiveSync) — wired into docker-compose
+│   └── node-agent/           # Host-network agent: interface discovery, live apply, netplan persistence
 ├── web-ui/                   # React + TypeScript SPA
 │   ├── src/
-│   │   ├── pages/            # Page components
+│   │   ├── pages/            # Page components (Interfaces.tsx manages host NICs)
 │   │   ├── components/       # Reusable UI components
 │   │   ├── components/forms/ # Form components
 │   │   ├── components/ui/    # UI primitives (DataTable, Modal, etc.)
@@ -128,6 +129,15 @@ export METRICS_RETENTION_DAYS=30        # prune snapshots older than N days; 0 d
 - Starts automatically with the FastAPI app lifespan.
 - Cancels cleanly on shutdown.
 - Each cycle prunes expired snapshots (`metrics_retention.py`); the simulated history was purged by migration `f3a9c1e57b42`.
+
+### Node Agent (host interface management)
+
+`services/node-agent/` runs on the appliance host (`network_mode: host`, `NET_ADMIN`) and serves:
+
+- `GET /interfaces` — live host interface + default-route state (iproute2 JSON)
+- `POST /interfaces/apply` — planned, idempotent netlink changes; refuses touching the default-route interface unless `force: true`; persists desired state to `/etc/netplan/60-viswall.yaml`
+
+The gateway dispatches via `Instance.config["agent_endpoints"]["node"]` (service key `node`). Configure the agent with `NODE_INSTANCE_ID` / `NODE_API_KEY` in `.env`; reveal the instance API key on the Instance detail page (admin only). The console UI lives at `/interfaces` (Sidebar → Network → Interfaces); desired state is stored in `network_interfaces` and applied only on explicit "Apply to Host".
 
 ---
 

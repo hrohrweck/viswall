@@ -22,4 +22,8 @@ export class InstancesResource {
   async delete(instanceId: number): Promise<void> {
     return this.client.request('DELETE', `/instances/${instanceId}`);
   }
+
+  async revealApiKey(instanceId: number): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/instances/${instanceId}/api-key`);
+  }
 }

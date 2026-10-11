@@ -8,6 +8,7 @@ from shared.database import get_db
 from shared.models import User, Instance
 from shared.schemas import (
     InstanceCreate, InstanceUpdate, InstanceResponse,
+    InstanceApiKeyResponse,
     UserResponse
 )
 from shared.security import require_auth, require_admin
@@ -145,6 +146,43 @@ async def delete_instance(
 
     
     return None
+
+@router.get("/{instance_id}/api-key", response_model=InstanceApiKeyResponse)
+async def reveal_instance_api_key(
+    instance_id: int,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the instance API key (admin only) so an agent can enroll.
+
+    The key is generated at creation time and never included in instance
+    listings; agents (dns, node, ...) authenticate with it.
+    """
+    user = await db.scalar(select(User).where(User.id == user_id))
+    instance = await db.scalar(select(Instance).where(Instance.id == instance_id))
+
+    if not instance:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Instance not found"
+        )
+
+    if user and user.role != "superadmin" and instance_id not in (user.instances or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this instance"
+        )
+
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="reveal_api_key",
+        resource_type="instance",
+        resource_id=instance_id,
+        instance_id=instance_id,
+    )
+
+    return {"instance_id": instance_id, "api_key": instance.api_key}
 
 @router.post("/{instance_id}/heartbeat")
 async def instance_heartbeat(

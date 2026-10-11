@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "mimosa-hook-status/v1",
+  "recordedAt": "2026-10-11T12:40:32.753Z",
+  "sessionId": "sess_461634c2-3462-44ef-b0c0-b002f87839f6",
+  "event": "PostToolUse",
+  "toolName": "Write",
+  "file": "/home/sysop/source/private/viswall/services/api-gateway/tests/test_metrics_retention.py",
+  "outcome": "inconclusive",
+  "coverage": "partial",
+  "findingCount": 0,
+  "durationMs": 8,
+  "hostState": "hook_complete",
+  "reportHint": ".mimosa/reports/"
+}

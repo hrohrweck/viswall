@@ -13,7 +13,7 @@ from viswall_cli.config import Config, DEFAULT_CONFIG_FILE
 from viswall_cli.output import print_error, print_success
 from viswall_cli.commands import (
     instances_app, firewall_app, users_app, metrics_app, dhcp_app,
-    vpn_app, mail_app, dns_app, routing_app, assistant_app,
+    vpn_app, mail_app, dns_app, routing_app, interfaces_app, assistant_app,
     audit_app, groupware_app, llm_app,
 )
 
@@ -83,6 +83,7 @@ app.add_typer(vpn_app, name="vpn")
 app.add_typer(mail_app, name="mail")
 app.add_typer(dns_app, name="dns")
 app.add_typer(routing_app, name="routing")
+app.add_typer(interfaces_app, name="interfaces")
 app.add_typer(assistant_app, name="assistant")
 app.add_typer(audit_app, name="audit")
 app.add_typer(groupware_app, name="groupware")
