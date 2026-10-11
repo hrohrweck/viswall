@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { http, HttpResponse } from 'msw'
 import { server } from './msw/node'
+import { metricsHistory } from './msw/fixtures'
 import { useInstanceStore } from '../stores/instance'
 import { Metrics } from '../pages/Metrics'
 import { chartTheme } from '../lib/chartColors'
@@ -17,11 +18,26 @@ import { chartTheme } from '../lib/chartColors'
  */
 
 // jsdom has no ResizeObserver; recharts ResponsiveContainer requires it once
-// the metrics query settles and charts mount.
+// the metrics query settles and charts mount. The stub reports a fixed size
+// on observe so ResponsiveContainer actually renders its chart children.
 vi.stubGlobal(
   'ResizeObserver',
   class {
-    observe() {}
+    private cb: ResizeObserverCallback
+    constructor(cb: ResizeObserverCallback) {
+      this.cb = cb
+    }
+    observe(target: Element) {
+      this.cb(
+        [
+          {
+            target,
+            contentRect: { width: 800, height: 250 },
+          } as unknown as ResizeObserverEntry,
+        ],
+        this as unknown as ResizeObserver,
+      )
+    }
     unobserve() {}
     disconnect() {}
   },
@@ -117,6 +133,38 @@ describe('Metrics', () => {
 
     expect(screen.getAllByText('Something went wrong')).toHaveLength(2)
     expect(screen.getAllByRole('button', { name: /retry/i })).toHaveLength(2)
+  })
+
+  it('renders per-interface traffic histograms from historical snapshots', async () => {
+    // The API returns snapshots newest-first; the page plots oldest-first
+    server.use(
+      http.post('/api/v1/metrics/query', () =>
+        HttpResponse.json([...metricsHistory].reverse()),
+      ),
+    )
+
+    const Wrapper = createWrapper()
+    render(<Metrics />, { wrapper: Wrapper })
+
+    // Both interfaces from the snapshots are listed with their totals
+    expect(await screen.findByText('wan0')).toBeInTheDocument()
+    expect(screen.getByText('lan0')).toBeInTheDocument()
+
+    // One traffic histogram (Recharts wrapper) per interface
+    await screen.findByText('Network Interfaces')
+    const charts = document.querySelectorAll('.recharts-wrapper')
+    expect(charts.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('shows the collecting hint for interfaces without traffic deltas', async () => {
+    // Default handler returns a single snapshot — no counter deltas yet
+    const Wrapper = createWrapper()
+    render(<Metrics />, { wrapper: Wrapper })
+
+    expect(await screen.findByText('wan0')).toBeInTheDocument()
+    expect(
+      screen.getAllByText(/No traffic recorded in this range yet/i).length,
+    ).toBeGreaterThanOrEqual(1)
   })
 })
 

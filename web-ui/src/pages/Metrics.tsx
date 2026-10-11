@@ -6,7 +6,6 @@ import {
   Network,
   Mail,
   Activity,
-  ArrowUpDown,
   Info,
 } from 'lucide-react'
 import {
@@ -29,6 +28,7 @@ import {
 import { Card, PageHeader, Skeleton, QueryError } from '../components/ui'
 import { cn } from '../lib/utils'
 import { CHART, chartTheme } from '../lib/chartColors'
+import type { MetricSnapshot } from '../types'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -48,6 +48,23 @@ function formatPercent(value?: number): string {
   return value.toFixed(1) + '%'
 }
 
+/**
+ * Backend timestamps are naive UTC (no offset suffix). Tag them as UTC so
+ * labels show the user's local wall-clock time instead of a TZ-shifted one.
+ */
+function parseTimestamp(value: string): Date {
+  return /[zZ]$|[+-]\d{2}:?\d{2}$/.test(value) ? new Date(value) : new Date(`${value}Z`)
+}
+
+function formatTimeLabel(value: string, withDays: boolean): string {
+  return parseTimestamp(value).toLocaleString(
+    [],
+    withDays
+      ? { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }
+      : { hour: '2-digit', minute: '2-digit' },
+  )
+}
+
 /* ------------------------------------------------------------------ */
 /*  Static token-class map — replaces dynamically interpolated color names */
 /* ------------------------------------------------------------------ */
@@ -58,6 +75,77 @@ const CARD_COLORS: Record<string, { bg: string; icon: string }> = {
   indigo: { bg: 'bg-info-subtle', icon: 'text-info' },
   orange: { bg: 'bg-warning-subtle', icon: 'text-warning' },
   green: { bg: 'bg-success-subtle', icon: 'text-success' },
+}
+
+/* ------------------------------------------------------------------ */
+/*  Network interface histograms                                       */
+/* ------------------------------------------------------------------ */
+
+/** Upper bound for histogram buckets — keeps bars readable on 7d ranges. */
+const IFACE_BUCKETS = 30
+
+interface InterfaceSeries {
+  name: string
+  totals: { rx?: number; tx?: number }
+  data: Array<{ label: string; rx: number; tx: number }>
+}
+
+/**
+ * Builds per-interface traffic histograms from the collected snapshots.
+ *
+ * interface_stats holds cumulative byte counters, so the chart plots the
+ * delta between consecutive snapshots (traffic during the interval),
+ * clamped at 0 for counter resets. Deltas are bucketed so long ranges
+ * stay readable.
+ */
+function buildInterfaceSeries(
+  ascending: MetricSnapshot[],
+  latest?: MetricSnapshot,
+): InterfaceSeries[] {
+  if (ascending.length === 0) return []
+
+  // Interfaces in order of first appearance
+  const names: string[] = []
+  for (const s of ascending) {
+    for (const iface of s.interface_stats ?? []) {
+      if (!names.includes(iface.name)) names.push(iface.name)
+    }
+  }
+  if (names.length === 0) return []
+
+  const bucketSize = Math.max(1, Math.ceil(ascending.length / IFACE_BUCKETS))
+
+  return names.map((name) => {
+    let prev: { rx_bytes?: number; tx_bytes?: number } | undefined
+    const deltas = ascending.map((s) => {
+      const cur = s.interface_stats?.find((i) => i.name === name)
+      const delta = {
+        rx: cur && prev ? Math.max(0, (cur.rx_bytes ?? 0) - (prev.rx_bytes ?? 0)) : 0,
+        tx: cur && prev ? Math.max(0, (cur.tx_bytes ?? 0) - (prev.tx_bytes ?? 0)) : 0,
+      }
+      prev = cur
+      return delta
+    })
+
+    const data: InterfaceSeries['data'] = []
+    for (let start = 0; start < ascending.length; start += bucketSize) {
+      const end = Math.min(start + bucketSize, ascending.length)
+      let rx = 0
+      let tx = 0
+      for (let i = start; i < end; i++) {
+        rx += deltas[i].rx
+        tx += deltas[i].tx
+      }
+      data.push({
+        label: formatTimeLabel(ascending[start].timestamp, ascending.length > 24 * 2),
+        rx,
+        tx,
+      })
+    }
+
+    const total = latest?.interface_stats?.find((i) => i.name === name)
+    return { name, totals: { rx: total?.rx_bytes, tx: total?.tx_bytes }, data }
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -105,35 +193,42 @@ export function Metrics() {
 
   const chartThemeTokens = chartTheme()
 
+  // Snapshots arrive newest-first; charts plot oldest-first.
+  const ascending = useMemo(
+    () => (historical ? [...historical].reverse() : []),
+    [historical],
+  )
+
+  const withDays = timeRange === '7d'
+
   // Prepare chart data from historical snapshots
-  const chartData =
-    historical
-      ?.slice()
-      .reverse()
-      .map((s) => ({
-        time: new Date(s.timestamp).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
+  const chartData = useMemo(
+    () =>
+      ascending.map((s) => ({
+        time: formatTimeLabel(s.timestamp, withDays),
         cpu: s.cpu_percent ?? 0,
         memory: s.memory_percent ?? 0,
         disk: s.disk_percent ?? 0,
-      })) ?? []
+      })),
+    [ascending, withDays],
+  )
 
-  const mailChartData =
-    historical
-      ?.slice()
-      .reverse()
-      .map((s) => ({
-        time: new Date(s.timestamp).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
+  const mailChartData = useMemo(
+    () =>
+      ascending.map((s) => ({
+        time: formatTimeLabel(s.timestamp, withDays),
         inbound: s.mail_inbound_count ?? 0,
         outbound: s.mail_outbound_count ?? 0,
         spam: s.mail_spam_count ?? 0,
         virus: s.mail_virus_count ?? 0,
-      })) ?? []
+      })),
+    [ascending, withDays],
+  )
+
+  const interfaceSeries = useMemo(
+    () => buildInterfaceSeries(ascending, latest),
+    [ascending, latest],
+  )
 
   /* ── No instance selected ── */
   if (!selectedInstanceId) {
@@ -372,35 +467,72 @@ export function Metrics() {
       </div>
 
       {/* ── Network Interfaces ── */}
-      {system?.interface_stats && system.interface_stats.length > 0 && (
+      {historicalLoading ? null : interfaceSeries.length > 0 ? (
         <Card title="Network Interfaces" padding="" className="mb-6">
           <div className="divide-y divide-border">
-            {system.interface_stats.map((iface) => (
-              <div
-                key={iface.name}
-                className="px-5 py-4 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <Network className="w-5 h-5 text-on-surface-muted" />
-                  <span className="font-medium text-on-surface">
-                    {iface.name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-6 text-sm text-on-surface-muted">
-                  <div className="flex items-center gap-1">
-                    <ArrowUpDown className="w-4 h-4 text-success" />
-                    <span>RX: {formatBytes(iface.rx_bytes)}</span>
+            {interfaceSeries.map((series) => {
+              const hasTraffic = series.data.some((d) => d.rx > 0 || d.tx > 0)
+              return (
+                <div key={series.name} className="px-5 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Network className="w-4 h-4 text-on-surface-muted" />
+                      <span className="font-medium text-on-surface">
+                        {series.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-5 text-sm text-on-surface-muted">
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-sm"
+                          style={{ background: CHART.success }}
+                        />
+                        RX {formatBytes(series.totals.rx)}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-sm"
+                          style={{ background: CHART.primary }}
+                        />
+                        TX {formatBytes(series.totals.tx)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <ArrowUpDown className="w-4 h-4 text-primary" />
-                    <span>TX: {formatBytes(iface.tx_bytes)}</span>
-                  </div>
+                  {hasTraffic ? (
+                    <ResponsiveContainer width="100%" height={160}>
+                      <BarChart data={series.data}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke={chartThemeTokens.grid}
+                          vertical={false}
+                        />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fill: chartThemeTokens.axis, fontSize: 11 }}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis
+                          tickFormatter={(v) => formatBytes(Number(v))}
+                          tick={{ fill: chartThemeTokens.axis, fontSize: 11 }}
+                          width={72}
+                        />
+                        <Tooltip formatter={(v) => formatBytes(Number(v))} />
+                        <Bar dataKey="rx" fill={CHART.success} name="RX" />
+                        <Bar dataKey="tx" fill={CHART.primary} name="TX" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-sm text-on-surface-muted text-center py-8">
+                      No traffic recorded in this range yet — snapshots are
+                      collected every minute
+                    </p>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </Card>
-      )}
+      ) : null}
     </div>
   )
 }

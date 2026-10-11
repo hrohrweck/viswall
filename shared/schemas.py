@@ -1,8 +1,23 @@
 import re
 from pydantic import BaseModel, Field, IPvAnyNetwork, field_validator, model_validator
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
+
+
+def to_naive_utc(value: Optional[datetime]) -> Optional[datetime]:
+    """Normalize a client-supplied datetime to naive UTC.
+
+    Timestamps are stored naive-UTC throughout the database, and asyncpg
+    rejects comparisons between timezone-aware arguments and naive
+    TIMESTAMP columns ("can't subtract offset-naive and offset-aware
+    datetimes"). Clients send ISO strings that Pydantic parses into
+    aware datetimes, so everything crossing the validation boundary is
+    converted to naive UTC before it reaches a query.
+    """
+    if value is None or value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 # Enums
@@ -551,6 +566,8 @@ class MetricsQuery(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     granularity: str = "5m"  # 1m, 5m, 1h, 1d
+
+    _naive_utc = field_validator("start_time", "end_time")(to_naive_utc)
 
 
 class MetricsSummary(BaseModel):

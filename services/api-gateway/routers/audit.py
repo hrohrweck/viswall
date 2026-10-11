@@ -6,7 +6,7 @@ from datetime import datetime
 
 from shared.database import get_db
 from shared.models import AuditLog
-from shared.schemas import AuditLogResponse
+from shared.schemas import AuditLogResponse, to_naive_utc
 from shared.security import require_auth, require_admin
 
 router = APIRouter()
@@ -27,6 +27,8 @@ async def list_audit_logs(
     db: AsyncSession = Depends(get_db),
 ):
     """List audit logs with filtering (admin only)"""
+    start_time = to_naive_utc(start_time)
+    end_time = to_naive_utc(end_time)
     stmt = select(AuditLog).order_by(desc(AuditLog.timestamp))
 
     if user_id_filter:
@@ -71,6 +73,8 @@ async def get_instance_logs(
     db: AsyncSession = Depends(get_db),
 ):
     """Get audit logs for a specific instance"""
+    start_time = to_naive_utc(start_time)
+    end_time = to_naive_utc(end_time)
     stmt = select(AuditLog).where(
         AuditLog.instance_id == instance_id
     ).order_by(desc(AuditLog.timestamp))

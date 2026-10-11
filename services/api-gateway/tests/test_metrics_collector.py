@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -62,8 +63,19 @@ async def test_collects_for_instances_that_are_not_active(inactive_instance):
         )
         snapshots = result.scalars().all()
     assert len(snapshots) == 1
-    assert snapshots[0].cpu_percent is not None
-    assert snapshots[0].timestamp <= datetime.utcnow() + timedelta(seconds=5)
+    snapshot = snapshots[0]
+    assert snapshot.cpu_percent is not None
+    assert snapshot.timestamp <= datetime.utcnow() + timedelta(seconds=5)
+    # Real host metrics from psutil: usage counters never exceed capacity
+    assert snapshot.memory_used_bytes <= snapshot.memory_total_bytes
+    assert snapshot.disk_used_bytes <= snapshot.disk_total_bytes
+    # Interface stats are real interfaces with byte counters (loopback and
+    # container/virtual bridges are filtered out)
+    assert isinstance(snapshot.interface_stats, list)
+    for iface in snapshot.interface_stats:
+        assert iface["name"] != "lo"
+        assert iface["rx_bytes"] >= 0
+        assert iface["tx_bytes"] >= 0
 
 
 async def test_redis_lock_falls_back_to_collecting_when_unavailable(monkeypatch):
@@ -92,3 +104,57 @@ async def test_redis_lock_deduplicates_when_held(monkeypatch):
     kwargs = redis_mock.set.await_args.kwargs
     assert kwargs.get("nx") is True
     assert kwargs.get("ex") == 55  # METRICS_INTERVAL default 60 - 5
+
+
+async def test_parse_proc_net_dev_keeps_raw_rows(tmp_path):
+    """Host /proc/net/dev parsing: name plus rx/tx byte counters per row."""
+    from metrics_collector import _parse_proc_net_dev
+
+    proc_net_dev = tmp_path / "dev"
+    proc_net_dev.write_text(
+        "Inter-|   Receive                                                "
+        "|  Transmit\n"
+        " face |bytes    packets errs drop fifo frame compressed "
+        "multicast|bytes    packets errs drop fifo colls carrier\n"
+        "    lo: 1000 10 0 0 0 0 0 0 2000 20 0 0 0 0 0\n"
+        " enp6s0: 5000 50 0 0 0 0 0 0 7000 70 0 0 0 0 0\n"
+        "  veth9a1b2c: 300 3 0 0 0 0 0 0 400 4 0 0 0 0 0\n"
+    )
+
+    assert _parse_proc_net_dev(proc_net_dev) == [
+        {"name": "lo", "rx_bytes": 1000, "tx_bytes": 2000},
+        {"name": "enp6s0", "rx_bytes": 5000, "tx_bytes": 7000},
+        {"name": "veth9a1b2c", "rx_bytes": 300, "tx_bytes": 400},
+    ]
+
+
+async def test_interface_stats_exclude_loopback_and_virtual(monkeypatch):
+    """Loopback and container bridges are dashboard noise; VPN tunnels stay."""
+    from metrics_collector import _interface_stats
+
+    class _Nic:
+        def __init__(self, rx, tx):
+            self.bytes_recv = rx
+            self.bytes_sent = tx
+
+    monkeypatch.setattr(
+        "metrics_collector.HOST_PROC", Path("/nonexistent-host-proc")
+    )
+    monkeypatch.setattr(
+        "psutil.net_io_counters",
+        lambda pernic=False: {
+            "lo": _Nic(1, 1),
+            "eth0": _Nic(100, 200),
+            "docker0": _Nic(5, 5),
+            "br-f00d": _Nic(6, 6),
+            "wg0": _Nic(7, 7),
+        },
+    )
+
+    names = [s["name"] for s in _interface_stats()]
+
+    assert "lo" not in names
+    assert "docker0" not in names
+    assert "br-f00d" not in names
+    assert "eth0" in names
+    assert "wg0" in names
