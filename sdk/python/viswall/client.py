@@ -27,6 +27,7 @@ from viswall.resources import (
     DNSResource,
     FirewallSimulationResource,
     LLMAdminResource,
+    NetworkResource,
 )
 
 T = TypeVar("T")
@@ -96,6 +97,7 @@ class ViswallClient:
         self.dns = DNSResource(self)
         self.firewall_simulation = FirewallSimulationResource(self)
         self.llm_admin = LLMAdminResource(self)
+        self.network = NetworkResource(self)
 
     def _request(
         self,

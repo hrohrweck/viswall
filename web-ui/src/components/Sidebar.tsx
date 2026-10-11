@@ -18,6 +18,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   FlaskConical,
+  Cable,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/auth'
 import { useSidebarStore } from '../stores/sidebar'
@@ -54,6 +55,7 @@ const navGroups: NavGroup[] = [
       { path: '/firewall/nat', label: 'NAT Rules', icon: Globe },
       { path: '/routing', label: 'Routing', icon: Route },
       { path: '/traffic', label: 'Traffic Shaping', icon: Gauge },
+      { path: '/interfaces', label: 'Interfaces', icon: Cable },
       { path: '/vpn', label: 'VPN', icon: Network },
     ],
   },

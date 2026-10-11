@@ -65,6 +65,11 @@ import type {
   MetricsQuery,
   MetricsSummary,
   DashboardData,
+  NetworkInterfaceCreate,
+  NetworkInterfaceUpdate,
+  InterfaceLiveStateResponse,
+  InterfaceApplyResult,
+  InstanceApiKey,
   RoutingRule,
   RoutingRuleCreate,
   RoutingRuleUpdate,
@@ -98,6 +103,7 @@ const queryKeys = {
   user: (id: number) => ['users', id] as const,
   firewallRules: (instanceId: number) => ['firewall-rules', instanceId] as const,
   networkInterfaces: (instanceId: number) => ['network-interfaces', instanceId] as const,
+  networkInterfacesLive: (instanceId: number) => ['network-interfaces-live', instanceId] as const,
   mailDomains: (instanceId: number) => ['mail-domains', instanceId] as const,
   mailDomain: (instanceId: number, domainId: number) => ['mail-domains', instanceId, domainId] as const,
   groupwareStatus: (domainId: number) => ['groupware-status', domainId] as const,
@@ -345,10 +351,97 @@ export function useNetworkInterfaces(instanceId: number) {
   return useQuery<NetworkInterface[]>({
     queryKey: queryKeys.networkInterfaces(instanceId),
     queryFn: async () => {
-      const { data } = await api.get(`/firewall/interfaces/${instanceId}`)
+      const { data } = await api.get(`/network/interfaces/${instanceId}`)
       return data
     },
     enabled: !!instanceId,
+  })
+}
+
+export function useLiveNetworkInterfaces(instanceId: number) {
+  return useQuery<InterfaceLiveStateResponse>({
+    queryKey: queryKeys.networkInterfacesLive(instanceId),
+    queryFn: async () => {
+      const { data } = await api.get(`/network/interfaces/${instanceId}/live`)
+      return data
+    },
+    enabled: false, // fetched on demand via the Discover button
+  })
+}
+
+export function useCreateNetworkInterface(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: NetworkInterfaceCreate) => {
+      const { data: created } = await api.post<NetworkInterface>(
+        `/network/interfaces/${instanceId}`,
+        data,
+      )
+      return created
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.networkInterfaces(instanceId),
+      })
+    },
+  })
+}
+
+export function useUpdateNetworkInterface(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...updates
+    }: { id: number } & NetworkInterfaceUpdate) => {
+      const { data } = await api.patch<NetworkInterface>(
+        `/network/interfaces/detail/${id}`,
+        updates,
+      )
+      return data
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.networkInterfaces(instanceId),
+      })
+    },
+  })
+}
+
+export function useDeleteNetworkInterface(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (interfaceId: number) => {
+      await api.delete(`/network/interfaces/detail/${interfaceId}`)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.networkInterfaces(instanceId),
+      })
+    },
+  })
+}
+
+export function useApplyNetworkInterfaces(instanceId: number) {
+  return useMutation({
+    mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
+      const { data } = await api.post<InterfaceApplyResult>(
+        `/network/interfaces/${instanceId}/apply`,
+        { force },
+      )
+      return data
+    },
+  })
+}
+
+export function useRevealInstanceApiKey() {
+  return useMutation({
+    mutationFn: async (instanceId: number) => {
+      const { data } = await api.get<InstanceApiKey>(
+        `/instances/${instanceId}/api-key`,
+      )
+      return data
+    },
   })
 }
 

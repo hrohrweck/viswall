@@ -139,11 +139,13 @@ class NetworkInterface(Base):
     ip_address = Column(String(45))
     netmask = Column(String(45))
     gateway = Column(String(45))
+    mtu = Column(Integer)
 
     # Traffic shaping
     bandwidth_in = Column(Integer)  # kbps
     bandwidth_out = Column(Integer)
 
+    description = Column(String(255))
     enabled = Column(Boolean, default=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

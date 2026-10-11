@@ -34,7 +34,14 @@ import {
   VPNServer,
   VPNStatus,
 } from '../../types'
-import type { AuditLog, DashboardData, MetricSnapshot, NetworkInterface } from '../../types'
+import type {
+  AuditLog,
+  DashboardData,
+  InterfaceApplyResult,
+  InterfaceLiveStateResponse,
+  MetricSnapshot,
+  NetworkInterface,
+} from '../../types'
 import type { MetricsOverview } from '../../hooks/useApi'
 
 /**
@@ -294,13 +301,15 @@ export const networkInterfaces: NetworkInterface[] = [
     id: 1,
     instance_id: 1,
     name: 'wan0',
-    type: 'physical',
+    type: 'wan',
     config_type: 'static',
     ip_address: '203.0.113.10',
     netmask: '255.255.255.0',
     gateway: '203.0.113.1',
+    mtu: 1500,
     bandwidth_in: 500_000,
     bandwidth_out: 100_000,
+    description: 'Uplink',
     enabled: true,
     updated_at: FIXED_NOW,
   },
@@ -308,17 +317,55 @@ export const networkInterfaces: NetworkInterface[] = [
     id: 2,
     instance_id: 1,
     name: 'lan0',
-    type: 'physical',
+    type: 'lan',
     config_type: 'static',
     ip_address: '192.168.1.1',
     netmask: '255.255.255.0',
     gateway: null,
+    mtu: null,
     bandwidth_in: null,
     bandwidth_out: null,
+    description: null,
     enabled: true,
     updated_at: FIXED_NOW,
   },
 ]
+
+export const liveInterfaces: InterfaceLiveStateResponse = {
+  interfaces: [
+    {
+      name: 'wan0',
+      operstate: 'UP',
+      up: true,
+      mtu: 1500,
+      mac: 'bc:24:11:2f:a1:01',
+      addresses: [{ address: '203.0.113.10', prefixlen: 24 }],
+      has_default_route: true,
+    },
+    {
+      name: 'lan0',
+      operstate: 'UP',
+      up: true,
+      mtu: 1500,
+      mac: 'bc:24:11:2f:a1:02',
+      addresses: [{ address: '192.168.1.1', prefixlen: 24 }],
+      has_default_route: false,
+    },
+  ],
+  default_route_interface: 'wan0',
+  default_gateway: '203.0.113.1',
+}
+
+export const interfaceApplyResult: InterfaceApplyResult = {
+  success: true,
+  changes: [
+    { interface: 'lan0', action: 'mtu', detail: 'set mtu 9000', ok: true },
+  ],
+  default_route_interface: 'wan0',
+  netplan_file: '/etc/netplan/60-viswall.yaml',
+  netplan_written: true,
+  message: 'interface configuration applied',
+}
 
 export const natRules: NATRule[] = [
   {

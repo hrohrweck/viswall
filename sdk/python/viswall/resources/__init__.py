@@ -15,6 +15,7 @@ from viswall.resources.dhcp import DHCPResource
 from viswall.resources.dns import DNSResource
 from viswall.resources.firewall_simulation import FirewallSimulationResource
 from viswall.resources.llm_admin import LLMAdminResource
+from viswall.resources.network import NetworkResource
 
 __all__ = [
     "AuthResource",
@@ -32,4 +33,5 @@ __all__ = [
     "DNSResource",
     "FirewallSimulationResource",
     "LLMAdminResource",
+    "NetworkResource",
 ]

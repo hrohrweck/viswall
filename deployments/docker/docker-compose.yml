@@ -241,6 +241,30 @@ services:
   #   depends_on:
   #     - api-gateway
 
+  # Host node agent: shares the host network namespace with NET_ADMIN so it
+  # can discover and reconfigure the host's real interfaces (Network ->
+  # Interfaces page). Disable by leaving NODE_INSTANCE_ID/NODE_API_KEY unset.
+  # Persistence writes /etc/netplan/60-viswall.yaml on the host — make sure
+  # no other netplan file configures the same interfaces.
+  node-agent:
+    build:
+      context: ../..
+      dockerfile: services/node-agent/Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    environment:
+      # A host-network container cannot resolve compose service names.
+      GATEWAY_URL: ${NODE_GATEWAY_URL:-http://127.0.0.1:8010}
+      INSTANCE_ID: ${NODE_INSTANCE_ID:-}
+      INSTANCE_API_KEY: ${NODE_API_KEY:-}
+      NETPLAN_DIR: ${NETPLAN_DIR:-/etc/netplan}
+    volumes:
+      - /etc/netplan:/etc/netplan
+    depends_on:
+      - api-gateway
+
   dns-service:
     build:
       context: ../..

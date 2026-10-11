@@ -95,3 +95,7 @@ class InstancesResource:
             f"/instances/{instance_id}/heartbeat",
             json={"api_key": api_key},
         )
+
+    def reveal_api_key(self, instance_id: int) -> Dict[str, Any]:
+        """Reveal the instance API key (admin only, for agent enrollment)."""
+        return self._client._request("GET", f"/instances/{instance_id}/api-key")

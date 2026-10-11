@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "mimosa-hook-status/v1",
+  "recordedAt": "2026-10-10T17:48:07.933Z",
+  "sessionId": "sess_e9106590-101b-4637-8b7b-e0316952c851",
+  "event": "PostToolUse",
+  "toolName": "Edit",
+  "file": "/home/sysop/source/private/viswall/web-ui/src/test/pages-metrics.test.tsx",
+  "outcome": "inconclusive",
+  "coverage": "partial",
+  "findingCount": 0,
+  "durationMs": 7,
+  "hostState": "hook_complete",
+  "reportHint": ".mimosa/reports/"
+}

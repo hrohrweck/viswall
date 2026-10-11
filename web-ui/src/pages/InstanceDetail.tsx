@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Copy, ExternalLink, Pencil, Trash2 } from 'lucide-react'
-import { useInstance, useDeleteInstance, useUpdateInstance } from '../hooks/useApi'
+import { ArrowLeft, Copy, ExternalLink, Eye, KeyRound, Pencil, Trash2 } from 'lucide-react'
+import { useInstance, useDeleteInstance, useUpdateInstance, useRevealInstanceApiKey } from '../hooks/useApi'
 import {
   PageHeader,
   Button,
@@ -18,6 +18,7 @@ import {
 } from '../components/ui'
 import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
+import { useAuthStore } from '../stores/auth'
 
 export function InstanceDetail() {
   const { id } = useParams()
@@ -26,10 +27,14 @@ export function InstanceDetail() {
   const { data: instance, isLoading } = useInstance(instanceId)
   const deleteMutation = useDeleteInstance()
   const updateMutation = useUpdateInstance()
+  const revealKeyMutation = useRevealInstanceApiKey()
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin'
   const [showDelete, setShowDelete] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [editName, setEditName] = useState('')
   const [editDescription, setEditDescription] = useState('')
+  const [revealedKey, setRevealedKey] = useState<string | null>(null)
 
   if (isLoading) return <PageSkeleton />
   if (!instance) return (
@@ -143,6 +148,41 @@ export function InstanceDetail() {
                 <IconButton icon={Copy} label="Copy API endpoint" onClick={() => copyToClipboard(instance.api_endpoint)} />
               </dd>
             </div>
+            {isAdmin && (
+              <div>
+                <dt className="text-sm text-on-surface-muted mb-1">Instance API Key</dt>
+                <dd className="flex items-center gap-2">
+                  {revealedKey ? (
+                    <>
+                      <code className="font-mono text-sm bg-surface-elevated px-2 py-1 rounded flex-1 truncate text-on-surface">
+                        {revealedKey}
+                      </code>
+                      <IconButton icon={Copy} label="Copy API key" onClick={() => copyToClipboard(revealedKey)} />
+                      <IconButton icon={Eye} label="Hide API key" onClick={() => setRevealedKey(null)} />
+                    </>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      icon={KeyRound}
+                      loading={revealKeyMutation.isPending}
+                      onClick={async () => {
+                        try {
+                          const res = await revealKeyMutation.mutateAsync(instance.id)
+                          setRevealedKey(res.api_key)
+                        } catch {
+                          toast.error('Failed to reveal API key')
+                        }
+                      }}
+                    >
+                      Reveal API Key
+                    </Button>
+                  )}
+                </dd>
+                <p className="text-xs text-on-surface-muted mt-1">
+                  Needed to enroll agents (node-agent, DNS agent) on this host.
+                </p>
+              </div>
+            )}
           </dl>
         </Card>
 

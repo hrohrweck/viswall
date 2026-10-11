@@ -79,6 +79,13 @@ class InstanceResponse(InstanceBase):
         from_attributes = True
 
 
+class InstanceApiKeyResponse(BaseModel):
+    """Admin-only reveal of the instance API key, needed for agent enrollment."""
+
+    instance_id: int
+    api_key: str
+
+
 # User Schemas
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=100)
@@ -263,13 +270,29 @@ class NetworkInterfaceBase(BaseModel):
     ip_address: Optional[str] = None
     netmask: Optional[str] = None
     gateway: Optional[str] = None
+    mtu: Optional[int] = Field(default=None, ge=68, le=65535)
     bandwidth_in: Optional[int] = None  # kbps
     bandwidth_out: Optional[int] = None
+    description: Optional[str] = Field(default=None, max_length=255)
     enabled: bool = True
 
 
 class NetworkInterfaceCreate(NetworkInterfaceBase):
     pass
+
+
+class NetworkInterfaceUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=50)
+    type: Optional[str] = None
+    config_type: Optional[str] = None
+    ip_address: Optional[str] = None
+    netmask: Optional[str] = None
+    gateway: Optional[str] = None
+    mtu: Optional[int] = Field(default=None, ge=68, le=65535)
+    bandwidth_in: Optional[int] = None
+    bandwidth_out: Optional[int] = None
+    description: Optional[str] = Field(default=None, max_length=255)
+    enabled: Optional[bool] = None
 
 
 class NetworkInterfaceResponse(NetworkInterfaceBase):
@@ -279,6 +302,48 @@ class NetworkInterfaceResponse(NetworkInterfaceBase):
 
     class Config:
         from_attributes = True
+
+
+# Host interface live-state / apply (relayed from the node agent)
+class InterfaceLiveAddress(BaseModel):
+    address: str
+    prefixlen: int
+
+
+class InterfaceLiveState(BaseModel):
+    name: str
+    operstate: str = "unknown"
+    up: bool = False
+    mtu: Optional[int] = None
+    mac: Optional[str] = None
+    addresses: List[InterfaceLiveAddress] = Field(default_factory=list)
+    has_default_route: bool = False
+
+
+class InterfaceLiveStateResponse(BaseModel):
+    interfaces: List[InterfaceLiveState] = Field(default_factory=list)
+    default_route_interface: Optional[str] = None
+    default_gateway: Optional[str] = None
+
+
+class InterfaceApplyRequest(BaseModel):
+    force: bool = False
+
+
+class InterfaceApplyChange(BaseModel):
+    interface: str
+    action: str
+    detail: str
+    ok: bool = True
+
+
+class InterfaceApplyResultResponse(BaseModel):
+    success: bool
+    changes: List[InterfaceApplyChange] = Field(default_factory=list)
+    default_route_interface: Optional[str] = None
+    netplan_file: Optional[str] = None
+    netplan_written: bool = False
+    message: str = ""
 
 
 # Mail Domain Schemas

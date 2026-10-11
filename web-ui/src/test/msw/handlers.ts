@@ -57,6 +57,34 @@ export const handlers = [
   // --- Policy routing --------------------------------------------------------
   http.get('/api/v1/routing/rules/:instanceId', () => HttpResponse.json(f.routingRules)),
 
+  // --- Host interface management ---------------------------------------------
+  http.get('/api/v1/network/interfaces/:instanceId', () => HttpResponse.json(f.networkInterfaces)),
+  http.post('/api/v1/network/interfaces/:instanceId', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json(
+      {
+        id: 99,
+        instance_id: 1,
+        updated_at: f.networkInterfaces[0].updated_at,
+        bandwidth_in: null,
+        bandwidth_out: null,
+        ...body,
+      },
+      { status: 201 },
+    )
+  }),
+  http.patch('/api/v1/network/interfaces/detail/:id', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json({ ...f.networkInterfaces[0], ...body })
+  }),
+  http.delete('/api/v1/network/interfaces/detail/:id', () => new HttpResponse(null, { status: 204 })),
+  http.get('/api/v1/network/interfaces/:instanceId/live', () =>
+    HttpResponse.json(f.liveInterfaces),
+  ),
+  http.post('/api/v1/network/interfaces/:instanceId/apply', () =>
+    HttpResponse.json(f.interfaceApplyResult),
+  ),
+
   // --- VPN -------------------------------------------------------------------
   http.get('/api/v1/vpn/protocols/recommendations', () => HttpResponse.json(f.vpnProtocols)),
   http.get('/api/v1/vpn/servers/:instanceId', () => HttpResponse.json(f.vpnServers)),

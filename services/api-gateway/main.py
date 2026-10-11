@@ -6,7 +6,7 @@ import asyncio
 import os
 import time
 
-from routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant, groupware, llm_admin, dns, dhcp
+from routers import auth, instances, users, firewall, mail, metrics, routing, audit, vpn, firewall_simulation, assistant, groupware, llm_admin, dns, dhcp, network
 from shared.database import init_db, get_db
 from shared.models import Base
 from metrics_collector import start_metrics_collector
@@ -108,6 +108,7 @@ app.include_router(instances.router, prefix="/api/v1/instances", tags=["Instance
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(firewall.router, prefix="/api/v1/firewall", tags=["Firewall"])
 app.include_router(routing.router, prefix="/api/v1/routing", tags=["Routing"])
+app.include_router(network.router, prefix="/api/v1/network", tags=["Network Interfaces"])
 app.include_router(mail.router, prefix="/api/v1/mail", tags=["Mail"])
 app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["Metrics"])
 app.include_router(audit.router, prefix="/api/v1/audit", tags=["Audit"])

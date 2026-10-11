@@ -13,6 +13,7 @@ import {
   UsersResource,
   FirewallResource,
   RoutingResource,
+  NetworkResource,
   MailResource,
   MetricsResource,
   AuditResource,
@@ -39,6 +40,7 @@ export class ViswallClient {
   public readonly users: UsersResource;
   public readonly firewall: FirewallResource;
   public readonly routing: RoutingResource;
+  public readonly network: NetworkResource;
   public readonly mail: MailResource;
   public readonly metrics: MetricsResource;
   public readonly audit: AuditResource;
@@ -81,6 +83,7 @@ export class ViswallClient {
     this.users = new UsersResource(this);
     this.firewall = new FirewallResource(this);
     this.routing = new RoutingResource(this);
+    this.network = new NetworkResource(this);
     this.mail = new MailResource(this);
     this.metrics = new MetricsResource(this);
     this.audit = new AuditResource(this);

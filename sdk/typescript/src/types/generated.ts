@@ -70,6 +70,16 @@ export interface paths {
      */
     patch: operations["update_instance_api_v1_instances__instance_id__patch"];
   };
+  "/api/v1/instances/{instance_id}/api-key": {
+    /**
+     * Reveal Instance Api Key
+     * @description Return the instance API key (admin only) so an agent can enroll.
+     *
+     * The key is generated at creation time and never included in instance
+     * listings; agents (dns, node, ...) authenticate with it.
+     */
+    get: operations["reveal_instance_api_key_api_v1_instances__instance_id__api_key_get"];
+  };
   "/api/v1/instances/{instance_id}/heartbeat": {
     /**
      * Instance Heartbeat
@@ -276,6 +286,48 @@ export interface paths {
      * @description Apply routing rules to an instance
      */
     post: operations["apply_routing_api_v1_routing_apply__instance_id__post"];
+  };
+  "/api/v1/network/interfaces/{instance_id}": {
+    /**
+     * List Interfaces
+     * @description Configured (desired-state) interfaces for an instance.
+     */
+    get: operations["list_interfaces_api_v1_network_interfaces__instance_id__get"];
+    /**
+     * Create Interface
+     * @description Add an interface to the instance's desired configuration.
+     */
+    post: operations["create_interface_api_v1_network_interfaces__instance_id__post"];
+  };
+  "/api/v1/network/interfaces/detail/{interface_id}": {
+    /**
+     * Delete Interface
+     * @description Remove an interface from the instance's desired configuration.
+     */
+    delete: operations["delete_interface_api_v1_network_interfaces_detail__interface_id__delete"];
+    /**
+     * Update Interface
+     * @description Update desired state for one interface (apply separately).
+     */
+    patch: operations["update_interface_api_v1_network_interfaces_detail__interface_id__patch"];
+  };
+  "/api/v1/network/interfaces/{instance_id}/live": {
+    /**
+     * Live Interfaces
+     * @description Live interface state as reported by the instance's node agent.
+     */
+    get: operations["live_interfaces_api_v1_network_interfaces__instance_id__live_get"];
+  };
+  "/api/v1/network/interfaces/{instance_id}/apply": {
+    /**
+     * Apply Interfaces
+     * @description Dispatch the desired interface configuration to the node agent.
+     *
+     * The agent plans idempotent netlink changes, refuses anything that
+     * would cut the default route without force=true, and persists the
+     * desired state as a netplan file.
+     */
+    post: operations["apply_interfaces_api_v1_network_interfaces__instance_id__apply_post"];
   };
   "/api/v1/mail/domains/{instance_id}": {
     /**
@@ -1194,13 +1246,9 @@ export interface components {
       /** Resource Id */
       resource_id: string | null;
       /** Old Value */
-      old_value: {
-        [key: string]: unknown;
-      } | null;
+      old_value: Record<string, never> | null;
       /** New Value */
-      new_value: {
-        [key: string]: unknown;
-      } | null;
+      new_value: Record<string, never> | null;
       /** Ip Address */
       ip_address: string | null;
       /**
@@ -1228,9 +1276,7 @@ export interface components {
       /** Conversation Id */
       conversation_id?: string | null;
       /** Context */
-      context?: {
-        [key: string]: unknown;
-      } | null;
+      context?: Record<string, never> | null;
     };
     /** ChatResponse */
     ChatResponse: {
@@ -1239,9 +1285,7 @@ export interface components {
       /** Message */
       message: string;
       /** Data */
-      data?: {
-        [key: string]: unknown;
-      } | null;
+      data?: Record<string, never> | null;
       /**
        * Can Apply
        * @default false
@@ -1255,9 +1299,7 @@ export interface components {
       /** Config Type */
       config_type: string;
       /** Config */
-      config: {
-        [key: string]: unknown;
-      };
+      config: Record<string, never>;
       /** Question */
       question?: string | null;
     };
@@ -2517,6 +2559,16 @@ export interface components {
        */
       mobike?: boolean;
     };
+    /**
+     * InstanceApiKeyResponse
+     * @description Admin-only reveal of the instance API key, needed for agent enrollment.
+     */
+    InstanceApiKeyResponse: {
+      /** Instance Id */
+      instance_id: number;
+      /** Api Key */
+      api_key: string;
+    };
     /** InstanceCreate */
     InstanceCreate: {
       /** Name */
@@ -2544,9 +2596,7 @@ export interface components {
       /** Last Seen */
       last_seen: string | null;
       /** Config */
-      config: {
-        [key: string]: unknown;
-      };
+      config: Record<string, never>;
       /**
        * Created At
        * Format: date-time
@@ -2573,9 +2623,92 @@ export interface components {
       /** Capabilities */
       capabilities?: string[] | null;
       /** Config */
-      config?: {
-        [key: string]: unknown;
-      } | null;
+      config?: Record<string, never> | null;
+    };
+    /** InterfaceApplyChange */
+    InterfaceApplyChange: {
+      /** Interface */
+      interface: string;
+      /** Action */
+      action: string;
+      /** Detail */
+      detail: string;
+      /**
+       * Ok
+       * @default true
+       */
+      ok?: boolean;
+    };
+    /** InterfaceApplyRequest */
+    InterfaceApplyRequest: {
+      /**
+       * Force
+       * @default false
+       */
+      force?: boolean;
+    };
+    /** InterfaceApplyResultResponse */
+    InterfaceApplyResultResponse: {
+      /** Success */
+      success: boolean;
+      /** Changes */
+      changes?: components["schemas"]["InterfaceApplyChange"][];
+      /** Default Route Interface */
+      default_route_interface?: string | null;
+      /** Netplan File */
+      netplan_file?: string | null;
+      /**
+       * Netplan Written
+       * @default false
+       */
+      netplan_written?: boolean;
+      /**
+       * Message
+       * @default
+       */
+      message?: string;
+    };
+    /** InterfaceLiveAddress */
+    InterfaceLiveAddress: {
+      /** Address */
+      address: string;
+      /** Prefixlen */
+      prefixlen: number;
+    };
+    /** InterfaceLiveState */
+    InterfaceLiveState: {
+      /** Name */
+      name: string;
+      /**
+       * Operstate
+       * @default unknown
+       */
+      operstate?: string;
+      /**
+       * Up
+       * @default false
+       */
+      up?: boolean;
+      /** Mtu */
+      mtu?: number | null;
+      /** Mac */
+      mac?: string | null;
+      /** Addresses */
+      addresses?: components["schemas"]["InterfaceLiveAddress"][];
+      /**
+       * Has Default Route
+       * @default false
+       */
+      has_default_route?: boolean;
+    };
+    /** InterfaceLiveStateResponse */
+    InterfaceLiveStateResponse: {
+      /** Interfaces */
+      interfaces?: components["schemas"]["InterfaceLiveState"][];
+      /** Default Route Interface */
+      default_route_interface?: string | null;
+      /** Default Gateway */
+      default_gateway?: string | null;
     };
     /** L2TPConfig */
     L2TPConfig: {
@@ -3066,9 +3199,7 @@ export interface components {
        */
       mta_forward_port?: number;
       /** Llm Config */
-      llm_config?: {
-        [key: string]: unknown;
-      } | null;
+      llm_config?: Record<string, never> | null;
     };
     /** MailDomainResponse */
     MailDomainResponse: {
@@ -3131,9 +3262,7 @@ export interface components {
       /** Instance Id */
       instance_id: number;
       /** Llm Config */
-      llm_config: {
-        [key: string]: unknown;
-      };
+      llm_config: Record<string, never>;
       /**
        * Created At
        * Format: date-time
@@ -3164,9 +3293,7 @@ export interface components {
       /** Groupware Enabled */
       groupware_enabled?: boolean | null;
       /** Llm Config */
-      llm_config?: {
-        [key: string]: unknown;
-      } | null;
+      llm_config?: Record<string, never> | null;
       /** Mta Forward Enabled */
       mta_forward_enabled?: boolean | null;
       /** Mta Forward Host */
@@ -3346,9 +3473,7 @@ export interface components {
       /** Disk Total Bytes */
       disk_total_bytes?: number | null;
       /** Interface Stats */
-      interface_stats?: {
-          [key: string]: unknown;
-        }[] | null;
+      interface_stats?: Record<string, never>[] | null;
       /** Mail Queue Size */
       mail_queue_size?: number | null;
       /** Mail Inbound Count */
@@ -3421,9 +3546,7 @@ export interface components {
     /** MultiFirewallRequest */
     MultiFirewallRequest: {
       /** Firewalls */
-      firewalls: {
-          [key: string]: unknown;
-        }[];
+      firewalls: Record<string, never>[];
       /** Topology */
       topology: {
         [key: string]: string[];
@@ -3437,17 +3560,13 @@ export interface components {
     /** MultiFirewallTestRequest */
     MultiFirewallTestRequest: {
       /** Firewalls */
-      firewalls: {
-          [key: string]: unknown;
-        }[];
+      firewalls: Record<string, never>[];
       /** Topology */
       topology: {
         [key: string]: string[];
       };
       /** Tests */
-      tests: {
-          [key: string]: unknown;
-        }[];
+      tests: Record<string, never>[];
     };
     /** NATRuleCreate */
     NATRuleCreate: {
@@ -3529,6 +3648,40 @@ export interface components {
        */
       updated_at: string;
     };
+    /** NetworkInterfaceCreate */
+    NetworkInterfaceCreate: {
+      /** Name */
+      name: string;
+      /**
+       * Type
+       * @default other
+       */
+      type?: string;
+      /**
+       * Config Type
+       * @default dhcp
+       */
+      config_type?: string;
+      /** Ip Address */
+      ip_address?: string | null;
+      /** Netmask */
+      netmask?: string | null;
+      /** Gateway */
+      gateway?: string | null;
+      /** Mtu */
+      mtu?: number | null;
+      /** Bandwidth In */
+      bandwidth_in?: number | null;
+      /** Bandwidth Out */
+      bandwidth_out?: number | null;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+    };
     /** NetworkInterfaceResponse */
     NetworkInterfaceResponse: {
       /** Name */
@@ -3549,10 +3702,14 @@ export interface components {
       netmask?: string | null;
       /** Gateway */
       gateway?: string | null;
+      /** Mtu */
+      mtu?: number | null;
       /** Bandwidth In */
       bandwidth_in?: number | null;
       /** Bandwidth Out */
       bandwidth_out?: number | null;
+      /** Description */
+      description?: string | null;
       /**
        * Enabled
        * @default true
@@ -3567,6 +3724,31 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** NetworkInterfaceUpdate */
+    NetworkInterfaceUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Type */
+      type?: string | null;
+      /** Config Type */
+      config_type?: string | null;
+      /** Ip Address */
+      ip_address?: string | null;
+      /** Netmask */
+      netmask?: string | null;
+      /** Gateway */
+      gateway?: string | null;
+      /** Mtu */
+      mtu?: number | null;
+      /** Bandwidth In */
+      bandwidth_in?: number | null;
+      /** Bandwidth Out */
+      bandwidth_out?: number | null;
+      /** Description */
+      description?: string | null;
+      /** Enabled */
+      enabled?: boolean | null;
     };
     /** OpenVPNConfig */
     OpenVPNConfig: {
@@ -3967,9 +4149,7 @@ export interface components {
       /** Queues */
       queues?: components["schemas"]["QoSQueueStats"][];
       /** Raw */
-      raw?: {
-        [key: string]: unknown;
-      } | null;
+      raw?: Record<string, never> | null;
       /**
        * Collected At
        * Format: date-time
@@ -4115,33 +4295,25 @@ export interface components {
     /** RuleSuggestionResponse */
     RuleSuggestionResponse: {
       /** Rule */
-      rule: {
-        [key: string]: unknown;
-      };
+      rule: Record<string, never>;
       /** Explanation */
       explanation: string;
       /** Security Notes */
       security_notes: string;
       /** Suggested Tests */
-      suggested_tests: {
-          [key: string]: unknown;
-        }[];
+      suggested_tests: Record<string, never>[];
     };
     /** SecurityAuditRequest */
     SecurityAuditRequest: {
       /** Rules */
-      rules: {
-          [key: string]: unknown;
-        }[];
+      rules: Record<string, never>[];
       /** Standard */
       standard?: string | null;
     };
     /** SecurityAuditResponse */
     SecurityAuditResponse: {
       /** Findings */
-      findings: {
-          [key: string]: unknown;
-        }[];
+      findings: Record<string, never>[];
       /** Risk Score */
       risk_score: number;
       /** Recommendations */
@@ -4166,13 +4338,9 @@ export interface components {
     /** SimulationResponse */
     SimulationResponse: {
       /** Packet */
-      packet: {
-        [key: string]: unknown;
-      };
+      packet: Record<string, never>;
       /** Matched Rule */
-      matched_rule: {
-        [key: string]: unknown;
-      } | null;
+      matched_rule: Record<string, never> | null;
       /** Final Action */
       final_action: string;
       /** Chain Traversed */
@@ -4184,9 +4352,7 @@ export interface components {
       /** Logs */
       logs: string[];
       /** Nat Translation */
-      nat_translation: {
-        [key: string]: unknown;
-      } | null;
+      nat_translation: Record<string, never> | null;
     };
     /**
      * TSIGAlgorithm
@@ -4224,18 +4390,14 @@ export interface components {
       /** Description */
       description: string;
       /** Rules */
-      rules?: {
-          [key: string]: unknown;
-        }[] | null;
+      rules?: Record<string, never>[] | null;
       /** Instance Id */
       instance_id?: number | null;
     };
     /** TestGenerationResponse */
     TestGenerationResponse: {
       /** Test Cases */
-      test_cases: {
-          [key: string]: unknown;
-        }[];
+      test_cases: Record<string, never>[];
       /** Explanation */
       explanation: string;
       /** Coverage Assessment */
@@ -4244,17 +4406,13 @@ export interface components {
     /** TestResultResponse */
     TestResultResponse: {
       /** Test Case */
-      test_case: {
-        [key: string]: unknown;
-      };
+      test_case: Record<string, never>;
       /** Passed */
       passed: boolean;
       /** Actual Action */
       actual_action: string;
       /** Actual Rule */
-      actual_rule: {
-        [key: string]: unknown;
-      } | null;
+      actual_rule: Record<string, never> | null;
       /** Error Message */
       error_message: string | null;
       /** Execution Time Ms */
@@ -4329,9 +4487,7 @@ export interface components {
       /** Instances */
       instances: number[];
       /** Preferences */
-      preferences: {
-        [key: string]: unknown;
-      };
+      preferences: Record<string, never>;
       /** Last Login */
       last_login: string | null;
       /**
@@ -4360,9 +4516,7 @@ export interface components {
       /** Instances */
       instances?: number[] | null;
       /** Preferences */
-      preferences?: {
-        [key: string]: unknown;
-      } | null;
+      preferences?: Record<string, never> | null;
     };
     /**
      * VPNAuthType
@@ -4689,9 +4843,7 @@ export interface components {
       instance_id: number;
       status: components["schemas"]["VPNStatus"];
       /** Config */
-      config: {
-        [key: string]: unknown;
-      };
+      config: Record<string, never>;
       /** Connected Clients */
       connected_clients: number;
       /** Bytes Received */
@@ -4725,9 +4877,7 @@ export interface components {
       /** Total Bytes Sent */
       total_bytes_sent: number;
       /** Client List */
-      client_list: {
-          [key: string]: unknown;
-        }[];
+      client_list: Record<string, never>[];
     };
     /** VPNServerUpdate */
     VPNServerUpdate: {
@@ -4750,9 +4900,7 @@ export interface components {
       /** Internet Redirect */
       internet_redirect?: boolean | null;
       /** Config */
-      config?: {
-        [key: string]: unknown;
-      } | null;
+      config?: Record<string, never> | null;
     };
     /**
      * VPNStatus
@@ -5055,6 +5203,34 @@ export interface operations {
     };
   };
   /**
+   * Reveal Instance Api Key
+   * @description Return the instance API key (admin only) so an agent can enroll.
+   *
+   * The key is generated at creation time and never included in instance
+   * listings; agents (dns, node, ...) authenticate with it.
+   */
+  reveal_instance_api_key_api_v1_instances__instance_id__api_key_get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["InstanceApiKeyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
    * Instance Heartbeat
    * @description Receive heartbeat from an instance (called by instances)
    */
@@ -5066,9 +5242,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": {
-          [key: string]: unknown;
-        };
+        "application/json": Record<string, never>;
       };
     };
     responses: {
@@ -6039,6 +6213,173 @@ export interface operations {
     };
   };
   /**
+   * List Interfaces
+   * @description Configured (desired-state) interfaces for an instance.
+   */
+  list_interfaces_api_v1_network_interfaces__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["NetworkInterfaceResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Create Interface
+   * @description Add an interface to the instance's desired configuration.
+   */
+  create_interface_api_v1_network_interfaces__instance_id__post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NetworkInterfaceCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["NetworkInterfaceResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Delete Interface
+   * @description Remove an interface from the instance's desired configuration.
+   */
+  delete_interface_api_v1_network_interfaces_detail__interface_id__delete: {
+    parameters: {
+      path: {
+        interface_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Update Interface
+   * @description Update desired state for one interface (apply separately).
+   */
+  update_interface_api_v1_network_interfaces_detail__interface_id__patch: {
+    parameters: {
+      path: {
+        interface_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NetworkInterfaceUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["NetworkInterfaceResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Live Interfaces
+   * @description Live interface state as reported by the instance's node agent.
+   */
+  live_interfaces_api_v1_network_interfaces__instance_id__live_get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["InterfaceLiveStateResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Apply Interfaces
+   * @description Dispatch the desired interface configuration to the node agent.
+   *
+   * The agent plans idempotent netlink changes, refuses anything that
+   * would cut the default route without force=true, and persists the
+   * desired state as a netplan file.
+   */
+  apply_interfaces_api_v1_network_interfaces__instance_id__apply_post: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InterfaceApplyRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["InterfaceApplyResultResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
    * Get Domains
    * @description Get all mail domains for an instance
    */
@@ -6549,9 +6890,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": {
-          [key: string]: unknown;
-        };
+        "application/json": Record<string, never>;
       };
     };
     responses: {
@@ -6794,9 +7133,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
       /** @description Validation Error */
@@ -6816,9 +7153,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
     };
@@ -9208,9 +9543,7 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        "application/json": {
-          [key: string]: unknown;
-        } | null;
+        "application/json": Record<string, never> | null;
       };
     };
     responses: {
@@ -9804,9 +10137,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
       /** @description Validation Error */
@@ -9884,9 +10215,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
       /** @description Validation Error */

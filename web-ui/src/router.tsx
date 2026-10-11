@@ -12,6 +12,7 @@ import { TrafficShaping } from './pages/TrafficShaping'
 import { Users } from './pages/Users'
 import { Settings } from './pages/Settings'
 import { Metrics } from './pages/Metrics'
+import { Interfaces } from './pages/Interfaces'
 import { AuditLogs } from './pages/AuditLogs'
 import { RoutingRules } from './pages/RoutingRules'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -113,6 +114,10 @@ export const router = createBrowserRouter([
       {
         path: 'metrics',
         element: <Metrics />,
+      },
+      {
+        path: 'interfaces',
+        element: <Interfaces />,
       },
       {
         path: 'audit',

@@ -533,3 +533,64 @@ class TestMailDomainsMTAForward:
         result = runner.invoke(app, ["mail", "domain-update", "5", "--no-mta-forward"])
         assert result.exit_code == 1
         assert "boom" in result.output
+
+
+class TestInterfacesCommands:
+    def test_list_interfaces(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/network/interfaces/1",
+            json=[{"id": 1, "name": "ens18", "config_type": "static", "enabled": True}],
+        )
+
+        result = runner.invoke(app, ["interfaces", "list", "--instance-id", "1"])
+        assert result.exit_code == 0
+        assert "ens18" in result.output
+
+    def test_live_interfaces(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/network/interfaces/1/live",
+            json={"interfaces": [{"name": "wan0", "up": True, "addresses": []}],
+                  "default_route_interface": "wan0", "default_gateway": "203.0.113.1"},
+        )
+
+        result = runner.invoke(app, ["interfaces", "live", "1"])
+        assert result.exit_code == 0
+        assert "wan0" in result.output
+
+    def test_apply_interfaces(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/network/interfaces/1/apply",
+            method="POST",
+            json={"success": True, "changes": [], "netplan_written": True,
+                  "netplan_file": "/etc/netplan/60-viswall.yaml", "message": "applied"},
+        )
+
+        result = runner.invoke(app, ["interfaces", "apply", "1", "--yes"])
+        assert result.exit_code == 0
+        request = httpx_mock.get_requests()[-1]
+        assert b'"force":false' in request.read()
+
+    def test_apply_interfaces_force_flag(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/network/interfaces/1/apply",
+            method="POST",
+            json={"success": True, "changes": [], "netplan_written": True,
+                  "netplan_file": "/etc/netplan/60-viswall.yaml", "message": "applied"},
+        )
+
+        result = runner.invoke(app, ["interfaces", "apply", "1", "--yes", "--force"])
+        assert result.exit_code == 0
+        request = httpx_mock.get_requests()[-1]
+        assert b'"force":true' in request.read()
