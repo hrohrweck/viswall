@@ -114,17 +114,20 @@ python -m alembic downgrade -1
 
 ### Metrics Collector
 
-A background task (`metrics_collector.py`) runs on startup and periodically inserts `MetricSnapshot` rows for all active instances.
+A background task (`metrics_collector.py`) runs on startup and periodically inserts `MetricSnapshot` rows for all instances (they stay "inactive" until an agent heartbeat arrives).
+
+System and network metrics are **real host telemetry** read via psutil; with the host `/proc` bind-mounted read-only at `/host/proc` (see docker-compose.yml) the appliance's real interfaces are reported (loopback and container bridges filtered). Mail metrics have no collection source yet and are left NULL — the Metrics UI only shows mail sections for instances with deployed mail domains.
 
 ```bash
 # Configurable via environment variables
 export METRICS_COLLECTOR_ENABLED=true   # default: true
 export METRICS_INTERVAL=60              # seconds, default: 60
+export METRICS_RETENTION_DAYS=30        # prune snapshots older than N days; 0 disables
 ```
 
 - Starts automatically with the FastAPI app lifespan.
 - Cancels cleanly on shutdown.
-- Currently simulates realistic metrics (agents are not yet deployed).
+- Each cycle prunes expired snapshots (`metrics_retention.py`); the simulated history was purged by migration `f3a9c1e57b42`.
 
 ---
 

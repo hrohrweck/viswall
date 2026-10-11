@@ -76,6 +76,13 @@ async def test_collects_for_instances_that_are_not_active(inactive_instance):
         assert iface["name"] != "lo"
         assert iface["rx_bytes"] >= 0
         assert iface["tx_bytes"] >= 0
+    # Mail telemetry has no collection source — fields stay NULL rather
+    # than being filled with simulated numbers
+    assert snapshot.mail_queue_size is None
+    assert snapshot.mail_inbound_count is None
+    assert snapshot.mail_outbound_count is None
+    assert snapshot.mail_spam_count is None
+    assert snapshot.mail_virus_count is None
 
 
 async def test_redis_lock_falls_back_to_collecting_when_unavailable(monkeypatch):

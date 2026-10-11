@@ -9,8 +9,12 @@ appliance; with the host /proc bind-mounted read-only at /host/proc
 (see docker-compose.yml) the appliance's real network interfaces are
 reported instead of the container's virtual eth0.
 
-Mail metrics still have no collection source (the mail agent does not
-report telemetry yet), so they remain simulated until then.
+Mail metrics have no collection source (the mail agent does not report
+telemetry yet), so they are left NULL — dashboards gate mail sections on
+deployed mail domains rather than showing invented numbers.
+
+Each cycle also prunes snapshots older than METRICS_RETENTION_DAYS so
+the table does not grow unbounded (0 disables pruning).
 
 Collection is not restricted to instances with status "active":
 instances are created as "inactive" and only flip to "active" once an
@@ -21,17 +25,17 @@ A short Redis lock prevents duplicate collection when the API runs with
 multiple gunicorn workers, each running its own collector loop.
 """
 import asyncio
-import random
 import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import psutil
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from metrics_retention import prune_expired_snapshots
 from shared.models import Instance, MetricSnapshot
 
 logger = logging.getLogger(__name__)
@@ -121,26 +125,15 @@ def _system_stats() -> dict:
     }
 
 
-def _simulated_mail_stats() -> dict:
-    # No mail agent telemetry yet — keep dashboard charts populated with
-    # simulated values until the mail service reports real counts.
-    return {
-        "mail_queue_size": random.randint(0, 50),
-        "mail_inbound_count": random.randint(0, 500),
-        "mail_outbound_count": random.randint(0, 300),
-        "mail_spam_count": random.randint(0, 50),
-        "mail_virus_count": random.randint(0, 5),
-    }
-
-
 async def collect_instance_metrics(instance_id: int) -> dict:
     """Collect metrics for a single instance.
 
-    Returns the metric fields for one MetricSnapshot row.
+    Returns the metric fields for one MetricSnapshot row. Mail fields are
+    intentionally absent — they stay NULL until the mail service reports
+    real telemetry.
     """
     metrics = _system_stats()
     metrics["interface_stats"] = _interface_stats()
-    metrics.update(_simulated_mail_stats())
     return metrics
 
 
@@ -225,6 +218,7 @@ async def metrics_collector_loop():
 
                 async with AsyncSessionLocal() as db:
                     await run_metrics_collection_cycle(db)
+                    await prune_expired_snapshots(db)
         except Exception as e:
             logger.error("Metrics collection cycle failed: %s", e)
 

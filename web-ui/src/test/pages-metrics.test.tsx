@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { http, HttpResponse } from 'msw'
 import { server } from './msw/node'
-import { metricsHistory } from './msw/fixtures'
+import { dashboardData, metricsHistory } from './msw/fixtures'
 import { useInstanceStore } from '../stores/instance'
 import { Metrics } from '../pages/Metrics'
 import { chartTheme } from '../lib/chartColors'
@@ -165,6 +165,32 @@ describe('Metrics', () => {
     expect(
       screen.getAllByText(/No traffic recorded in this range yet/i).length,
     ).toBeGreaterThanOrEqual(1)
+  })
+
+  it('hides mail sections when mail is not deployed on the instance', async () => {
+    // Override the dashboard handler: no mail domains on this host
+    server.use(
+      http.get('/api/v1/metrics/dashboard/1', () =>
+        HttpResponse.json({
+          ...dashboardData,
+          mail_domain_count: 0,
+        }),
+      ),
+    )
+
+    const Wrapper = createWrapper()
+    render(<Metrics />, { wrapper: Wrapper })
+
+    await screen.findByText('CPU Usage')
+
+    // Mail-only metric sections are gone…
+    expect(screen.queryByText('Mail Queue')).not.toBeInTheDocument()
+    expect(screen.queryByText('Mail Activity')).not.toBeInTheDocument()
+    // …and the zero-count function card is not shown either
+    expect(screen.queryByText('Mail Domains')).not.toBeInTheDocument()
+    // Deployed functions still show
+    expect(screen.getByText('Firewall Rules')).toBeInTheDocument()
+    expect(screen.getByText('System Resources')).toBeInTheDocument()
   })
 })
 
