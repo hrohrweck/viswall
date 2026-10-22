@@ -581,3 +581,96 @@ class TestRoutingApply:
         )
         assert response.status_code == 502
         assert "agent down" in response.json()["detail"]
+
+
+class TestFirewallAgentStatusPassthrough:
+    async def test_status_returns_agent_payload(
+        self, client: AsyncClient, admin_user, instance, monkeypatch
+    ):
+        captured: dict = {}
+        payload = {
+            "validation_mode": False,
+            "table_present": True,
+            "last_applied_at": "2026-10-22T21:49:34Z",
+            "apply_error": None,
+        }
+
+        async def _fake_agent_request(db, instance_id, method, path, json_data=None, **kwargs):
+            captured.update(
+                instance_id=instance_id,
+                method=method,
+                path=path,
+                service=kwargs.get("service"),
+                json=json_data,
+            )
+            return payload
+
+        monkeypatch.setattr(firewall_router, "agent_request", _fake_agent_request)
+
+        token = await _login(client)
+        response = await client.get(
+            f"/api/v1/firewall/status/{instance.id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == payload
+        assert captured == {
+            "instance_id": instance.id,
+            "method": "GET",
+            "path": "/firewall/status",
+            "service": "firewall",
+            "json": None,
+        }
+
+    async def test_status_unreachable_returns_sentinel(
+        self, client: AsyncClient, admin_user, instance, monkeypatch
+    ):
+        async def _unreachable(db, instance_id, method, path, json_data=None, **kwargs):
+            raise AgentConnectionError("agent down")
+
+        monkeypatch.setattr(firewall_router, "agent_request", _unreachable)
+
+        token = await _login(client)
+        response = await client.get(
+            f"/api/v1/firewall/status/{instance.id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "unreachable"}
+
+
+class TestFirewallRollbackPassthrough:
+    async def test_rollback_unreachable_returns_502(
+        self, client: AsyncClient, admin_user, instance, monkeypatch
+    ):
+        captured: dict = {}
+
+        async def _unreachable(db, instance_id, method, path, json_data=None, **kwargs):
+            captured.update(
+                instance_id=instance_id,
+                method=method,
+                path=path,
+                service=kwargs.get("service"),
+                json=json_data,
+            )
+            raise AgentConnectionError("agent down")
+
+        monkeypatch.setattr(firewall_router, "agent_request", _unreachable)
+
+        token = await _login(client)
+        response = await client.post(
+            f"/api/v1/firewall/rollback/{instance.id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 502
+        assert "agent down" in response.json()["detail"]
+        assert captured == {
+            "instance_id": instance.id,
+            "method": "POST",
+            "path": "/firewall/rollback",
+            "service": "firewall",
+            "json": {},
+        }

@@ -978,6 +978,77 @@ async def get_firewall_stats(instance_id: int, user_id: int = Depends(require_au
         }
 
 
+# ============================================================================
+# AGENT STATUS / ROLLBACK ENDPOINTS
+# ============================================================================
+
+
+@router.get("/status/{instance_id}")
+async def get_firewall_agent_status(
+    instance_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pass through the agent's live firewall status.
+
+    Covers validation mode, table presence, last apply timestamp and any
+    apply error. An unreachable agent is a normal answer here (the UI renders
+    the instance as offline), so it returns a sentinel body instead of 502.
+    """
+    try:
+        result = await agent_request(
+            db=db,
+            instance_id=instance_id,
+            method="GET",
+            path="/firewall/status",
+            service="firewall",
+        )
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="read", path="/firewall/status", ok=True,
+            detail="Read agent firewall status", user_id=user_id,
+        )
+        return result
+    except AgentClientError as e:
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="read", path="/firewall/status", ok=False,
+            detail=f"Read firewall status failed: {e}", user_id=user_id,
+        )
+        return {"status": "unreachable"}
+
+
+@router.post("/rollback/{instance_id}")
+async def rollback_firewall(
+    instance_id: int,
+    admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Restore the newest pre-apply snapshot on the firewall agent."""
+    try:
+        result = await agent_request(
+            db=db,
+            instance_id=instance_id,
+            method="POST",
+            path="/firewall/rollback",
+            json_data={},
+            service="firewall",
+        )
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="deploy", path="/firewall/rollback", ok=True,
+            detail="Rolled back last firewall apply", user_id=admin_id,
+        )
+        return result
+    except AgentClientError as e:
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="deploy", path="/firewall/rollback", ok=False,
+            detail=f"Firewall rollback failed: {e}", user_id=admin_id,
+        )
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
+
+
 async def reload_firewall(instance_id: int):
     """Push the desired firewall state of an instance to its agent.
 
