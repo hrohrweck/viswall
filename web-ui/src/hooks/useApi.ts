@@ -69,6 +69,7 @@ import type {
   NetworkInterfaceUpdate,
   InterfaceLiveStateResponse,
   InterfaceApplyResult,
+  InterfaceRefreshResult,
   InstanceApiKey,
   RoutingRule,
   RoutingRuleCreate,
@@ -424,12 +425,32 @@ export function useDeleteNetworkInterface(instanceId: number) {
 
 export function useApplyNetworkInterfaces(instanceId: number) {
   return useMutation({
-    mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
+    mutationFn: async ({
+      force = false,
+      try_mode = false,
+    }: { force?: boolean; try_mode?: boolean } = {}) => {
       const { data } = await api.post<InterfaceApplyResult>(
         `/network/interfaces/${instanceId}/apply`,
-        { force },
+        { force, try_mode },
       )
       return data
+    },
+  })
+}
+
+export function useRefreshNetworkInterfaces(instanceId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<InterfaceRefreshResult>(
+        `/network/interfaces/${instanceId}/refresh`,
+      )
+      return data
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.networkInterfaces(instanceId),
+      })
     },
   })
 }

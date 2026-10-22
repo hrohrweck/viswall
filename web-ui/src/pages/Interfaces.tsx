@@ -4,6 +4,7 @@ import {
   Download,
   Info,
   Plus,
+  RefreshCw,
   ScanSearch,
   Upload,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import {
   useUpdateNetworkInterface,
   useDeleteNetworkInterface,
   useApplyNetworkInterfaces,
+  useRefreshNetworkInterfaces,
 } from '../hooks/useApi'
 import {
   Badge,
@@ -58,6 +60,42 @@ function ApplyResultCard({ result }: { result: InterfaceApplyResult }) {
           </span>
         )}
       </p>
+      {result.try_mode && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-on-surface-muted">Try mode</span>
+          {result.netplan_outcome ? (
+            <Badge
+              variant={
+                result.netplan_outcome === 'accepted'
+                  ? 'success'
+                  : result.netplan_outcome === 'reverted'
+                    ? 'warning'
+                    : 'danger'
+              }
+            >
+              netplan {result.netplan_outcome}
+            </Badge>
+          ) : (
+            <Badge variant="neutral">pending</Badge>
+          )}
+          {result.snapshot_dir && (
+            <span className="text-xs text-on-surface-muted">snapshot: {result.snapshot_dir}</span>
+          )}
+        </div>
+      )}
+      {result.probes && result.probes.length > 0 && (
+        <ul className="space-y-1">
+          {result.probes.map((probe, idx) => (
+            <li key={idx} className="flex items-start gap-2">
+              <Badge variant={probe.ok ? 'success' : 'danger'}>{probe.ok ? 'ok' : 'failed'}</Badge>
+              <span className="text-on-surface-muted">
+                <span className="font-medium text-on-surface">{probe.name}</span>
+                {probe.detail ? ` — ${probe.detail}` : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       {result.changes.length === 0 ? (
         <p className="text-on-surface-muted">Host state already matches the desired configuration.</p>
       ) : (
@@ -105,12 +143,14 @@ export function Interfaces() {
   const updateMutation = useUpdateNetworkInterface(selectedInstanceId ?? 0)
   const deleteMutation = useDeleteNetworkInterface(selectedInstanceId ?? 0)
   const applyMutation = useApplyNetworkInterfaces(selectedInstanceId ?? 0)
+  const refreshMutation = useRefreshNetworkInterfaces(selectedInstanceId ?? 0)
 
   const [showCreate, setShowCreate] = useState(false)
   const [editTarget, setEditTarget] = useState<NetworkInterface | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<NetworkInterface | null>(null)
   const [showApplyConfirm, setShowApplyConfirm] = useState(false)
   const [applyForce, setApplyForce] = useState(false)
+  const [applyTryMode, setApplyTryMode] = useState(false)
   const [applyResult, setApplyResult] = useState<InterfaceApplyResult | null>(null)
 
   const handleCreate = async (data: NetworkInterfaceCreate | NetworkInterfaceUpdate) => {
@@ -153,11 +193,26 @@ export function Interfaces() {
     }
   }
 
+  const handleRefresh = async () => {
+    try {
+      const result = await refreshMutation.mutateAsync()
+      toast.success(
+        `Interface rows refreshed from host — ${result.created} created, ${result.updated} updated`,
+      )
+    } catch (err) {
+      toast.error(getErrMsg(err))
+    }
+  }
+
   const handleApply = async () => {
     try {
-      const result = await applyMutation.mutateAsync({ force: applyForce })
+      const result = await applyMutation.mutateAsync({
+        force: applyForce,
+        try_mode: applyTryMode,
+      })
       setShowApplyConfirm(false)
       setApplyForce(false)
+      setApplyTryMode(false)
       if (result.success) {
         toast.success('Configuration applied to host')
       } else {
@@ -213,6 +268,11 @@ export function Interfaces() {
           <div className="text-sm text-on-surface-muted space-y-0.5">
             <span>{iface.ip_address}/{iface.netmask}</span>
             {iface.gateway && <span>GW: {iface.gateway}</span>}
+            {iface.ipv6_address && <span>IPv6: {iface.ipv6_address}</span>}
+            {iface.ipv6_gateway && <span>IPv6 GW: {iface.ipv6_gateway}</span>}
+            {iface.dns_servers && iface.dns_servers.length > 0 && (
+              <span>DNS: {iface.dns_servers.join(', ')}</span>
+            )}
           </div>
         ) : (
           <span className="text-sm text-on-surface-muted">DHCP</span>
@@ -285,6 +345,16 @@ export function Interfaces() {
           ) : undefined
         }
         secondaryActions={[
+          <Button
+            key="refresh"
+            variant="secondary"
+            icon={RefreshCw}
+            loading={refreshMutation.isPending}
+            disabled={!isAdmin}
+            onClick={handleRefresh}
+          >
+            Refresh from Host
+          </Button>,
           <Button
             key="apply"
             variant="secondary"
@@ -436,12 +506,25 @@ export function Interfaces() {
               connectivity)
             </span>
           </label>
+          <label className="flex items-start gap-2 text-sm text-on-surface">
+            <input
+              type="checkbox"
+              checked={applyTryMode}
+              onChange={(e) => setApplyTryMode(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Try mode — render to netplan, run health probes, and auto-revert unless the probes
+              pass (safe dry-run)
+            </span>
+          </label>
           <div className="flex justify-end gap-3 pt-2">
             <Button
               variant="secondary"
               onClick={() => {
                 setShowApplyConfirm(false)
                 setApplyForce(false)
+                setApplyTryMode(false)
               }}
             >
               Cancel

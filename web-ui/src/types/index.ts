@@ -254,6 +254,12 @@ export interface NATRuleCreate {
   service_ports?: string
 }
 
+export interface InterfaceRoute {
+  to: string;
+  via?: string | null;
+  on_link?: boolean;
+}
+
 export interface NetworkInterface {
   id: number;
   instance_id: number;
@@ -264,6 +270,10 @@ export interface NetworkInterface {
   netmask: string | null;
   gateway: string | null;
   mtu: number | null;
+  ipv6_address?: string | null;
+  ipv6_gateway?: string | null;
+  dns_servers?: string[] | null;
+  routes?: InterfaceRoute[] | null;
   bandwidth_in: number | null;
   bandwidth_out: number | null;
   description: string | null;
@@ -279,6 +289,10 @@ export interface NetworkInterfaceCreate {
   netmask?: string | null;
   gateway?: string | null;
   mtu?: number | null;
+  ipv6_address?: string | null;
+  ipv6_gateway?: string | null;
+  dns_servers?: string[] | null;
+  routes?: InterfaceRoute[] | null;
   bandwidth_in?: number | null;
   bandwidth_out?: number | null;
   description?: string | null;
@@ -293,6 +307,10 @@ export interface NetworkInterfaceUpdate {
   netmask?: string | null;
   gateway?: string | null;
   mtu?: number | null;
+  ipv6_address?: string | null;
+  ipv6_gateway?: string | null;
+  dns_servers?: string[] | null;
+  routes?: InterfaceRoute[] | null;
   bandwidth_in?: number | null;
   bandwidth_out?: number | null;
   description?: string | null;
@@ -315,6 +333,12 @@ export interface InterfaceLiveStateResponse {
   default_gateway: string | null;
 }
 
+export interface InterfaceApplyProbe {
+  name: string;
+  ok: boolean;
+  detail?: string;
+}
+
 export interface InterfaceApplyResult {
   success: boolean;
   changes: Array<{ interface: string; action: string; detail: string; ok: boolean }>;
@@ -322,6 +346,16 @@ export interface InterfaceApplyResult {
   netplan_file: string | null;
   netplan_written: boolean;
   message: string;
+  try_mode?: boolean;
+  probes?: InterfaceApplyProbe[];
+  netplan_outcome?: 'accepted' | 'reverted' | 'error' | null;
+  snapshot_dir?: string | null;
+}
+
+export interface InterfaceRefreshResult {
+  created: number;
+  updated: number;
+  interfaces: string[];
 }
 
 export interface InstanceApiKey {
