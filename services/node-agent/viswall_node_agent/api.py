@@ -17,7 +17,12 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 
 from viswall_node_agent.config import AgentConfig, load_config
 from viswall_node_agent.heartbeat import heartbeat_loop
-from viswall_node_agent.netcfg import PlanRefused, apply_interfaces, discover
+from viswall_node_agent.netcfg import (
+    PlanRefused,
+    WanGuardrailRefused,
+    apply_interfaces,
+    discover,
+)
 from viswall_node_agent.payloads import ApplyRequest, ApplyResult
 
 logger = logging.getLogger(__name__)
@@ -81,5 +86,7 @@ async def apply_interface_config(
         return await apply_interfaces(config, request)
     except PlanRefused as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except WanGuardrailRefused as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
