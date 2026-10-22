@@ -42,3 +42,4 @@ fdd8d6783f00f3b8d1b3ef6f2b17b474f5655a3d:services/dns-service/tests/test_api_aut
 6d3a14b12d35fdd4bebc99a6b9781d4ed6d08196:sdk/cli/viswall_cli/commands/interfaces.py:password-assignment:131
 6d3a14b12d35fdd4bebc99a6b9781d4ed6d08196:sdk/cli/viswall_cli/commands/interfaces.py:password-assignment:157
 6d3a14b12d35fdd4bebc99a6b9781d4ed6d08196:services/api-gateway/routers/instances.py:password-assignment:185
+476b3aff176ca033c15a9f6dc89cb0cb03594d1b:services/vpn-service/tests/test_heartbeat.py:password-assignment:53
