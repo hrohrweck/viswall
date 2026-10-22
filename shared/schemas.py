@@ -189,6 +189,9 @@ class FirewallRuleResponse(FirewallRuleBase):
     created_at: datetime
     updated_at: datetime
 
+    class Config:
+        from_attributes = True
+
 
 # NAT Rule Schemas
 class NATRuleBase(BaseModel):

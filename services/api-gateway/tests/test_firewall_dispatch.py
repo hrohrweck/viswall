@@ -499,10 +499,6 @@ class TestReloadFirewallEndpoint:
         assert len(audit) == 1
         assert audit[0].user_id == admin_user.id
 
-    @pytest.mark.xfail(
-        reason="HEAD bug: FirewallRuleBase has no from_attributes config, "
-        "so FirewallRuleResponse.model_validate(rule) 500s (plan risk 1)",
-    )
     async def test_create_rule_response_is_serializable(
         self, client: AsyncClient, admin_user, instance, monkeypatch
     ):
