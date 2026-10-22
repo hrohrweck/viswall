@@ -159,6 +159,7 @@ class FirewallRuleBase(BaseModel):
     service_ports: Optional[str] = None
     action: FirewallAction = FirewallAction.ACCEPT
     log_enabled: bool = False
+    limit: Optional[str] = None
 
 
 class FirewallRuleCreate(FirewallRuleBase):
@@ -177,6 +178,7 @@ class FirewallRuleUpdate(BaseModel):
     service_ports: Optional[str] = None
     action: Optional[FirewallAction] = None
     log_enabled: Optional[bool] = None
+    limit: Optional[str] = None
 
 
 class FirewallRuleResponse(FirewallRuleBase):
@@ -187,52 +189,6 @@ class FirewallRuleResponse(FirewallRuleBase):
     created_at: datetime
     updated_at: datetime
 
-
-# NAT Rule Schemas
-class NATRuleBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = None
-    enabled: bool = True
-    nat_type: str = "snat"  # snat, dnat, masquerade
-    source_network: Optional[str] = None
-    dest_network: Optional[str] = None
-    service_protocol: str = "any"
-    service_ports: Optional[str] = None
-    inbound_interface: Optional[str] = None
-    outbound_interface: Optional[str] = None
-    translation_address: Optional[str] = None
-    translation_ports: Optional[str] = None
-
-
-class NATRuleCreate(NATRuleBase):
-    pass
-
-
-class NATRuleUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    enabled: Optional[bool] = None
-    nat_type: Optional[str] = None
-    source_network: Optional[str] = None
-    dest_network: Optional[str] = None
-    service_protocol: Optional[str] = None
-    service_ports: Optional[str] = None
-    inbound_interface: Optional[str] = None
-    outbound_interface: Optional[str] = None
-    translation_address: Optional[str] = None
-    translation_ports: Optional[str] = None
-
-
-class NATRuleResponse(NATRuleBase):
-    id: int
-    instance_id: int
-    order_index: int
-    created_by: Optional[int]
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 # NAT Rule Schemas
 class NATRuleBase(BaseModel):
@@ -263,6 +219,14 @@ class NATRuleResponse(NATRuleBase):
         from_attributes = True
 
 
+class InterfaceRoute(BaseModel):
+    """Static route attached to a managed interface (relayed to the node agent)."""
+
+    to: str  # destination CIDR, e.g. "10.80.0.0/16"
+    via: Optional[str] = None  # next-hop gateway; None for on-link routes
+    on_link: bool = False
+
+
 class NetworkInterfaceBase(BaseModel):
     name: str = Field(..., max_length=50)
     type: str = "other"
@@ -271,6 +235,10 @@ class NetworkInterfaceBase(BaseModel):
     netmask: Optional[str] = None
     gateway: Optional[str] = None
     mtu: Optional[int] = Field(default=None, ge=68, le=65535)
+    ipv6_address: Optional[str] = None
+    ipv6_gateway: Optional[str] = None
+    dns_servers: Optional[List[str]] = None
+    routes: Optional[List[InterfaceRoute]] = None
     bandwidth_in: Optional[int] = None  # kbps
     bandwidth_out: Optional[int] = None
     description: Optional[str] = Field(default=None, max_length=255)
@@ -289,6 +257,10 @@ class NetworkInterfaceUpdate(BaseModel):
     netmask: Optional[str] = None
     gateway: Optional[str] = None
     mtu: Optional[int] = Field(default=None, ge=68, le=65535)
+    ipv6_address: Optional[str] = None
+    ipv6_gateway: Optional[str] = None
+    dns_servers: Optional[List[str]] = None
+    routes: Optional[List[InterfaceRoute]] = None
     bandwidth_in: Optional[int] = None
     bandwidth_out: Optional[int] = None
     description: Optional[str] = Field(default=None, max_length=255)

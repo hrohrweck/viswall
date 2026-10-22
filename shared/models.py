@@ -93,6 +93,7 @@ class FirewallRule(Base):
 
     action = Column(String(10), default="accept")  # accept, drop, reject
     log_enabled = Column(Boolean, default=False)
+    limit = Column(String(255))  # rate limit, e.g. "10/minute burst 5 packets"
     order_index = Column(Integer, default=0)
 
     created_by = Column(Integer, ForeignKey("users.id"))
@@ -140,6 +141,10 @@ class NetworkInterface(Base):
     netmask = Column(String(45))
     gateway = Column(String(45))
     mtu = Column(Integer)
+    ipv6_address = Column(String(45))
+    ipv6_gateway = Column(String(45))
+    dns_servers = Column(JSON)  # list of nameserver strings
+    routes = Column(JSON)  # list of {"to": CIDR, "via": gw|null, "on_link": bool}
 
     # Traffic shaping
     bandwidth_in = Column(Integer)  # kbps
