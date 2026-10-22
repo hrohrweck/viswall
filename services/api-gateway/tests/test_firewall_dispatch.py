@@ -481,8 +481,7 @@ class TestReloadFirewallEndpoint:
             json={"name": "allow-ssh", "service_ports": "22"},
             headers={"Authorization": f"Bearer {token}"},
         )
-        # 500 here is the documented from_attributes bug (see the xfail test below); the NameError regression holds regardless.
-        assert response.status_code in (201, 500)
+        assert response.status_code == 201
         assert captured == [{"instance_id": instance.id, "user_id": admin_user.id}]
 
         # todo 19 NameError regression: log_audit must receive the calling
