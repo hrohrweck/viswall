@@ -21,10 +21,10 @@ RUN pip3 install --break-system-packages \
     pydantic
 
 # Copy agent code
-COPY services/firewall-service/firewall_agent.py /opt/viswall/
+COPY services/firewall-service/viswall_firewall_agent /opt/viswall/viswall_firewall_agent
 
 WORKDIR /opt/viswall
 
 EXPOSE 8081
 
-CMD ["python3", "-u", "firewall_agent.py"]
+CMD ["python3", "-u", "-m", "viswall_firewall_agent"]
