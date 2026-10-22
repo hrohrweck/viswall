@@ -220,6 +220,33 @@ export interface FirewallRuleUpdate {
   log_enabled?: boolean;
 }
 
+/**
+ * GET /firewall/stats/{instanceId} passthrough: agent payload when reachable
+ * (nftables/connections{tracked,max}/timestamp), zeroed fallback otherwise.
+ * `apply_error` lives only on the agent /firewall/status (no gateway route at
+ * HEAD) — optional so it renders once the passthrough follow-up lands.
+ */
+export interface FirewallStats {
+  nftables?: Record<string, unknown>
+  connections?: { tracked: number; max: number } | number
+  timestamp?: string
+  instance_id?: number
+  packets_accepted?: number
+  packets_dropped?: number
+  blacklist_size?: number
+  top_blocked_ips?: unknown[]
+  apply_error?: string | null
+}
+
+/** Mirrors agent /firewall/rollback; gateway route is a REQUIRED follow-up. */
+export interface FirewallRollbackResponse {
+  restored?: boolean
+  mechanism?: string
+  restored_from?: string
+  restored_artifacts?: string[]
+  status?: string
+}
+
 export interface NATRule {
   id: number
   instance_id: number

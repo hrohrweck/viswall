@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Shield, ArrowUp, ArrowDown, Upload, MoreVertical, Pencil, Trash2, Info } from 'lucide-react'
+import { Plus, Shield, ArrowUp, ArrowDown, Upload, MoreVertical, Pencil, Trash2, Info, RotateCcw, AlertTriangle } from 'lucide-react'
 import { useInstanceStore } from '../stores/instance'
 import {
   useInstances,
@@ -9,6 +9,8 @@ import {
   useDeleteFirewallRule,
   useReorderFirewallRule,
   useDeployFirewall,
+  useFirewallStats,
+  useRollbackFirewall,
 } from '../hooks/useApi'
 import {
   Badge,
@@ -26,6 +28,8 @@ import {
   IconButton,
   Modal,
   PageHeader,
+  Skeleton,
+  StatusBadge,
   Switch,
 } from '../components/ui'
 import { FirewallRuleForm } from '../components/forms/FirewallRuleForm'
@@ -62,6 +66,8 @@ export function FirewallRules() {
   const deleteMutation = useDeleteFirewallRule(selectedInstanceId!)
   const reorderMutation = useReorderFirewallRule(selectedInstanceId!)
   const deployMutation = useDeployFirewall(selectedInstanceId!)
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useFirewallStats(selectedInstanceId!)
+  const rollbackMutation = useRollbackFirewall(selectedInstanceId!)
 
   const [showCreate, setShowCreate] = useState(false)
   const [editTarget, setEditTarget] = useState<FirewallRule | null>(null)
@@ -69,6 +75,12 @@ export function FirewallRules() {
   const [toggleTarget, setToggleTarget] = useState<FirewallRule | null>(null)
   const [showDeploy, setShowDeploy] = useState(false)
   const [deployReviewed, setDeployReviewed] = useState(false)
+  const [showRollbackConfirm, setShowRollbackConfirm] = useState(false)
+
+  // Reachable = agent payload shape (timestamp/nftables); unreachable = gateway zeroed fallback.
+  const agentReachable =
+    !!stats &&
+    (typeof stats.timestamp === 'string' || typeof stats.nftables === 'object')
 
   const handleCreate = async (data: FirewallRuleCreate | FirewallRuleUpdate) => {
     await createMutation.mutateAsync(data as FirewallRuleCreate)
@@ -111,6 +123,17 @@ export function FirewallRules() {
       },
       onError: (e) => toast.error(getErrMsg(e)),
     })
+  }
+
+  const handleRollback = async () => {
+    try {
+      await rollbackMutation.mutateAsync(undefined)
+      toast.success('Rollback triggered — agent restored the pre-apply snapshot')
+      setShowRollbackConfirm(false)
+    } catch (e) {
+      toast.error(getErrMsg(e))
+      setShowRollbackConfirm(false)
+    }
   }
 
   /* ── No instance selected ── */
@@ -244,6 +267,57 @@ export function FirewallRules() {
           </Button>
         }
       />
+
+      {/* Agent status card — fed by GET /firewall/stats/{instanceId} (real at
+          HEAD). apply_error renders once the gateway /firewall/status
+          passthrough lands (REQUIRED follow-up, see task-29 evidence). */}
+      <Card
+        className="mt-6"
+        title="Agent status"
+        actions={
+          <Button
+            variant="secondary"
+            icon={RotateCcw}
+            onClick={() => setShowRollbackConfirm(true)}
+            disabled={rollbackMutation.isPending}
+          >
+            Rollback last apply
+          </Button>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-on-surface-muted">Agent</span>
+            {statsLoading ? (
+              <Skeleton className="h-6 w-24" />
+            ) : (
+              <StatusBadge status={statsError ? 'error' : agentReachable ? 'online' : 'offline'} />
+            )}
+          </div>
+          {typeof stats?.connections === 'object' && (
+            <div className="text-sm text-on-surface-muted">
+              Connections
+              <span className="ml-1 font-mono text-on-surface">{stats.connections.tracked}</span>
+              <span className="mx-1 text-on-surface-muted">/</span>
+              <span className="font-mono text-on-surface">{stats.connections.max}</span>
+            </div>
+          )}
+          {stats?.timestamp && (
+            <div className="text-sm text-on-surface-muted">
+              Last reported
+              <span className="ml-1 font-mono text-on-surface">
+                {new Date(stats.timestamp).toLocaleString()}
+              </span>
+            </div>
+          )}
+          {!statsLoading && stats?.apply_error && (
+            <div className="flex items-center gap-2 rounded-md bg-danger-subtle px-2 py-1 text-xs text-danger">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              Last apply failed: {stats.apply_error}
+            </div>
+          )}
+        </div>
+      </Card>
 
       <div className="mt-6">
         <DataTable
@@ -418,6 +492,18 @@ export function FirewallRules() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      {/* Rollback confirm — explicit user action required, never auto-triggered. */}
+      <ConfirmDialog
+        open={showRollbackConfirm}
+        onClose={() => setShowRollbackConfirm(false)}
+        onConfirm={handleRollback}
+        title="Rollback last apply"
+        message={`Restore ${instanceName}'s firewall to the snapshot taken before the last apply? Active connections may be dropped.`}
+        confirmLabel="Rollback"
+        loading={rollbackMutation.isPending}
+        variant="danger"
+      />
     </div>
   )
 }
