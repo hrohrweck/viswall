@@ -1,0 +1,523 @@
+"""Renderer regression suite (todo 7 acceptance, todo 14 gate).
+
+Covers the docker-safe renderer: no ``flush ruleset``, ``table inet viswall``
+only, SSH(22)/WG(51820)/established always present (lockout regression),
+dport-guarded meters, DOCKER-USER internal-port set, docker bridge coexistence,
+loopback guards + anti-spoof placement, ``meta nfproto ipv6`` scoping, the
+SSH/WG-before-user-rules ordering invariant, and the VALIDATION_MODE
+pass-through mutation check (flip the flag, flip the output).
+"""
+
+from __future__ import annotations
+
+import re
+
+import pytest
+
+from viswall_firewall_agent.nft import (
+    DEFAULT_INTERNAL_PORTS,
+    FirewallAction,
+    FirewallRule,
+    NATRule,
+    NFTablesManager,
+)
+
+
+def _rule(rule_id: int, name: str, chain: str = "input", **kwargs) -> FirewallRule:
+    return FirewallRule(id=rule_id, name=name, chain=chain, **kwargs)
+
+
+def _interfaces() -> list[dict]:
+    return [{"name": "enp0s31f6", "type": "wan"}]
+
+
+def _base_rules() -> list[FirewallRule]:
+    """Fixture exercising every tagged rule class the renderer special-cases."""
+    return [
+        _rule(1, "ssh limit", protocol="tcp", destination_port=22, limit="8/minute"),
+        _rule(2, "https limit", protocol="tcp", destination_port=443, limit="120/minute"),
+        _rule(
+            3,
+            "loopback guard 8000",
+            action=FirewallAction.DROP,
+            destination="127.0.0.1",
+            protocol="tcp",
+            destination_port=8000,
+        ),
+        _rule(
+            4,
+            "loopback guard 8001",
+            action=FirewallAction.DROP,
+            destination="127.0.0.1",
+            protocol="tcp",
+            destination_port=8001,
+        ),
+        _rule(
+            5,
+            "loopback guard 8080",
+            action=FirewallAction.DROP,
+            destination="127.0.0.1",
+            protocol="tcp",
+            destination_port=8080,
+        ),
+        _rule(
+            6,
+            "anti-spoof container web",
+            chain="forward",
+            anti_spoof=True,
+            interface_in="br-abc123",
+            destination="172.19.0.5",
+        ),
+        _rule(
+            7,
+            "internal-port 11434",
+            chain="forward",
+            protocol="tcp",
+            destination_port=11434,
+        ),
+        _rule(
+            8,
+            "user rule input",
+            protocol="tcp",
+            destination_port=21115,
+            action=FirewallAction.ACCEPT,
+            comment="user rule input",
+            order=50,
+        ),
+        _rule(
+            9,
+            "user rule limited",
+            protocol="tcp",
+            destination_port=9090,
+            limit="30/minute",
+            action=FirewallAction.ACCEPT,
+            comment="limit-carrying user rule",
+            order=60,
+        ),
+    ]
+
+
+def _nat_rules() -> list[NATRule]:
+    return [
+        NATRule(
+            id=1,
+            name="mail dnat",
+            type="dnat",
+            chain="prerouting",
+            destination="46.4.63.216",
+            protocol="tcp",
+            port=25,
+            to_destination="172.20.0.10:25",
+            comment="mail dnat",
+        ),
+        NATRule(
+            id=2,
+            name="vpn snat",
+            type="snat",
+            chain="postrouting",
+            source="10.80.0.0/16",
+            to_source="46.4.63.216",
+        ),
+        NATRule(id=3, name="wan masquerade", type="masquerade", chain="postrouting"),
+    ]
+
+
+def _render(
+    manager: NFTablesManager,
+    *,
+    rules: list[FirewallRule] | None = None,
+    nat: list[NATRule] | None = None,
+    interfaces: list[dict] | None = None,
+    **kwargs,
+) -> str:
+    return manager.generate_ruleset(
+        interfaces=interfaces if interfaces is not None else _interfaces(),
+        firewall_rules=rules if rules is not None else _base_rules(),
+        nat_rules=nat or [],
+        **kwargs,
+    )
+
+
+def _chain_section(ruleset: str, chain: str) -> str:
+    """Slice the lines of one chain block out of the ruleset."""
+    lines = ruleset.splitlines()
+    start = lines.index(f"    chain {chain} {{")
+    depth = 0
+    for index in range(start, len(lines)):
+        if "{" in lines[index]:
+            depth += lines[index].count("{")
+        if "}" in lines[index]:
+            depth -= lines[index].count("}")
+        if depth == 0:
+            return "\n".join(lines[start : index + 1])
+    raise AssertionError(f"chain {chain} not closed")
+
+
+class TestLockoutRegression:
+    """An applied ruleset must never lock out SSH/WG — in EVERY render."""
+
+    @pytest.mark.parametrize(
+        "rules,nat,kwargs",
+        [
+            (None, None, {}),
+            ([], None, {}),
+            (None, None, {"enable_logging": False}),
+            (None, None, {"enable_conntrack": False}),
+            ([], None, {"enable_logging": False, "enable_conntrack": False}),
+        ],
+    )
+    def test_no_flush_and_viswall_table_only(
+        self, rules, nat, kwargs, monkeypatch
+    ) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager(), rules=rules, nat=nat, **kwargs)
+        assert "flush ruleset" not in ruleset
+        assert "table inet viswall" in ruleset
+
+    @pytest.mark.parametrize(
+        "rules,nat,kwargs",
+        [
+            (None, None, {}),
+            ([], None, {}),
+            (None, None, {"enable_logging": False}),
+        ],
+    )
+    def test_ssh_and_wg_always_present(self, rules, nat, kwargs, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager(), rules=rules, nat=nat, **kwargs)
+        input_chain = _chain_section(ruleset, "input")
+
+        # ssh meter: rate limit guarded by its own dport (Oracle #11). The rate
+        # differs per fixture (DB-origin limit overrides the default).
+        assert re.search(
+            r"tcp dport 22 meter ssh_limit \{ ip saddr limit rate \S+ burst 5 packets \} drop",
+            input_chain,
+        )
+        # ssh accept: 22 is inside both family-scoped accept sets.
+        assert "meta nfproto ipv4 tcp dport {22, " in input_chain
+        assert "meta nfproto ipv6 tcp dport {22, 80, 443} accept" in input_chain
+        # wg 51820: meter + family-scoped accepts.
+        assert "udp dport 51820 meter wireguard_limit" in input_chain
+        assert "51820" in input_chain.split("meta nfproto ipv4 udp dport")[1]
+        assert "meta nfproto ipv6 udp dport {51820} accept" in input_chain
+        # established/related must always come first.
+        assert "ct state established,related accept" in input_chain
+
+    def test_db_limit_wins_over_default_for_ssh(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        assert (
+            "tcp dport 22 meter ssh_limit { ip saddr limit rate 8/minute burst 5 packets } drop"
+            in ruleset
+        )
+
+    def test_every_meter_carries_dport_guard(self, monkeypatch) -> None:
+        """Oracle #11: a meter without its dport guard rate-limits ALL traffic."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        meter_lines = [
+            line.strip() for line in ruleset.splitlines() if " meter " in line
+        ]
+        assert len(meter_lines) == 4
+        for line in meter_lines:
+            assert re.match(r"^(tcp|udp) dport \d+ meter \w+ \{ ip saddr", line), line
+
+
+class TestDockerCoexistence:
+    def test_bridge_input_and_forward_accepts(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        input_chain = _chain_section(ruleset, "input")
+        forward_chain = _chain_section(ruleset, "forward")
+        assert 'iifname "docker0" accept' in input_chain
+        assert 'iifname "br-*" accept' in input_chain
+        for expected in (
+            'iifname "docker0" accept',
+            'oifname "docker0" accept',
+            'iifname "br-*" accept',
+            'oifname "br-*" accept',
+        ):
+            assert expected in forward_chain
+
+    def test_docker_user_port_set_with_db_rule(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        forward_chain = _chain_section(ruleset, "forward")
+        assert (
+            'iifname "enp0s31f6" ct direction original ct original proto-dst {11434} drop'
+            in forward_chain
+        )
+
+    def test_docker_user_port_set_defaults_without_db_rule(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        rules = [r for r in _base_rules() if "internal-port" not in r.name]
+        ruleset = _render(NFTablesManager(), rules=rules)
+        forward_chain = _chain_section(ruleset, "forward")
+        expected_set = "{5000, 5055, 5678, 8000, 8001, 8080, 8089, 8090, 8091, 8096, 8100, 8201, 8502, 8888, 9090, 10000, 11434}"
+        assert f"ct original proto-dst {expected_set} drop" in forward_chain
+        assert tuple(DEFAULT_INTERNAL_PORTS) == (
+            5000,
+            5055,
+            5678,
+            8000,
+            8001,
+            8080,
+            8089,
+            8090,
+            8091,
+            8096,
+            8100,
+            8201,
+            8502,
+            8888,
+            9090,
+            10000,
+            11434,
+        )
+
+    def test_no_masquerade_rule_ever(self, monkeypatch) -> None:
+        """Docker owns NAT; masquerade may appear only as a skip comment."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager(), nat=_nat_rules())
+        assert not re.search(r"^\s+masquerade\s", ruleset, re.MULTILINE)
+        assert "masquerade skipped (docker owns NAT): wan masquerade" in ruleset
+
+    def test_snat_dnat_render_but_only_with_nat_rules(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        manager = NFTablesManager()
+        with_nat = _render(manager, nat=_nat_rules())
+        assert "chain prerouting" in with_nat
+        assert "chain postrouting" in with_nat
+        assert (
+            "ip daddr 46.4.63.216 ip protocol tcp tcp dport 25 dnat to 172.20.0.10:25 comment \"mail dnat\""
+            in with_nat
+        )
+        assert "ip saddr 10.80.0.0/16 snat to 46.4.63.216" in with_nat
+
+        without_nat = _render(manager, nat=[])
+        assert "chain prerouting" not in without_nat
+        assert "chain postrouting" not in without_nat
+
+
+class TestChainPlacement:
+    def test_loopback_guards_render_in_input(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        input_chain = _chain_section(ruleset, "input")
+        assert (
+            'iifname != "lo" ip daddr 127.0.0.1 tcp dport {8000, 8001, 8080} drop'
+            in input_chain
+        )
+
+    def test_loopback_guards_never_in_forward(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        forward_chain = _chain_section(ruleset, "forward")
+        assert "127.0.0.1" not in forward_chain
+
+    def test_anti_spoof_renders_in_forward_only(self, monkeypatch) -> None:
+        """Oracle #2: anti-spoof drops belong to FORWARD, never input."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        input_chain = _chain_section(ruleset, "input")
+        forward_chain = _chain_section(ruleset, "forward")
+        assert 'iifname != "br-abc123" ip daddr 172.19.0.5 drop' in forward_chain
+        assert "172.19.0.5" not in input_chain
+
+    def test_ipv6_scoping_matches_open_set(self, monkeypatch) -> None:
+        """Oracle #8: v6 opens only 22/80/443/51820; mail ports stay v4-only."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        assert (
+            "meta nfproto ipv4 tcp dport {22, 25, 53, 80, 110, 143, 443, 993, 995, 21114-21119} accept"
+            in ruleset
+        )
+        assert "meta nfproto ipv4 udp dport {25, 53, 21116, 51820} accept" in ruleset
+        assert "meta nfproto ipv6 tcp dport {22, 80, 443} accept" in ruleset
+        assert "meta nfproto ipv6 udp dport {51820} accept" in ruleset
+
+    def test_ordering_invariant_ssh_wg_before_user_rules(self, monkeypatch) -> None:
+        """A console rule can never override SSH/WG/established access."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        lines = ruleset.splitlines()
+        mandatory = lines.index("        ct state established,related accept")
+        meter = lines.index(
+            "        tcp dport 22 meter ssh_limit { ip saddr limit rate 8/minute burst 5 packets } drop"
+        )
+        first_user = next(
+            i for i, line in enumerate(lines) if "user rule input" in line
+        )
+        final_drop = lines.index('        log prefix "FIREWALL-DROP: " limit rate 5/minute drop')
+        assert mandatory < meter < first_user < final_drop
+        assert 'tcp dport 5432 drop' in ruleset  # postgres never exposed
+
+    def test_firewall_drop_log_gated_by_logging_flag(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        with_log = _render(NFTablesManager())
+        assert 'log prefix "FIREWALL-DROP: " limit rate 5/minute drop' in with_log
+
+        without_log = _render(NFTablesManager(), enable_logging=False)
+        assert "FIREWALL-DROP" not in without_log
+        input_chain = _chain_section(without_log, "input")
+        assert input_chain.rstrip().endswith("        drop\n    }")
+
+    def test_conntrack_flag_controls_ct_rules(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        without_ct = _render(NFTablesManager(), enable_conntrack=False)
+        assert "ct state established,related" not in without_ct
+        assert "ct state invalid" not in without_ct
+
+        with_ct = _render(NFTablesManager())
+        assert "ct state established,related accept" in with_ct
+        assert "ct state invalid drop" in with_ct
+
+
+class TestValidationMode:
+    """a2: VALIDATION_MODE=1 renders a pass-through ruleset."""
+
+    def test_validation_render_has_zero_drop_and_meter(self, monkeypatch) -> None:
+        monkeypatch.setenv("VALIDATION_MODE", "1")
+        ruleset = _render(NFTablesManager())
+        assert "drop" not in ruleset
+        assert "meter" not in ruleset
+        assert "limit rate 5/second" not in ruleset
+        assert ruleset.count("VW-VALIDATION") == 3
+        assert ruleset.count("limit rate 10/minute") == 3
+        for chain in ("input", "forward", "output"):
+            section = _chain_section(ruleset, chain)
+            assert f"policy accept;" in section
+
+    def test_validation_render_skips_nat(self, monkeypatch) -> None:
+        monkeypatch.setenv("VALIDATION_MODE", "1")
+        ruleset = _render(NFTablesManager())
+        assert "chain prerouting" not in ruleset
+        assert "chain postrouting" not in ruleset
+
+    def test_validation_flag_flip_flips_output(self, monkeypatch) -> None:
+        """Mutation check: flipping the flag must flip the rendered output."""
+        manager = NFTablesManager()
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        real = _render(manager)
+        monkeypatch.setenv("VALIDATION_MODE", "1")
+        validation = _render(manager)
+        assert real != validation
+        assert "policy drop" in real and "policy drop" not in validation
+        assert "VW-VALIDATION" not in real and "VW-VALIDATION" in validation
+        assert "FIREWALL-DROP" in real and "FIREWALL-DROP" not in validation
+
+
+class TestUserRuleRendering:
+    def test_user_rule_with_limit_and_comment(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        assert (
+            'ip protocol tcp tcp dport 21115 accept comment "user rule input"'
+            in ruleset
+        )
+        assert (
+            'ip protocol tcp tcp dport 9090 limit rate 30/minute accept comment "limit-carrying user rule"'
+            in ruleset
+        )
+
+    def test_user_rule_log_action_uses_quoted_prefix(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        rules = _base_rules() + [
+            _rule(
+                10,
+                "log rule",
+                protocol="udp",
+                destination_port=9999,
+                action=FirewallAction.LOG,
+                order=70,
+            )
+        ]
+        ruleset = _render(NFTablesManager(), rules=rules)
+        assert (
+            'ip protocol udp udp dport 9999 log prefix "[NFT log rule]" accept'
+            in ruleset
+        )
+
+    def test_ipv6_user_rule_uses_nexthdr(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        rules = _base_rules() + [
+            _rule(
+                11,
+                "v6 rule",
+                source="2001:db8::/32",
+                protocol="tcp",
+                destination_port=8443,
+                action=FirewallAction.ACCEPT,
+                order=80,
+            )
+        ]
+        ruleset = _render(NFTablesManager(), rules=rules)
+        assert "ip6 saddr 2001:db8::/32 ip6 nexthdr tcp tcp dport 8443 accept" in ruleset
+
+    def test_malformed_rule_renders_bare_accept(self, monkeypatch) -> None:
+        """A rule with all optionals unset must still yield nft-valid syntax."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        rules = [FirewallRule(id=20, name="bare", chain="input")]
+        ruleset = _render(NFTablesManager(), rules=rules)
+        input_chain = _chain_section(ruleset, "input")
+        assert "        accept\n" in input_chain
+
+    def test_invalid_limit_and_ifname_are_skipped(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        rules = _base_rules() + [
+            _rule(
+                12,
+                "bad limit",
+                protocol="tcp",
+                destination_port=7777,
+                limit="30/minutes",
+                order=90,
+            ),
+            _rule(
+                13,
+                "bad iface",
+                interface_in="eth0; rm -rf /",
+                destination="10.0.0.1",
+                order=91,
+            ),
+        ]
+        ruleset = _render(NFTablesManager(), rules=rules)
+        assert "30/minutes" not in ruleset
+        assert "rm -rf" not in ruleset
+        assert 'iifname "eth0; rm -rf /"' not in ruleset
+
+    def test_wan_interface_sanitized_falls_back_to_default(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(
+            NFTablesManager(), interfaces=[{"name": "bad iface!", "type": "wan"}]
+        )
+        assert 'iifname "enp0s31f6" ct direction original' in ruleset
+        assert 'iifname "bad iface!"' not in ruleset
+
+
+class TestPureHelpers:
+    def test_port_set_sorts_and_ranges(self) -> None:
+        manager = NFTablesManager()
+        assert manager._port_set({22, 443, 80}) == "{22, 80, 443}"
+        assert manager._port_set({(21114, 21119), 22}) == "{22, 21114-21119}"
+
+    def test_parse_addr_family(self) -> None:
+        assert NFTablesManager._parse_addr_family("10.0.0.1") == "ip"
+        assert NFTablesManager._parse_addr_family("2001:db8::1") == "ip6"
+        assert NFTablesManager._parse_addr_family("not-an-ip") is None
+
+    def test_quote_escapes(self) -> None:
+        from viswall_firewall_agent.nft import _quote
+
+        assert _quote('a"b') == '"a\'b"'
+        assert _quote("plain") == '"plain"'
+
+    def test_validators(self) -> None:
+        from viswall_firewall_agent.nft import _safe_ifname, _valid_limit, _valid_net
+
+        assert _valid_net("10.0.0.0/8") is True
+        assert _valid_net("nope") is False
+        assert _valid_limit("30/minute") is True
+        assert _valid_limit("30/minutes") is False
+        assert _safe_ifname("enp0s31f6") is True
+        assert _safe_ifname("eth0; rm") is False
