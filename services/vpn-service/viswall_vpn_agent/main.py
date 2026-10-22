@@ -7,13 +7,17 @@ from ``viswall_vpn_agent.api`` on ``VPN_AGENT_PORT``.
 Startup reconcile is GATED behind ``$STATE_DIR/takeover``: without that
 marker the agent never touches the wg-quick unit's run/enabled state (the
 host still owns the tunnel until the todo-42 live validation flips the
-marker). The marker check is logged at boot; the reconcile loop itself lands
-with the endpoints in todo 16.
+marker). The marker check is logged at boot.
+
+A gateway heartbeat task starts once uvicorn has bound its socket and is
+cancelled on shutdown (same wiring as the firewall agent, todo 12), so the
+console sees liveness for exactly as long as the agent is serving.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import sys
@@ -21,6 +25,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import uvicorn
+
+from viswall_vpn_agent.heartbeat import heartbeat_loop
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +66,17 @@ def load_config() -> AgentConfig:
     )
 
 
+async def _run_heartbeat_when_serving(
+    server: uvicorn.Server, config: AgentConfig
+) -> None:
+    """Wait for uvicorn to bind, then run the heartbeat loop forever."""
+    while not server.started:
+        await asyncio.sleep(0.1)
+    await heartbeat_loop(config)
+
+
 async def main() -> None:
-    """Start uvicorn serving viswall_vpn_agent.api:app."""
+    """Start uvicorn serving viswall_vpn_agent.api:app plus heartbeat."""
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
@@ -88,7 +103,16 @@ async def main() -> None:
             log_level="info",
         )
     )
-    await server.serve()
+    heartbeat_task = asyncio.create_task(
+        _run_heartbeat_when_serving(server, config),
+        name="gateway-heartbeat",
+    )
+    try:
+        await server.serve()
+    finally:
+        heartbeat_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await heartbeat_task
 
 
 if __name__ == "__main__":
