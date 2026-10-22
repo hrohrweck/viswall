@@ -26,10 +26,14 @@ import urllib.request
 from typing import Any, Mapping, Sequence
 
 DESIRED_CAPABILITIES = ("mail", "dns", "firewall", "vpn")
+# The gateway runs in the viswall bridge netns: 127.0.0.1 there is the
+# container's own loopback, so dispatch targets the host via
+# host.docker.internal (api-gateway has the host-gateway extra_host; the
+# agents bind the host loopback unless the deployment overrides AGENT_HOST).
 DESIRED_ENDPOINTS = {
-    "firewall": "http://127.0.0.1:8081",
-    "vpn": "http://127.0.0.1:8083",
-    "node": "http://127.0.0.1:8085",
+    "firewall": "http://host.docker.internal:8081",
+    "vpn": "http://host.docker.internal:8083",
+    "node": "http://host.docker.internal:8085",
 }
 
 # Exact instance-1 row observed read-only in todo 5.  Used by --dry-run only.
@@ -107,6 +111,10 @@ def run_self_test() -> None:
     _check(endpoints["legacy"] == "http://old:9999", "unknown endpoint was dropped")
     for name, url in DESIRED_ENDPOINTS.items():
         _check(endpoints[name] == url, f"{name} endpoint missing")
+        _check(
+            url.startswith("http://host.docker.internal:"),
+            f"{name} endpoint must target the host via host.docker.internal",
+        )
     _check(capabilities == original_capabilities, "input capabilities were mutated")
     _check(config == original_config, "input config was mutated")
 
@@ -124,7 +132,10 @@ def run_self_test() -> None:
     _check(second == patch, "second run is not idempotent")
     third = build_patch(second["capabilities"], second["config"])
     _check(third == second, "third run is not idempotent")
-    print("self-test: version kept; dns+unknown keys kept; firewall/vpn/node added; rerun idempotent")
+    print(
+        "self-test: version kept; dns+unknown keys kept; firewall/vpn/node added "
+        "via host.docker.internal; rerun idempotent"
+    )
 
 
 class GatewayClient:

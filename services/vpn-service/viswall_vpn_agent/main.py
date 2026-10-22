@@ -41,7 +41,9 @@ class AgentConfig:
     port: int
     state_dir: Path
     wg_service: str
-    host: str = "::"
+    # Loopback default is deliberate (host net): compose overrides to
+    # 0.0.0.0 explicitly, guarded by the auth middleware + host INPUT drop.
+    host: str = "127.0.0.1"
 
 
 def load_config() -> AgentConfig:
@@ -63,6 +65,7 @@ def load_config() -> AgentConfig:
         port=int(os.getenv("VPN_AGENT_PORT", "8083")),
         state_dir=Path(os.getenv("STATE_DIR", "/var/lib/viswall-vpn")),
         wg_service=os.getenv("WG_SERVICE", "wg-quick@client"),
+        host=os.getenv("AGENT_HOST", "127.0.0.1"),
     )
 
 

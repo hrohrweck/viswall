@@ -33,7 +33,9 @@ class AgentConfig:
     instance_id: int
     port: int
     state_dir: str
-    host: str = "::"
+    # Loopback default is deliberate (host net): compose overrides to
+    # 0.0.0.0 explicitly, guarded by the auth middleware + host INPUT drop.
+    host: str = "127.0.0.1"
 
 
 def load_config() -> AgentConfig:
@@ -54,6 +56,7 @@ def load_config() -> AgentConfig:
         instance_id=int(os.getenv("INSTANCE_ID", "1")),
         port=int(os.getenv("FIREWALL_AGENT_PORT", "8081")),
         state_dir=os.getenv("STATE_DIR", "/var/lib/viswall-firewall"),
+        host=os.getenv("AGENT_HOST", "127.0.0.1"),
     )
 
 

@@ -52,6 +52,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    # Gateway -> host-net agent dispatch: inside the bridge netns 127.0.0.1
+    # is the container's own loopback, so instance agent_endpoints resolve
+    # via host.docker.internal (the host, where the agents bind).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - viswall
     volumes:
@@ -238,6 +243,11 @@ services:
       INSTANCE_API_KEY: ${INSTANCE_API_KEY:-}
       INSTANCE_ID: "1"
       VALIDATION_MODE: ${VALIDATION_MODE:-1}
+      # The agent defaults to 127.0.0.1 in code; 0.0.0.0 here is the
+      # deployment's explicit choice so the bridge-net gateway can dispatch
+      # via host.docker.internal. Protected by X-Instance-Key auth and the
+      # host INPUT-drop policy (8081 is not in the preserved port blocklist).
+      AGENT_HOST: "0.0.0.0"
     volumes:
       - ${FW_STATE_DIR:-/var/lib/viswall-firewall}:/var/lib/viswall-firewall
     restart: unless-stopped
@@ -261,6 +271,9 @@ services:
       GATEWAY_URL: http://127.0.0.1:8010
       INSTANCE_API_KEY: ${INSTANCE_API_KEY:-}
       INSTANCE_ID: "1"
+      # See firewall-service: loopback default in code, 0.0.0.0 is the
+      # deployment's explicit choice for host.docker.internal dispatch.
+      AGENT_HOST: "0.0.0.0"
     volumes:
       # rw bind-mount of the host WireGuard config dir — the agent writes
       # client.conf here (keeping a .viswall-backup copy before each write).
