@@ -11,10 +11,11 @@ GitHub webhook (push / pull_request / issue_comment)
          ├─ viswall-ci      (agent 'build')
          │    backend tests (Postgres/Redis sidecars), frontend, OpenAPI/SDK/CLI
          │    PRs → "jenkins-ci" commit status; green main → trigger release
-         ├─ viswall-release (agent 'build')
-         │    buildx builds api-gateway, web-ui, sogo, dns-service
-         │    tags: sha-<short7> and main → ghcr.io/hrohrweck/viswall/*
-         │    (registry :buildcache; Trivy scan was retired with GH Actions)
+          ├─ viswall-release (agent 'build')
+          │    buildx builds api-gateway, web-ui, sogo, dns-service,
+          │    node-agent, firewall-service, vpn-service
+          │    tags: sha-<short7> and main → ghcr.io/hrohrweck/viswall/*
+          │    (registry :buildcache; Trivy scan was retired with GH Actions)
          └─ viswall-deploy  (agent 'build', serialized)
               SSH → viswall-deploy@viswall.webmasters.co.at
                 pin checkout → ghcr login → pre-pull (3 retries)
@@ -33,7 +34,7 @@ the approving review (the "Protect main" ruleset requires 1 approval).
 
 ## What is deployed
 
-`deployments/docker/docker-compose.prod.yml` overrides the four custom images that the default compose profile runs:
+`deployments/docker/docker-compose.prod.yml` overrides the custom images that the default compose profile runs:
 
 | Image | Dockerfile | Notes |
 |---|---|---|
@@ -41,8 +42,57 @@ the approving review (the "Protect main" ruleset requires 1 approval).
 | `ghcr.io/hrohrweck/viswall/web-ui` | `web-ui/Dockerfile` | nginx serving the Vite build |
 | `ghcr.io/hrohrweck/viswall/sogo` | `services/sogo-service/Dockerfile` | |
 | `ghcr.io/hrohrweck/viswall/dns-service` | `services/dns-service/Dockerfile` | authoritative DNS on 46.4.63.216:53 |
+| `ghcr.io/hrohrweck/viswall/firewall-service` | `services/firewall-service/Dockerfile` | host firewall agent (nftables table `inet viswall`) — see below |
+| `ghcr.io/hrohrweck/viswall/vpn-service` | `services/vpn-service/Dockerfile` | WireGuard site-to-site client manager — see below |
 
-`nginx` (profile `disabled`) is intentionally **not** prebuilt — TLS is terminated by the existing host nginx. `mail-service` (profile `mail`) **is enabled in production** (Exim/Dovecot carry live mail) and builds locally on the server during each deploy; its DKIM keys live in `/opt/viswall/dkim` (untracked, preserved across deploys).
+`nginx` (profile `disabled`) is intentionally **not** prebuilt — TLS is terminated by the existing host nginx. `mail-service` (profile `mail`) **is enabled in production** (Exim/Dovecot carry live mail) and builds locally on the server during each deploy; its DKIM keys live in `/opt/viswall/dkim` (untracked, preserved across deploys). `node-agent` also builds locally on the server (no prod-override entry) — it is host-network privileged and tiny.
+
+Third-party images (postgres, redis, prometheus, grafana, ollama) are pulled directly by compose. Data lives in named volumes and survives every deploy.
+
+## Host-network agents (firewall-service, vpn-service)
+
+Both agents run with `privileged: true`, `network_mode: host` and `pid: host` —
+the containers are **host-equivalent**: they manipulate the host's real
+netfilter, WireGuard config, and (via `nsenter`) the host's systemd units.
+They are therefore NOT covered by the usual container-network isolation:
+
+- **Topology**: the agents share the host's network and PID namespaces. They
+  reach the gateway at `GATEWAY_URL=http://127.0.0.1:8010` (the compose
+  service name is unreachable from a host-net container); the gateway reaches
+  them via the loopback endpoints in instance 1's `config.agent_endpoints`
+  (`firewall` → `http://127.0.0.1:8081`, `vpn` → `http://127.0.0.1:8083`).
+- **Control ports**: 8081 (firewall) / 8083 (vpn) have **no `ports:` mapping**
+  (compose forbids it under `network_mode: host` anyway) — they are bound by
+  the agent process itself, NOT published by compose, and must never be
+  reachable from the internet. **Known pre-cutover gap**: the agent entrypoints
+  currently bind the IPv6 wildcard `::` (hardcoded `host` default in both
+  `main.py` files, no env override), and 8081/8083 are NOT in the preserved
+  DOCKER-USER internal-port blocklist — until the bind is restricted to
+  loopback (or the ports are added to the blocklist), the control APIs are
+  reachable on every host interface with instance-key auth as the only gate.
+  Fix before the todo-33 deploy.
+- **Auth**: every endpoint except `/health` requires the `X-Instance-Key`
+  header to match `INSTANCE_API_KEY` (passed through from the host `.env`;
+  empty value makes the agent refuse to start). The same key must equal the
+  DB `instances.api_key` for `id=1` or every heartbeat is a 401.
+- **Validation mode**: `VALIDATION_MODE=${VALIDATION_MODE:-1}` is read from
+  the **host `.env`** (`/opt/viswall/deployments/docker/.env`), never
+  hardcoded in the repo. Default `1` renders the pass-through ruleset (log
+  prefix `VW-VALIDATION`, policy accept, zero drops) — the agent can be
+  deployed and imported into without changing any live traffic. The cutover
+  flips the host `.env` to `0` (todo 44); the repo default stays `1`.
+- **State dirs**: `${FW_STATE_DIR:-/var/lib/viswall-firewall}` and
+  `${VPN_STATE_DIR:-/var/lib/viswall-vpn}` bind-mount the agent state
+  (snapshots, takeover marker) so it survives image upgrades. `/etc/netplan`
+  is **not** mounted here — the node-agent owns netplan.
+- **Risk — rw `/etc/wireguard` bind-mount**: vpn-service mounts the host
+  `/etc/wireguard` read-write. The agent only renders `client.conf` (atomic
+  tmp+rename, keeping a `.viswall-backup` before each write) and only
+  restarts the `wg-quick@client` unit after the todo-42 takeover marker
+  exists — but a bug in this privileged process could take down the
+  site-to-site tunnel that carries management traffic. Treat any change to
+  the vpn-service image as a network-affecting change and rehearse it with
+  the watchdog armed.
 
 Third-party images (postgres, redis, prometheus, grafana, ollama) are pulled directly by compose. Data lives in named volumes and survives every deploy.
 

@@ -215,31 +215,60 @@ services:
     networks:
       - viswall
 
-  # firewall-service:
-  #   build:
-  #     context: ../..
-  #     dockerfile: services/firewall-service/Dockerfile
-  #   privileged: true
-  #   network_mode: host
-  #   environment:
-  #     GATEWAY_URL: http://api-gateway:8000
-  #     INSTANCE_API_KEY: ${INSTANCE_API_KEY:-dev-key}
-  #   ports:
-  #     - "8081:8081"
-  #   depends_on:
-  #     - api-gateway
+  # Firewall agent: manages the host firewall inside a dedicated nftables
+  # table (inet viswall) — never `flush ruleset`; Docker's chains stay
+  # Docker's. privileged + host networking + host PID namespace means the
+  # agent manipulates the HOST's netfilter directly. The control API binds
+  # on 8081 (FIREWALL_AGENT_PORT) inside the container; the gateway reaches
+  # it via the instance-1 agent_endpoints config. NO `ports:` — with host
+  # networking the container shares the host's interfaces directly.
+  # VALIDATION_MODE comes from the HOST .env (default 1 = pass-through
+  # renderer with log prefix VW-VALIDATION; the todo-44 cutover flips the
+  # host .env to 0 — never hardcoded in the repo).
+  firewall-service:
+    build:
+      context: ../..
+      dockerfile: services/firewall-service/Dockerfile
+    privileged: true
+    network_mode: host
+    pid: host
+    environment:
+      # A host-network container cannot resolve compose service names.
+      GATEWAY_URL: http://127.0.0.1:8010
+      INSTANCE_API_KEY: ${INSTANCE_API_KEY:-}
+      INSTANCE_ID: "1"
+      VALIDATION_MODE: ${VALIDATION_MODE:-1}
+    volumes:
+      - ${FW_STATE_DIR:-/var/lib/viswall-firewall}:/var/lib/viswall-firewall
+    restart: unless-stopped
+    depends_on:
+      - api-gateway
 
-  # vpn-service:
-  #   build:
-  #     context: ../..
-  #     dockerfile: services/vpn-service/Dockerfile
-  #   privileged: true
-  #   network_mode: host
-  #   environment:
-  #     GATEWAY_URL: http://api-gateway:8000
-  #     INSTANCE_API_KEY: ${INSTANCE_API_KEY:-dev-key}
-  #   depends_on:
-  #     - api-gateway
+  # VPN agent: WireGuard site-to-site client manager. The wg-quick@client
+  # systemd unit stays the single lifecycle owner; the agent only renders
+  # /etc/wireguard/client.conf and restarts the unit via nsenter (the
+  # takeover marker gates any run/enabled-state change). privileged + host
+  # networking give it netlink access (`wg show`) and nsenter into PID 1.
+  # Control API binds on 8083 (VPN_AGENT_PORT); no `ports:` (host network).
+  vpn-service:
+    build:
+      context: ../..
+      dockerfile: services/vpn-service/Dockerfile
+    privileged: true
+    network_mode: host
+    pid: host
+    environment:
+      GATEWAY_URL: http://127.0.0.1:8010
+      INSTANCE_API_KEY: ${INSTANCE_API_KEY:-}
+      INSTANCE_ID: "1"
+    volumes:
+      # rw bind-mount of the host WireGuard config dir — the agent writes
+      # client.conf here (keeping a .viswall-backup copy before each write).
+      - /etc/wireguard:/etc/wireguard
+      - ${VPN_STATE_DIR:-/var/lib/viswall-vpn}:/var/lib/viswall-vpn
+    restart: unless-stopped
+    depends_on:
+      - api-gateway
 
   # Host node agent: shares the host network namespace with NET_ADMIN so it
   # can discover and reconfigure the host's real interfaces (Network ->
