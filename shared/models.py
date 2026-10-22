@@ -342,6 +342,21 @@ class VPNServer(Base):
         Boolean, default=False
     )  # Redirect all traffic through VPN
 
+    # Outgoing tunnel (WireGuard client / site-to-site mode).
+    # tunnel_type: "server" (default, legacy server mode), "client",
+    # "site-to-site" (this instance dials a remote peer).
+    # SECURITY POSTURE: private_key is stored ONLY for client / site-to-site
+    # tunnels and is plaintext at rest in Postgres — the same posture as
+    # Instance.api_key today. NEVER commit real key material to the repo
+    # (use a clearly fake value in test fixtures; see .gitleaksignore).
+    tunnel_type = Column(String(20), default="server")  # server|client|site-to-site
+    endpoint = Column(String(255))  # remote endpoint, e.g. base0.example:51820
+    peer_public_key = Column(String(255))  # remote peer's WireGuard public key
+    allowed_ips = Column(String(500))  # e.g. "10.80.0.0/16"
+    persistent_keepalive = Column(Integer, default=25)
+    local_address = Column(String(45))  # local tunnel address, e.g. 10.80.0.2/32
+    private_key = Column(String(255))  # see at-rest-plaintext note above
+
     # Protocol-specific configuration stored as JSON
     config = Column(JSON, default=dict)
 

@@ -1,6 +1,6 @@
 import re
 from pydantic import BaseModel, Field, IPvAnyNetwork, field_validator, model_validator
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -1008,6 +1008,19 @@ class VPNServerBase(BaseModel):
     push_routes: List[str] = Field(default_factory=list)
     internet_redirect: bool = False
 
+    # Outgoing tunnel (WireGuard client / site-to-site mode).
+    # SECURITY POSTURE: private_key is stored ONLY for client / site-to-site
+    # tunnels and is plaintext at rest in Postgres — the same posture as
+    # Instance.api_key today. NEVER commit real key material to the repo
+    # (use a clearly fake value in test fixtures; see .gitleaksignore).
+    tunnel_type: Optional[Literal["server", "client", "site-to-site"]] = "server"
+    endpoint: Optional[str] = None  # remote endpoint, e.g. base0.example:51820
+    peer_public_key: Optional[str] = None  # remote peer's WireGuard public key
+    allowed_ips: Optional[str] = None  # e.g. "10.80.0.0/16"
+    persistent_keepalive: Optional[int] = Field(default=25, ge=0, le=65535)
+    local_address: Optional[str] = None  # local tunnel address, e.g. 10.80.0.2/32
+    private_key: Optional[str] = None  # see at-rest-plaintext note above
+
 
 class VPNServerCreate(VPNServerBase):
     # Protocol-specific configs
@@ -1029,6 +1042,15 @@ class VPNServerUpdate(BaseModel):
     push_routes: Optional[List[str]] = None
     internet_redirect: Optional[bool] = None
     config: Optional[Dict[str, Any]] = None
+
+    # Outgoing tunnel fields (client / site-to-site mode)
+    tunnel_type: Optional[Literal["server", "client", "site-to-site"]] = None
+    endpoint: Optional[str] = None
+    peer_public_key: Optional[str] = None
+    allowed_ips: Optional[str] = None
+    persistent_keepalive: Optional[int] = Field(default=None, ge=0, le=65535)
+    local_address: Optional[str] = None
+    private_key: Optional[str] = None
 
 
 class VPNServerResponse(VPNServerBase):
