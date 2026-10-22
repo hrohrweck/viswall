@@ -81,3 +81,29 @@ class VPNResource:
     def regenerate_client(self, client_id: int) -> Dict[str, Any]:
         """Regenerate VPN client credentials."""
         return self._client._request("POST", f"/vpn/clients/{client_id}/regenerate")
+
+    def get_site_to_site_status(self, instance_id: int) -> List[Dict[str, Any]]:
+        """Get status of all site-to-site tunnels for an instance."""
+        return self._client._request(
+            "GET", "/vpn/site-to-site/status", params={"instance_id": instance_id}
+        )
+
+    def initialize_site_to_site(
+        self,
+        instance_id: int,
+        remote_endpoint: str,
+        remote_public_key: str,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Initialize a site-to-site VPN tunnel and push it to the VPN agent.
+
+        Optional keyword arguments mirror the backend query parameters:
+        ``protocol``, ``local_address``, ``allowed_ips``, ``persistent_keepalive``.
+        """
+        params: Dict[str, Any] = {
+            "local_instance_id": instance_id,
+            "remote_endpoint": remote_endpoint,
+            "remote_public_key": remote_public_key,
+        }
+        params.update(kwargs)
+        return self._client._request("POST", "/vpn/site-to-site/initialize", params=params)

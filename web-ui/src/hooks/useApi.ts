@@ -35,6 +35,10 @@ import type {
   VPNClientCreate,
   VPNClientUpdate,
   VPNProtocolRecommendation,
+  VPNSiteToSiteStatus,
+  VPNSiteToSiteInitialize,
+  VPNSiteToSiteInitializeResponse,
+  VPNRegenerateResponse,
   DNSServer,
   DNSServerCreate,
   DNSServerUpdate,
@@ -116,6 +120,7 @@ const queryKeys = {
   vpnServers: (instanceId: number) => ['vpn-servers', instanceId] as const,
   vpnServer: (instanceId: number, serverId: number) => ['vpn-servers', instanceId, serverId] as const,
   vpnClients: (instanceId: number, serverId: number) => ['vpn-clients', instanceId, serverId] as const,
+  vpnSiteToSite: (instanceId: number) => ['vpn-site-to-site', instanceId] as const,
   vpnProtocols: ['vpn-protocols'] as const,
   auditLogs: (params?: Record<string, unknown>) => ['audit-logs', params] as const,
   metricsLatest: (instanceId: number) => ['metrics', 'latest', instanceId] as const,
@@ -814,6 +819,7 @@ export function useUpdateVPNServer(instanceId: number) {
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: queryKeys.vpnServers(instanceId) })
       qc.invalidateQueries({ queryKey: queryKeys.vpnServer(instanceId, variables.id) })
+      qc.invalidateQueries({ queryKey: queryKeys.vpnSiteToSite(instanceId) })
     },
   })
 }
@@ -888,6 +894,59 @@ export function useVPNServerAction(instanceId: number) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.vpnServers(instanceId) })
+      qc.invalidateQueries({ queryKey: queryKeys.vpnSiteToSite(instanceId) })
+    },
+  })
+}
+
+export function useSiteToSiteStatus(instanceId: number) {
+  return useQuery<VPNSiteToSiteStatus[]>({
+    queryKey: queryKeys.vpnSiteToSite(instanceId),
+    queryFn: async () => {
+      const { data } = await api.get('/vpn/site-to-site/status', {
+        params: { instance_id: instanceId },
+      })
+      return data
+    },
+    enabled: !!instanceId,
+  })
+}
+
+export function useInitializeSiteToSite(instanceId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: VPNSiteToSiteInitialize) => {
+      const params: Record<string, string | number> = {
+        local_instance_id: instanceId,
+        remote_endpoint: body.endpoint,
+        remote_public_key: body.peer_public_key,
+      }
+      if (body.allowed_ips) params.allowed_ips = body.allowed_ips
+      if (body.local_address) params.local_address = body.local_address
+      if (body.persistent_keepalive !== undefined) params.persistent_keepalive = body.persistent_keepalive
+      const { data } = await api.post('/vpn/site-to-site/initialize', null, { params })
+      return data as VPNSiteToSiteInitializeResponse
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.vpnSiteToSite(instanceId) })
+      qc.invalidateQueries({ queryKey: queryKeys.vpnServers(instanceId) })
+    },
+  })
+}
+
+export function useRegenerateVPNClient(instanceId: number, serverId?: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (clientId: number) => {
+      const { data } = await api.post(`/vpn/clients/${clientId}/regenerate`)
+      return data as VPNRegenerateResponse
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.vpnServers(instanceId) })
+      qc.invalidateQueries({ queryKey: queryKeys.vpnSiteToSite(instanceId) })
+      if (serverId) {
+        qc.invalidateQueries({ queryKey: queryKeys.vpnClients(instanceId, serverId) })
+      }
     },
   })
 }

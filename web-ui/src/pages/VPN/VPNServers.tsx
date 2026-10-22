@@ -116,6 +116,12 @@ export function VPNServers() {
       <PageHeader
         title="VPN Servers"
         description="WireGuard, IPsec and OpenVPN servers across your instances"
+        secondaryActions={[
+          <Link key="site-to-site" to="/vpn/site-to-site" className={buttonVariants({ variant: 'secondary' })}>
+            <Network className="w-4 h-4" />
+            Site-to-Site
+          </Link>,
+        ]}
         primaryAction={
           <Link to="/vpn/create" className={buttonVariants()}>
             <Plus className="w-4 h-4" />

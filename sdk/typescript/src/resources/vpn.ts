@@ -78,4 +78,37 @@ export class VPNResource {
   async regenerateClient(clientId: number): Promise<Record<string, unknown>> {
     return this.client.request('POST', `/vpn/clients/${clientId}/regenerate`);
   }
+
+  async getSiteToSiteStatus(instanceId: number): Promise<unknown[]> {
+    return this.client.request('GET', '/vpn/site-to-site/status', {
+      params: { instance_id: instanceId },
+    });
+  }
+
+  async initializeSiteToSite(
+    instanceId: number,
+    remoteEndpoint: string,
+    remotePublicKey: string,
+    options: {
+      protocol?: string;
+      localAddress?: string;
+      allowedIps?: string;
+      persistentKeepalive?: number;
+    } = {},
+  ): Promise<Record<string, unknown>> {
+    const params: Record<string, string | number> = {
+      local_instance_id: instanceId,
+      remote_endpoint: remoteEndpoint,
+      remote_public_key: remotePublicKey,
+    };
+    if (options.protocol) params.protocol = options.protocol;
+    if (options.localAddress) params.local_address = options.localAddress;
+    if (options.allowedIps) params.allowed_ips = options.allowedIps;
+    if (options.persistentKeepalive !== undefined) {
+      params.persistent_keepalive = options.persistentKeepalive;
+    }
+    return this.client.request('POST', '/vpn/site-to-site/initialize', {
+      params,
+    });
+  }
 }

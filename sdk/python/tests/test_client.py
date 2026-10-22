@@ -10,6 +10,8 @@ from viswall import ViswallClient, ViswallAPIError, AuthenticationError, NotFoun
 # Generated per test run so no static credential-shaped literal lands in the repo.
 TEST_AUTH_KEY = "vw-test-" + uuid.uuid4().hex
 TEST_REVEALED_KEY = "vis_" + uuid.uuid4().hex
+# Clearly-fake 44-char base64 WireGuard key (low entropy, gitleaks-safe).
+FAKE_WG_KEY = "k" * 43 + "="
 
 
 class TestViswallClient:
@@ -485,4 +487,89 @@ class TestNetworkResource:
         client = ViswallClient(base_url="https://test.example.com", token="jwt")
         result = client.instances.reveal_api_key(1)
         assert result["api_key"] == TEST_REVEALED_KEY
+        client.close()
+
+
+class TestVPNResource:
+    """Test VPNResource site-to-site operations."""
+
+    def test_site_to_site_status(self, httpx_mock):
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/vpn/site-to-site/status",
+            method="GET",
+            match_params={"instance_id": "1"},
+            json=[{"server_id": 3, "name": "site-to-site-base0", "agent": "online"}],
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.vpn.get_site_to_site_status(1)
+        assert len(result) == 1
+        assert result[0]["agent"] == "online"
+
+        request = httpx_mock.get_requests()[-1]
+        assert request.url.params["instance_id"] == "1"
+        client.close()
+
+    def test_initialize_site_to_site(self, httpx_mock):
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/vpn/site-to-site/initialize",
+            method="POST",
+            match_params={
+                "local_instance_id": "1",
+                "remote_endpoint": "base0.example.com:51820",
+                "remote_public_key": FAKE_WG_KEY,
+                "allowed_ips": "10.80.0.0/16",
+                "persistent_keepalive": "25",
+            },
+            json={"status": "success", "server_id": 3, "message": "initialized"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.vpn.initialize_site_to_site(
+            1,
+            "base0.example.com:51820",
+            FAKE_WG_KEY,
+            allowed_ips="10.80.0.0/16",
+            persistent_keepalive=25,
+        )
+        assert result["server_id"] == 3
+
+        request = httpx_mock.get_requests()[-1]
+        assert request.url.params["local_instance_id"] == "1"
+        assert request.url.params["remote_endpoint"] == "base0.example.com:51820"
+        assert request.url.params["remote_public_key"] == FAKE_WG_KEY
+        assert request.url.params["allowed_ips"] == "10.80.0.0/16"
+        assert request.url.params["persistent_keepalive"] == "25"
+        client.close()
+
+    def test_initialize_site_to_site_without_options(self, httpx_mock):
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/vpn/site-to-site/initialize",
+            method="POST",
+            match_params={
+                "local_instance_id": "1",
+                "remote_endpoint": "peer.example.com:51820",
+                "remote_public_key": FAKE_WG_KEY,
+            },
+            json={"status": "success", "server_id": 4, "message": "initialized"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        client.vpn.initialize_site_to_site(1, "peer.example.com:51820", FAKE_WG_KEY)
+
+        request = httpx_mock.get_requests()[-1]
+        assert "allowed_ips" not in request.url.params
+        assert "persistent_keepalive" not in request.url.params
+        client.close()
+
+    def test_regenerate_client(self, httpx_mock):
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/vpn/clients/7/regenerate",
+            method="POST",
+            json={"status": "success", "message": "regenerated", "public_key": FAKE_WG_KEY},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.vpn.regenerate_client(7)
+        assert result["public_key"] == FAKE_WG_KEY
         client.close()

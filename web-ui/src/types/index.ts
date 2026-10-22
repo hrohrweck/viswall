@@ -500,6 +500,8 @@ export interface MailMessage {
   received_at: string;
 }
 
+export type VPNTunnelType = 'server' | 'client' | 'site-to-site'
+
 export interface VPNServer {
   id: number;
   instance_id: number;
@@ -522,6 +524,14 @@ export interface VPNServer {
   created_by: number | null;
   created_at: string;
   updated_at: string;
+  // Outgoing tunnel fields (client / site-to-site mode, todo 23)
+  tunnel_type?: VPNTunnelType | null;
+  endpoint?: string | null;
+  peer_public_key?: string | null;
+  allowed_ips?: string | null;
+  persistent_keepalive?: number | null;
+  local_address?: string | null;
+  private_key?: string | null;
 }
 
 export interface VPNServerCreate {
@@ -555,6 +565,12 @@ export interface VPNServerUpdate {
   push_routes?: string[];
   internet_redirect?: boolean;
   config?: Record<string, unknown>;
+  tunnel_type?: VPNTunnelType;
+  endpoint?: string | null;
+  peer_public_key?: string | null;
+  allowed_ips?: string | null;
+  persistent_keepalive?: number | null;
+  local_address?: string | null;
 }
 
 export interface WireGuardConfig {
@@ -686,6 +702,50 @@ export interface VPNProtocolRecommendation {
   compatibility_score: number;
   description: string;
   use_cases: string[];
+}
+
+export interface VPNSiteToSiteLive {
+  up: boolean | null;
+  interface: string | null;
+  address: string | null;
+  endpoint: string | null;
+  latest_handshake_sec: number | null;
+  transfer_rx: number | null;
+  transfer_tx: number | null;
+}
+
+export interface VPNSiteToSiteStatus {
+  server_id: number;
+  name: string;
+  status: string;
+  protocol: string;
+  remote_endpoint: string | null;
+  allowed_ips: string | null;
+  persistent_keepalive: number | null;
+  local_address: string | null;
+  agent: 'online' | 'offline';
+  live: VPNSiteToSiteLive | null;
+}
+
+export interface VPNSiteToSiteInitialize {
+  endpoint: string;
+  peer_public_key: string;
+  allowed_ips?: string;
+  local_address?: string;
+  persistent_keepalive?: number;
+}
+
+export interface VPNSiteToSiteInitializeResponse {
+  status: string;
+  server_id: number;
+  agent?: unknown;
+  message: string;
+}
+
+export interface VPNRegenerateResponse {
+  status: string;
+  message: string;
+  public_key: string;
 }
 
 export interface DNSServer {

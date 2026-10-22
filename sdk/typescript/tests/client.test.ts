@@ -267,4 +267,77 @@ describe('ViswallClient', () => {
       await expect(client.instances.list()).rejects.toThrow(ServerError);
     });
   });
+
+  describe('VPNResource site-to-site', () => {
+    it('should fetch site-to-site status with instance_id param', async () => {
+      server.use(
+        http.get('https://viswall.example.com/api/v1/vpn/site-to-site/status', () => {
+          return HttpResponse.json([
+            { server_id: 3, name: 'site-to-site-base0', agent: 'online' },
+          ]);
+        }),
+      );
+
+      const result = await client.vpn.getSiteToSiteStatus(1);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(1);
+    });
+
+    it('should initialize a site-to-site tunnel with query params', async () => {
+      let requestUrl: URL | null = null;
+      server.use(
+        http.post(
+          'https://viswall.example.com/api/v1/vpn/site-to-site/initialize',
+          ({ request }) => {
+            requestUrl = new URL(request.url);
+            return HttpResponse.json({
+              status: 'success',
+              server_id: 3,
+              message: 'initialized',
+            });
+          },
+        ),
+      );
+
+      const result = await client.vpn.initializeSiteToSite(
+        1,
+        'base0.example.com:51820',
+        'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk=',
+        { allowedIps: '10.80.0.0/16', persistentKeepalive: 25 },
+      );
+
+      expect(result).toHaveProperty('server_id', 3);
+      expect(requestUrl).not.toBeNull();
+      expect(requestUrl!.searchParams.get('local_instance_id')).toBe('1');
+      expect(requestUrl!.searchParams.get('remote_endpoint')).toBe(
+        'base0.example.com:51820',
+      );
+      expect(requestUrl!.searchParams.get('remote_public_key')).toBe(
+        'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk=',
+      );
+      expect(requestUrl!.searchParams.get('allowed_ips')).toBe('10.80.0.0/16');
+      expect(requestUrl!.searchParams.get('persistent_keepalive')).toBe('25');
+    });
+
+    it('should regenerate client keys', async () => {
+      server.use(
+        http.post(
+          'https://viswall.example.com/api/v1/vpn/clients/7/regenerate',
+          () => {
+            return HttpResponse.json({
+              status: 'success',
+              message: 'regenerated',
+              public_key: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb=',
+            });
+          },
+        ),
+      );
+
+      const result = await client.vpn.regenerateClient(7);
+      expect(result).toHaveProperty(
+        'public_key',
+        'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb=',
+      );
+    });
+  });
 });

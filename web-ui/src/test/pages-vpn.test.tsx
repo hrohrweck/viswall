@@ -8,8 +8,10 @@ import { useInstanceStore } from '../stores/instance'
 import { VPNServers } from '../pages/VPN/VPNServers'
 import { VPNServerDetail } from '../pages/VPN/VPNServerDetail'
 import { VPNCreate } from '../pages/VPN/VPNCreate'
+import { VPNSiteToSite } from '../pages/VPN/VPNSiteToSite'
 import { vpnServers, vpnClients } from './msw/fixtures'
 import { server } from './msw/node'
+import { toast } from 'sonner'
 
 /* ------------------------------------------------------------------ */
 /*  sonner mock                                                        */
@@ -305,5 +307,243 @@ describe('Client search filtering', () => {
       expect(screen.getByText('laptop-admin')).toBeInTheDocument()
     })
     expect(screen.queryByText('oslo-site-peer')).not.toBeInTheDocument()
+  })
+})
+
+/* ================================================================== */
+/*  8 — Site-to-site tunnel view                                       */
+/* ================================================================== */
+
+function renderVPNSiteToSite() {
+  return render(
+    <Wrapper>
+      <VPNSiteToSite />
+    </Wrapper>,
+  )
+}
+
+describe('SiteToSite status card', () => {
+  it('renders tunnel status: up badge, endpoint, handshake age, transfer', async () => {
+    renderVPNSiteToSite()
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('site-to-site-base0.webmasters.co.at-51820'),
+      ).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Up')).toBeInTheDocument()
+    expect(screen.getByText('base0.webmasters.co.at:51820')).toBeInTheDocument()
+    expect(screen.getByText('12s ago')).toBeInTheDocument()
+    expect(screen.getByText('↓1 MB')).toBeInTheDocument()
+    expect(screen.getByText('↑2 MB')).toBeInTheDocument()
+    expect(screen.getByText('10.80.0.0/16')).toBeInTheDocument()
+    expect(screen.getByText('10.200.0.2/24')).toBeInTheDocument()
+  })
+
+  it('shows EmptyState when no tunnel exists', async () => {
+    server.use(
+      http.get('/api/v1/vpn/site-to-site/status', () => HttpResponse.json([])),
+    )
+    renderVPNSiteToSite()
+
+    await waitFor(() => {
+      expect(screen.getByText('No site-to-site tunnel')).toBeInTheDocument()
+    })
+    expect(
+      screen.getByRole('button', { name: /initialize tunnel/i }),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('SiteToSite initialize validation', () => {
+  it('blocks empty endpoint/key with client-side field errors', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('/api/v1/vpn/site-to-site/status', () => HttpResponse.json([])),
+    )
+    renderVPNSiteToSite()
+
+    await waitFor(() => {
+      expect(screen.getByText('No site-to-site tunnel')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /initialize tunnel/i }))
+
+    expect(await screen.findByText('Remote endpoint is required')).toBeInTheDocument()
+    expect(screen.getByText('Peer public key is required')).toBeInTheDocument()
+  })
+
+  it('surfaces a server-side rejection as a toast error', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('/api/v1/vpn/site-to-site/status', () => HttpResponse.json([])),
+      http.post('/api/v1/vpn/site-to-site/initialize', () =>
+        HttpResponse.json(
+          { detail: 'Site-to-site tunnel already exists for this instance' },
+          { status: 409 },
+        ),
+      ),
+    )
+    renderVPNSiteToSite()
+
+    await waitFor(() => {
+      expect(screen.getByText('No site-to-site tunnel')).toBeInTheDocument()
+    })
+
+    await user.type(
+      screen.getByPlaceholderText('base0.example.com:51820'),
+      'base0.example.com:51820',
+    )
+    await user.type(
+      screen.getByPlaceholderText('kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk='),
+      'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk=',
+    )
+    await user.click(screen.getByRole('button', { name: /initialize tunnel/i }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        'Site-to-site tunnel already exists for this instance',
+      )
+    })
+  })
+})
+
+describe('SiteToSite edit fields', () => {
+  it('PATCHes endpoint/allowed_ips/persistent_keepalive on save', async () => {
+    const user = userEvent.setup()
+    let patchedBody: Record<string, unknown> | null = null
+    server.use(
+      http.patch('/api/v1/vpn/servers/:serverId', async ({ request }) => {
+        patchedBody = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({ status: 'success' })
+      }),
+    )
+    renderVPNSiteToSite()
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('site-to-site-base0.webmasters.co.at-51820'),
+      ).toBeInTheDocument()
+    })
+
+    const endpointInput = screen.getByDisplayValue('base0.webmasters.co.at:51820')
+    await user.clear(endpointInput)
+    await user.type(endpointInput, 'base0.webmasters.co.at:51821')
+
+    const keepaliveInput = screen.getByDisplayValue('25')
+    await user.clear(keepaliveInput)
+    await user.type(keepaliveInput, '30')
+
+    await user.click(screen.getByRole('button', { name: /save configuration/i }))
+
+    await waitFor(() => {
+      expect(patchedBody).not.toBeNull()
+    })
+    expect(patchedBody).toMatchObject({
+      endpoint: 'base0.webmasters.co.at:51821',
+      allowed_ips: '10.80.0.0/16',
+      persistent_keepalive: 30,
+    })
+    expect(toast.success).toHaveBeenCalledWith('Tunnel configuration saved')
+  })
+})
+
+describe('SiteToSite start/stop', () => {
+  it('posts stop only after confirm', async () => {
+    const user = userEvent.setup()
+    let stopped = false
+    server.use(
+      http.post('/api/v1/vpn/servers/:serverId/stop', () => {
+        stopped = true
+        return HttpResponse.json({ success: true, action: 'stop' })
+      }),
+    )
+    renderVPNSiteToSite()
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('site-to-site-base0.webmasters.co.at-51820'),
+      ).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /^stop$/i }))
+    expect(stopped).toBe(false)
+
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /^stop$/i }))
+
+    await waitFor(() => {
+      expect(stopped).toBe(true)
+    })
+    expect(toast.success).toHaveBeenCalledWith(
+      'Tunnel "site-to-site-base0.webmasters.co.at-51820" stopped',
+    )
+  })
+
+  it('posts start directly', async () => {
+    const user = userEvent.setup()
+    let started = false
+    server.use(
+      http.post('/api/v1/vpn/servers/:serverId/start', () => {
+        started = true
+        return HttpResponse.json({ success: true, action: 'start' })
+      }),
+    )
+    renderVPNSiteToSite()
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('site-to-site-base0.webmasters.co.at-51820'),
+      ).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /^start$/i }))
+
+    await waitFor(() => {
+      expect(started).toBe(true)
+    })
+  })
+})
+
+describe('SiteToSite rotate keys', () => {
+  it('POSTs regenerate and shows the new public key', async () => {
+    const user = userEvent.setup()
+    let regeneratedId: string | null = null
+    server.use(
+      http.post('/api/v1/vpn/clients/:clientId/regenerate', ({ params }) => {
+        regeneratedId = String(params.clientId)
+        return HttpResponse.json({
+          status: 'success',
+          message: 'Client credentials regenerated',
+          public_key: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb=',
+        })
+      }),
+    )
+    renderVPNSiteToSite()
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('site-to-site-base0.webmasters.co.at-51820'),
+      ).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /rotate keys/i }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog).getByText(/handed to the remote operator/i),
+    ).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: /rotate keys/i }))
+
+    await waitFor(() => {
+      expect(regeneratedId).toBe('3')
+    })
+
+    const resultDialog = await screen.findByText('New tunnel public key')
+    expect(resultDialog).toBeInTheDocument()
+    expect(
+      screen.getByText('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb='),
+    ).toBeInTheDocument()
   })
 })

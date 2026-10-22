@@ -594,3 +594,79 @@ class TestInterfacesCommands:
         assert result.exit_code == 0
         request = httpx_mock.get_requests()[-1]
         assert b'"force":true' in request.read()
+
+
+class TestVPNSiteToSite:
+    def test_status(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/vpn/site-to-site/status",
+            method="GET",
+            match_params={"instance_id": "1"},
+            json=[{"server_id": 3, "name": "site-to-site-base0", "status": "running", "agent": "online"}],
+        )
+
+        result = runner.invoke(app, ["vpn", "site-to-site", "status", "--instance-id", "1"])
+        assert result.exit_code == 0
+        assert "site-to-site-base0" in result.output
+
+    def test_init(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/vpn/site-to-site/initialize",
+            method="POST",
+            match_params={
+                "local_instance_id": "1",
+                "remote_endpoint": "base0.example.com:51820",
+                "remote_public_key": "k" * 43 + "=",
+                "allowed_ips": "10.80.0.0/16",
+                "persistent_keepalive": "25",
+            },
+            json={"status": "success", "server_id": 3, "message": "initialized"},
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "vpn", "site-to-site", "init",
+                "--instance-id", "1",
+                "--endpoint", "base0.example.com:51820",
+                "--peer-public-key", "k" * 43 + "=",
+                "--allowed-ips", "10.80.0.0/16",
+                "--persistent-keepalive", "25",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "initialized" in result.output
+
+    def test_init_surfaces_api_error(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/vpn/site-to-site/initialize",
+            method="POST",
+            match_params={
+                "local_instance_id": "1",
+                "remote_endpoint": "bad-endpoint",
+                "remote_public_key": "k" * 43 + "=",
+            },
+            status_code=422,
+            json={"detail": "Invalid remote_endpoint: 'bad-endpoint'"},
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "vpn", "site-to-site", "init",
+                "--instance-id", "1",
+                "--endpoint", "bad-endpoint",
+                "--peer-public-key", "k" * 43 + "=",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "Invalid remote_endpoint" in result.output
