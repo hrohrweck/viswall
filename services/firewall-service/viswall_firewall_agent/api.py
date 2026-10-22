@@ -128,12 +128,12 @@ def _parse_service_ports(raw: Any) -> List[int]:
     if raw is None:
         return []
     ports: List[int] = []
-    for token in str(raw).split(","):
-        token = token.strip()
-        if not token:
+    for part in str(raw).split(","):
+        part = part.strip()
+        if not part:
             continue
-        if "-" in token:
-            low_text, _, high_text = token.partition("-")
+        if "-" in part:
+            low_text, _, high_text = part.partition("-")
             try:
                 low, high = int(low_text), int(high_text)
             except ValueError:
@@ -145,7 +145,7 @@ def _parse_service_ports(raw: Any) -> List[int]:
             ports.extend(range(low, high + 1))
             continue
         try:
-            port = int(token)
+            port = int(part)
         except ValueError:
             continue
         if 1 <= port <= 65535:

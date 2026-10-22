@@ -48,6 +48,13 @@ regexes = [
   '''SMOKE_PASSWORD\s*=\s*"\$SMOKE_PASS"''',
   '''token\s*=\s*token_box\.get\("token"\)''',
   '''\bif\s+token:''',
+  # Agent credential plumbing: the instance key travels from the environment
+  # into the AgentConfig dataclass / auth middleware. The assigned value is
+  # always a variable reference (or the env var name), never a literal.
+  '''instance_api_key\s*=\s*instance_api_key''',
+  '''instance_api_key\s*:\s*Optional''',
+  '''instance_api_key\s*=\s*INSTANCE_API_KEY''',
+  '''os\.environ\.get\("VISWALL_TOKEN''',
 ]
 
 # Bearer / Authorization headers
@@ -113,6 +120,7 @@ paths = [
   # path-based so squash merges / new commits don't need fresh fingerprints.
   '''services/api-gateway/tests/test_.*\.py''',
   '''services/dns-service/tests/.*\.py''',
+  '''services/node-agent/tests/.*\.py''',
   '''sdk/python/tests/.*\.py''',
   '''sdk/cli/tests/.*\.py''',
   '''web-ui/src/test/.*''',
