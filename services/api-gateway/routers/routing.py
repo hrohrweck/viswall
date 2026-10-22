@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List, Optional
 from datetime import datetime
 
-from shared.database import get_db
+from shared.database import get_db, AsyncSessionLocal
 from shared.models import RoutingRule
 from shared.schemas import (
     RoutingRuleCreate,
@@ -13,6 +13,9 @@ from shared.schemas import (
 )
 from shared.security import require_auth, require_admin
 from shared.audit_logger import log_audit
+from utils.agent_client import AgentClientError
+from utils.firewall_dispatch import apply_firewall_config
+from routers.firewall import reload_firewall
 
 router = APIRouter()
 
@@ -37,6 +40,7 @@ async def get_routing_rules(
 async def create_routing_rule(
     instance_id: int,
     data: RoutingRuleCreate,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -70,6 +74,9 @@ async def create_routing_rule(
 
     await db.refresh(rule)
 
+    # Policy routing rides in the firewall dispatch payload (mirrors routers.firewall NAT/routing wiring).
+    background_tasks.add_task(reload_firewall, instance_id)
+
     return RoutingRuleResponse.model_validate(rule)
 
 
@@ -98,6 +105,7 @@ async def get_routing_rule(
 async def update_routing_rule(
     rule_id: int,
     data: RoutingRuleUpdate,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -123,12 +131,15 @@ async def update_routing_rule(
 
     await db.refresh(rule)
 
+    background_tasks.add_task(reload_firewall, rule.instance_id)
+
     return RoutingRuleResponse.model_validate(rule)
 
 
 @router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_routing_rule(
     rule_id: int,
+    background_tasks: BackgroundTasks,
     user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -144,48 +155,27 @@ async def delete_routing_rule(
             detail="Routing rule not found"
         )
 
+    instance_id = rule.instance_id
     await db.delete(rule)
     await db.commit()
     # Audit log
     await log_audit(db=db, user_id=user_id, action="delete", resource_type="routing_rule", resource_id=rule_id, instance_id=rule.instance_id)
+
+    background_tasks.add_task(reload_firewall, instance_id)
 
 
 
 @router.post("/apply/{instance_id}")
 async def apply_routing(
     instance_id: int,
-    user_id: int = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
+    admin_id: int = Depends(require_admin),
 ):
     """Apply routing rules to an instance"""
-    result = await db.execute(
-        select(RoutingRule).where(
-            RoutingRule.instance_id == instance_id,
-            RoutingRule.enabled == True,
-        ).order_by(RoutingRule.order_index)
-    )
-    rules = result.scalars().all()
+    # Policy routing rides in the firewall dispatch payload (RoutingRule rows).
+    try:
+        async with AsyncSessionLocal() as db:
+            await apply_firewall_config(db, instance_id, user_id=admin_id)
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
-    # In a real implementation, this would trigger the firewall-service agent
-    # to apply the routing rules via ip route / nftables / iptables.
-    # For now, we return the rules that would be applied.
-
-    return {
-        "status": "success",
-        "action": "apply",
-        "instance_id": instance_id,
-        "rules_applied": len(rules),
-        "rules": [
-            {
-                "id": r.id,
-                "name": r.name,
-                "source_network": r.source_network,
-                "dest_network": r.dest_network,
-                "gateway": r.gateway,
-                "outbound_interface": r.outbound_interface,
-                "mark": r.mark,
-                "order_index": r.order_index,
-            }
-            for r in rules
-        ],
-    }
+    return {"status": "applied", "instance_id": instance_id}

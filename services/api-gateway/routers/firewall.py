@@ -776,17 +776,33 @@ def _default_htb_classes(download_kbps: int, upload_kbps: int) -> List[QoSClassC
 
 async def apply_qos_policy(instance_id: int, policy_id: int):
     from shared.database import AsyncSessionLocal
-    from shared.models import QoSPolicy
-    from sqlalchemy import select
 
     async with AsyncSessionLocal() as db:
         try:
             result = await db.execute(
-                select(QoSPolicy).where(QoSPolicy.id == policy_id)
+                select(QoSPolicy)
+                .where(QoSPolicy.id == policy_id)
+                .options(selectinload(QoSPolicy.classes))
             )
             policy = result.scalar_one_or_none()
             if not policy:
                 return
+
+            # Field names mirror utils.firewall_dispatch._qos_class_payload so
+            # /qos/apply and /firewall/apply emit the same class shape.
+            classes = [
+                {
+                    "id": cls_.id,
+                    "name": cls_.name,
+                    "priority": cls_.priority,
+                    "min_rate_kbps": cls_.min_rate_kbps,
+                    "max_rate_kbps": cls_.max_rate_kbps,
+                    "match_ports": cls_.match_ports,
+                    "match_dscp": cls_.match_dscp,
+                    "match_protocol": cls_.match_protocol,
+                }
+                for cls_ in sorted(policy.classes, key=lambda c: c.priority)
+            ]
 
             await agent_request(
                 db=db,
@@ -798,7 +814,7 @@ async def apply_qos_policy(instance_id: int, policy_id: int):
                     "algorithm": policy.algorithm,
                     "download_kbps": policy.download_kbps,
                     "upload_kbps": policy.upload_kbps,
-                    "classes": [],
+                    "classes": classes,
                 },
             )
         except AgentClientError as e:
@@ -826,6 +842,16 @@ async def clear_qos_on_interface(instance_id: int, interface_name: str):
 
 
 async def fetch_qos_stats_from_agent(instance_id: int, interface_name: str) -> dict:
+    """Fetch QoS stats from the agent and normalize them to the gateway schema.
+
+    The agent returns {"interface": ..., "stats": {"queues": [{"name",
+    "bytes", "packets", "dropped", "rate"}, ...], "raw": "<tc -s output>"}}.
+    Each queue entry maps onto QoSQueueStats fields (qdisc=name,
+    sent_bytes=bytes, sent_pkts=packets, dropped_pkts=dropped); the raw tc
+    text is wrapped in a dict because QoSStatsResponse.raw is typed
+    Optional[Dict]. An unreachable agent yields empty stats (endpoint stays
+    200 with zeroed data, matching the pre-existing behavior).
+    """
     from shared.database import AsyncSessionLocal
 
     async with AsyncSessionLocal() as db:
@@ -836,9 +862,29 @@ async def fetch_qos_stats_from_agent(instance_id: int, interface_name: str) -> d
                 method="GET",
                 path=f"/qos/stats/{interface_name}",
             )
-            return result.get("stats", {"queues": [], "raw": None})
         except AgentClientError:
             return {"queues": [], "raw": None}
+
+    stats = result.get("stats", {}) if isinstance(result, dict) else {}
+    queues = [
+        {
+            "qdisc": entry.get("name", ""),
+            "sent_bytes": int(entry.get("bytes") or 0),
+            "sent_pkts": int(entry.get("packets") or 0),
+            "dropped_pkts": int(entry.get("dropped") or 0),
+            "overlimits": 0,
+            "backlog_bytes": 0,
+            "backlog_pkts": 0,
+        }
+        for entry in stats.get("queues", [])
+        if isinstance(entry, dict)
+    ]
+    raw = stats.get("raw")
+    if isinstance(raw, str):
+        raw = {"output": raw}
+    elif not isinstance(raw, dict):
+        raw = None
+    return {"queues": queues, "raw": raw}
 
 
 # ============================================================================
@@ -862,7 +908,7 @@ async def block_ip(
             instance_id=instance_id,
             method="POST",
             path="/block",
-            json_data={"ip": ip, "reason": reason},
+            json_data={"ip": ip, "reason": reason, "timeout": duration or "1h"},
         )
         await log_agent_dispatch(
             db, instance_id=instance_id, resource_type="firewall_agent",
