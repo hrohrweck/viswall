@@ -1,20 +1,45 @@
 """nftables management for the Viswall firewall agent.
 
-Ported from the former single-file agent
-(``services/firewall-service/firewall_agent.py``, ``NFTablesManager``) — moved,
-not improved. In particular ``generate_ruleset`` still emits ``flush ruleset``
-exactly as before; the docker-safe ``table inet viswall``-only renderer is
-todo 7 and will replace it there.
+Docker-safe renderer (todo 7): ``generate_ruleset`` emits a ruleset that
+creates/replaces ONLY ``table inet viswall``. It never clears the global
+ruleset — Docker's own tables and chains stay untouched. ``apply_ruleset``
+swaps the viswall table by deleting it first, then loading the rendered file.
+
+``FirewallRule`` tagging conventions consumed by the renderer (tagged rules
+are rendered in their dedicated sections and skipped by the generic
+user-rule pass):
+
+* managed-port meter — ``chain="input"`` + ``protocol``/``destination_port``
+  matching 22/80/443/51820 + ``limit`` set: drives the per-source meter rate
+  (single bucket — the DB value wins, the built-in default is used only when
+  no such rule exists; never both).
+* loopback guard — ``chain="input"`` + ``action=DROP`` +
+  ``destination="127.0.0.1"`` + ``protocol="tcp"`` + ``destination_port``:
+  grouped into one ``iifname != "lo"`` guarded dport set.
+* container-IP anti-spoof — ``anti_spoof=True`` (or "anti-spoof" in
+  ``name``/``comment``) + ``chain="forward"`` + ``interface_in``=bridge +
+  ``destination``=container IP: rendered as
+  ``iifname != "<bridge>" ip daddr <ip> drop`` in the forward chain.
+* internal-port protection — "internal-port" in ``name``/``comment`` +
+  ``chain="forward"`` + ``protocol="tcp"`` + ``destination_port``: grouped
+  into the DOCKER-USER replacement set (built-in boseman defaults used when
+  no DB-origin rule exists).
+
+When env ``VALIDATION_MODE=1`` the renderer emits a pass-through ruleset:
+every chain policy accept, no drop/limit/meter rules, log-only matches with
+prefix "VW-VALIDATION" and ``limit rate 10/minute`` on every log rule.
 """
 
 import asyncio
 import ipaddress
 import json
+import os
+import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class FirewallAction(Enum):
@@ -43,6 +68,7 @@ class FirewallRule:
     limit: Optional[str] = None  # rate limiting, e.g., "10/minute"
     comment: Optional[str] = None
     order: int = 0
+    anti_spoof: bool = False  # container-IP anti-spoof tag (forward chain)
 
 
 @dataclass
@@ -61,6 +87,80 @@ class NATRule:
     comment: Optional[str] = None
 
 
+# (protocol, port) -> (meter name, default rate). The rendered meter is the
+# single bucket: a FirewallRule matching protocol+port with ``limit`` set
+# overrides the default rate; the meter itself is always emitted.
+METER_SPECS: Dict[Tuple[str, int], Tuple[str, str]] = {
+    ("tcp", 22): ("ssh_limit", "10/minute"),
+    ("tcp", 80): ("http_limit", "100/minute"),
+    ("tcp", 443): ("https_limit", "100/minute"),
+    ("udp", 51820): ("wireguard_limit", "20/minute"),
+}
+
+# Management accepts. ONE list rendered with a family filter: ipv4 gets every
+# entry, ipv6 only the entries in _V6_OPEN (22/80/443/51820).
+_MGMT_ACCEPTS: Tuple[Tuple[str, Union[int, Tuple[int, int]]], ...] = (
+    ("tcp", 22),
+    ("tcp", 80),
+    ("tcp", 443),
+    ("udp", 51820),
+    ("tcp", 25),
+    ("tcp", 53),
+    ("tcp", 110),
+    ("tcp", 143),
+    ("tcp", 993),
+    ("tcp", 995),
+    ("tcp", (21114, 21119)),
+    ("udp", 25),
+    ("udp", 53),
+    ("udp", 21116),
+)
+_V6_OPEN = {("tcp", 22), ("tcp", 80), ("tcp", 443), ("udp", 51820)}
+
+DEFAULT_WAN = "enp0s31f6"
+DEFAULT_INTERNAL_PORTS: Tuple[int, ...] = (
+    5000, 5055, 5678, 8000, 8001, 8080, 8089, 8090, 8091,
+    8096, 8100, 8201, 8502, 8888, 9090, 10000, 11434,
+)
+
+_PROTO_NAMES = {"tcp", "udp", "icmp", "icmpv6", "sctp", "igmp", "esp", "ah", "gre"}
+_CT_STATES = {"NEW", "ESTABLISHED", "RELATED", "INVALID", "UNTRACKED"}
+_IFNAME_RE = re.compile(r"[A-Za-z0-9_.:*+@-]+\Z")
+_LIMIT_RE = re.compile(r"[0-9]+\s*/\s*(second|minute|hour|day)(\s+burst\s+[0-9]+\s+packets)?\Z")
+
+
+def _quote(value: str) -> str:
+    """Double-quote a string for nft, escaping backslashes and quotes."""
+    return '"' + value.replace("\\", "\\\\").replace('"', "'") + '"'
+
+
+def _safe_ifname(name: str) -> bool:
+    return bool(name) and bool(_IFNAME_RE.fullmatch(name))
+
+
+def _valid_net(value: str) -> bool:
+    try:
+        ipaddress.ip_network(value, strict=False)
+        return True
+    except ValueError:
+        return False
+
+
+def _valid_limit(value: str) -> bool:
+    return bool(_LIMIT_RE.fullmatch(value))
+
+
+def _valid_to_addr(value: str) -> bool:
+    candidate = value
+    if ":" in value and "::" not in value:
+        candidate = value.rsplit(":", 1)[0]
+    try:
+        ipaddress.ip_network(candidate, strict=False)
+        return True
+    except ValueError:
+        return False
+
+
 class NFTablesManager:
     """Manages nftables firewall rules (modern replacement for iptables)"""
 
@@ -71,6 +171,280 @@ class NFTablesManager:
     def __init__(self):
         self.ruleset: Dict[str, Any] = {}
 
+    # ---- todo 7 renderer --------------------------------------------------
+
+    @staticmethod
+    def _validation_mode() -> bool:
+        return os.environ.get("VALIDATION_MODE") == "1"
+
+    @staticmethod
+    def _parse_addr_family(addr: str) -> Optional[str]:
+        try:
+            ip = ipaddress.ip_address(addr)
+        except ValueError:
+            return None
+        return "ip6" if isinstance(ip, ipaddress.IPv6Address) else "ip"
+
+    @staticmethod
+    def _port_set(ports) -> str:
+        parts = []
+        for p in sorted(ports, key=lambda p: p[0] if isinstance(p, tuple) else p):
+            parts.append(f"{p[0]}-{p[1]}" if isinstance(p, tuple) else str(p))
+        return "{" + ", ".join(parts) + "}"
+
+    def _meter_rate(self, rules: List[FirewallRule], proto: str, port: int) -> str:
+        """Single-bucket rate: DB-origin ``limit`` wins, built-in default otherwise."""
+        for rule in rules:
+            if (rule.chain or "").lower() != "input":
+                continue
+            if not rule.protocol or rule.protocol.lower() != proto:
+                continue
+            if rule.destination_port != port or not rule.limit:
+                continue
+            if _valid_limit(rule.limit):
+                return rule.limit
+        return METER_SPECS[(proto, port)][1]
+
+    @staticmethod
+    def _is_loopback_guard(rule: FirewallRule) -> bool:
+        return (
+            (rule.chain or "").lower() == "input"
+            and rule.action is FirewallAction.DROP
+            and bool(rule.destination)
+            and rule.destination != "any"
+            and rule.destination.split("/", 1)[0] == "127.0.0.1"
+            and bool(rule.protocol)
+            and rule.protocol.lower() == "tcp"
+            and bool(rule.destination_port)
+        )
+
+    @staticmethod
+    def _is_managed_meter(rule: FirewallRule) -> bool:
+        return (
+            (rule.chain or "").lower() == "input"
+            and bool(rule.limit)
+            and bool(rule.protocol)
+            and bool(rule.destination_port)
+            and (rule.protocol.lower(), rule.destination_port) in METER_SPECS
+        )
+
+    @staticmethod
+    def _is_anti_spoof(rule: FirewallRule) -> bool:
+        return (
+            rule.anti_spoof
+            or "anti-spoof" in (rule.name or "").lower()
+            or "anti-spoof" in (rule.comment or "").lower()
+        )
+
+    @staticmethod
+    def _is_internal_port(rule: FirewallRule) -> bool:
+        return "internal-port" in (rule.name or "").lower() or "internal-port" in (rule.comment or "").lower()
+
+    def _loopback_ports(self, rules: List[FirewallRule]) -> List[int]:
+        ports = {rule.destination_port for rule in rules if self._is_loopback_guard(rule)}
+        return sorted(p for p in ports if p is not None)
+
+    def _internal_ports(self, rules: List[FirewallRule]) -> Tuple[int, ...]:
+        ports = {
+            rule.destination_port
+            for rule in rules
+            if (rule.chain or "").lower() == "forward"
+            and bool(rule.protocol)
+            and rule.protocol.lower() == "tcp"
+            and bool(rule.destination_port)
+            and self._is_internal_port(rule)
+        }
+        return tuple(sorted(p for p in ports if p is not None)) or DEFAULT_INTERNAL_PORTS
+
+    def _anti_spoof_lines(self, rules: List[FirewallRule]) -> List[str]:
+        lines: List[str] = []
+        for rule in rules:
+            if (rule.chain or "").lower() != "forward" or not self._is_anti_spoof(rule):
+                continue
+            if not rule.interface_in or not _safe_ifname(rule.interface_in) or not rule.destination:
+                continue
+            family = self._parse_addr_family(rule.destination)
+            if family is None:
+                continue
+            lines.append(
+                f'        iifname != "{rule.interface_in}" {family} daddr {rule.destination} drop'
+            )
+        return lines
+
+    def _user_rules(self, rules: List[FirewallRule], chain: str) -> List[str]:
+        rendered: List[str] = []
+        for rule in sorted(rules, key=lambda r: r.order):
+            if (rule.chain or "").lower() != chain:
+                continue
+            if chain == "input" and (self._is_loopback_guard(rule) or self._is_managed_meter(rule)):
+                continue  # rendered in their dedicated sections
+            if chain == "forward" and (
+                self._is_anti_spoof(rule)
+                or ((rule.chain or "").lower() == "forward" and self._is_internal_port(rule))
+            ):
+                continue  # rendered in their dedicated sections
+            rendered.append(self._convert_rule_to_nft(rule).rstrip("\n"))
+        return rendered
+
+    def _render_header(self) -> str:
+        return (
+            "#!/usr/sbin/nft -f\n"
+            "\n"
+            "# Viswall Firewall Configuration (docker-safe renderer)\n"
+            f"# Generated: {datetime.now(timezone.utc).isoformat()}\n"
+            "# Replaces ONLY `table inet viswall`; Docker keeps its own tables.\n"
+            "\n"
+        )
+
+    def _render_input(
+        self,
+        validation: bool,
+        rules: List[FirewallRule],
+        conntrack: bool,
+        logging: bool,
+    ) -> str:
+        policy = "accept" if validation else "drop"
+        lines = [
+            "    chain input {",
+            f"        type filter hook input priority -200; policy {policy};",
+        ]
+        if validation:
+            lines.append('        log prefix "VW-VALIDATION: input " limit rate 10/minute accept')
+            lines.append("    }")
+            return "\n".join(lines)
+        if conntrack:
+            lines.extend(
+                [
+                    "        # Connection tracking",
+                    "        ct state established,related accept",
+                    "        ct state invalid drop",
+                ]
+            )
+        lines.extend(
+            [
+                "        # Loopback",
+                '        iif "lo" accept',
+                "        # Container bridges (docker coexistence)",
+                '        iifname "docker0" accept',
+                '        iifname "br-*" accept',
+                "        # ICMP / ICMPv6 rate limited",
+                "        ip protocol icmp limit rate 5/second accept",
+                "        ip6 nexthdr icmpv6 limit rate 5/second accept",
+            ]
+        )
+        # dport-scoped per-source meters (single bucket; never alongside a dup)
+        for (proto, port), (name, _default) in METER_SPECS.items():
+            rate = self._meter_rate(rules, proto, port)
+            lines.append(
+                f"        {proto} dport {port} meter {name} "
+                f"{{ ip saddr limit rate {rate} burst 5 packets }} drop"
+            )
+        # Management accepts, family-scoped from the single _MGMT_ACCEPTS list
+        v4_tcp = [p for proto, p in _MGMT_ACCEPTS if proto == "tcp"]
+        v4_udp = [p for proto, p in _MGMT_ACCEPTS if proto == "udp"]
+        v6_tcp = [p for proto, p in _MGMT_ACCEPTS if proto == "tcp" and (proto, p) in _V6_OPEN]
+        v6_udp = [p for proto, p in _MGMT_ACCEPTS if proto == "udp" and (proto, p) in _V6_OPEN]
+        lines.extend(
+            [
+                f"        meta nfproto ipv4 tcp dport {self._port_set(v4_tcp)} accept",
+                f"        meta nfproto ipv4 udp dport {self._port_set(v4_udp)} accept",
+                f"        meta nfproto ipv6 tcp dport {self._port_set(v6_tcp)} accept",
+                f"        meta nfproto ipv6 udp dport {self._port_set(v6_udp)} accept",
+                "        # PostgreSQL never exposed",
+                "        tcp dport 5432 drop",
+            ]
+        )
+        loop = self._loopback_ports(rules)
+        if loop:
+            lines.append(
+                f'        iifname != "lo" ip daddr 127.0.0.1 tcp dport {self._port_set(loop)} drop'
+            )
+        # User rules: ALWAYS after the mandatory accepts above (a console rule
+        # can never override SSH/WG/established/lo access).
+        lines.extend(self._user_rules(rules, "input"))
+        if logging:
+            lines.append('        log prefix "FIREWALL-DROP: " limit rate 5/minute drop')
+        else:
+            lines.append("        drop")
+        lines.append("    }")
+        return "\n".join(lines)
+
+    def _render_forward(
+        self,
+        validation: bool,
+        rules: List[FirewallRule],
+        wan_ifaces: List[str],
+        conntrack: bool,
+    ) -> str:
+        policy = "accept" if validation else "drop"
+        lines = [
+            "    chain forward {",
+            f"        type filter hook forward priority -150; policy {policy};",
+        ]
+        if validation:
+            lines.append('        log prefix "VW-VALIDATION: forward " limit rate 10/minute accept')
+            lines.append("    }")
+            return "\n".join(lines)
+        if conntrack:
+            lines.append("        ct state established,related accept")
+        lines.append("        # Container-IP anti-spoof drops")
+        lines.extend(self._anti_spoof_lines(rules))
+        lines.extend(
+            [
+                "        # Container bridge traffic (docker coexistence)",
+                '        iifname "docker0" accept',
+                '        oifname "docker0" accept',
+                '        iifname "br-*" accept',
+                '        oifname "br-*" accept',
+                "        # DOCKER-USER replacement: external access to internal ports",
+            ]
+        )
+        ports = self._internal_ports(rules)
+        for wan in wan_ifaces or [DEFAULT_WAN]:
+            lines.append(
+                f'        iifname "{wan}" ct direction original ct original proto-dst {self._port_set(ports)} drop'
+            )
+        lines.extend(self._user_rules(rules, "forward"))
+        lines.append("        accept")
+        lines.append("    }")
+        return "\n".join(lines)
+
+    def _render_output(self, validation: bool, conntrack: bool) -> str:
+        lines = [
+            "    chain output {",
+            "        type filter hook output priority -200; policy accept;",
+        ]
+        if validation:
+            lines.append('        log prefix "VW-VALIDATION: output " limit rate 10/minute accept')
+        elif conntrack:
+            lines.append("        ct state established,related accept")
+        lines.append("    }")
+        return "\n".join(lines)
+
+    def _render_nat(self, nat_rules: List[NATRule]) -> str:
+        lines = [
+            "    chain prerouting {",
+            "        type nat hook prerouting priority -110; policy accept;",
+        ]
+        for rule in nat_rules:
+            if rule.type == "dnat" and rule.to_destination and _valid_to_addr(rule.to_destination):
+                lines.append(self._convert_nat_rule_to_nft(rule).rstrip("\n"))
+        lines.append("    }")
+        lines.extend(
+            [
+                "    chain postrouting {",
+                "        type nat hook postrouting priority 90; policy accept;",
+            ]
+        )
+        for rule in nat_rules:
+            if rule.type == "snat" and rule.to_source and _valid_to_addr(rule.to_source):
+                lines.append(self._convert_nat_rule_to_nft(rule).rstrip("\n"))
+            elif rule.type == "masquerade":
+                # Docker owns NAT; viswall never emits masquerade (on WAN or anywhere).
+                lines.append(f"        # masquerade skipped (docker owns NAT): {rule.name}")
+        lines.append("    }")
+        return "\n".join(lines)
+
     def generate_ruleset(
         self,
         interfaces: List[Dict[str, str]],
@@ -79,210 +453,28 @@ class NFTablesManager:
         enable_logging: bool = True,
         enable_conntrack: bool = True,
     ) -> str:
-        """Generate complete nftables ruleset"""
-
-        # Identify WAN and LAN interfaces
-        wan_interfaces = [i["name"] for i in interfaces if i.get("type") == "wan"]
-        lan_interfaces = [i["name"] for i in interfaces if i.get("type") == "lan"]
-
-        ruleset = """#!/usr/sbin/nft -f
-
-# Viswall Firewall Configuration
-# Generated: {timestamp}
-
-flush ruleset
-
-table inet viswall {
-    # Define interface sets
-    set wan_interfaces {{
-        type ifname
-        elements = { {wan_ifs} }
-    }}
-    
-    set lan_interfaces {{
-        type ifname
-        elements = { {lan_ifs} }
-    }}
-""".format(
-            timestamp=datetime.utcnow().isoformat(),
-            wan_ifs=", ".join([f'"{i}"' for i in wan_interfaces]) or '"eth0"',
-            lan_ifs=", ".join([f'"{i}"' for i in lan_interfaces]) or '"eth1"',
-        )
-
-        # Define sets for blacklists/whitelists
-        ruleset += """
-    # Dynamic sets for blacklists
-    set blacklist_v4 {
-        type ipv4_addr
-        flags timeout
-        timeout 1h
-    }
-
-    set blacklist_v6 {
-        type ipv6_addr
-        flags timeout
-        timeout 1h
-    }
-
-    set port_scanners_v4 {
-        type ipv4_addr
-        flags timeout
-        timeout 1d
-    }
-
-    set port_scanners_v6 {
-        type ipv6_addr
-        flags timeout
-        timeout 1d
-    }
-
-    set bruteforce_attempts_v4 {
-        type ipv4_addr . inet_service
-        flags timeout
-        timeout 15m
-    }
-
-    set bruteforce_attempts_v6 {
-        type ipv6_addr . inet_service
-        flags timeout
-        timeout 15m
-    }
-"""
-
-        # Chains
-        ruleset += """
-    # Input chain - traffic to firewall itself
-    chain input {
-        type filter hook input priority 0; policy drop;
-
-        # Connection tracking
-        ct state established,related accept
-        ct state invalid drop
-
-        # Loopback
-        iif "lo" accept
-
-        # Blacklist check (dual-stack)
-        ip saddr @blacklist_v4 drop
-        ip6 saddr @blacklist_v6 drop
-
-        # Rate limiting for new connections
-        tcp flags syn limit rate 25/second burst 50 packets accept
-        tcp flags syn drop
-
-        # ICMP (ping) rate limiting
-        ip protocol icmp limit rate 5/second accept
-        ip6 nexthdr icmpv6 limit rate 5/second accept
-
-        # SSH brute force protection (dual-stack)
-        tcp dport 22 add @bruteforce_attempts_v4 { ip saddr . tcp dport }
-        tcp dport 22 add @bruteforce_attempts_v6 { ip6 saddr . tcp dport }
-        tcp dport 22 @bruteforce_attempts_v4 size gt 5 drop
-        tcp dport 22 @bruteforce_attempts_v6 size gt 5 drop
-"""
-
-        # Add custom rules
-        for rule in sorted(firewall_rules, key=lambda r: r.order):
-            if rule.chain == "input":
-                ruleset += self._convert_rule_to_nft(rule)
-
-        # Default policy section
-        ruleset += """
-        # Management access (SSH, API)
-        tcp dport { 22, 8000, 443 } accept
-        
-        # Log and drop everything else
-        log prefix "[NFT DROP INPUT] " drop
-    }
-"""
-
-        # Forward chain
-        ruleset += """
-    # Forward chain - traffic passing through
-    chain forward {
-        type filter hook forward priority 0; policy drop;
-
-        # Connection tracking
-        ct state established,related accept
-        ct state invalid drop
-
-        # Blacklist check (dual-stack)
-        ip saddr @blacklist_v4 drop
-        ip daddr @blacklist_v4 drop
-        ip6 saddr @blacklist_v6 drop
-        ip6 daddr @blacklist_v6 drop
-
-        # Inter-VLAN routing (if configured)
-        # iif @lan_interfaces oif @lan_interfaces accept
-
-        # Port scanning detection (dual-stack)
-        tcp flags syn,tcp flags syn,ack add @port_scanners_v4 { ip saddr }
-        tcp flags syn,tcp flags syn,ack add @port_scanners_v6 { ip6 saddr }
-        ip saddr @port_scanners_v4 drop
-        ip6 saddr @port_scanners_v6 drop
-"""
-
-        # Add forward rules
-        for rule in sorted(firewall_rules, key=lambda r: r.order):
-            if rule.chain == "forward":
-                ruleset += self._convert_rule_to_nft(rule)
-
-        # Allow LAN to WAN
-        ruleset += """
-        # Allow LAN to WAN
-        iif @lan_interfaces oif @wan_interfaces accept
-        
-        # Log suspicious forwarded traffic
-        log prefix "[NFT DROP FORWARD] " drop
-    }
-"""
-
-        # Output chain
-        ruleset += """
-    # Output chain - traffic from firewall
-    chain output {
-        type filter hook output priority 0; policy accept;
-        
-        # Connection tracking
-        ct state established,related accept
-    }
-"""
-
-        # NAT/Prerouting
-        if nat_rules:
-            ruleset += """
-    # Prerouting - DNAT
-    chain prerouting {
-        type nat hook prerouting priority -100;
-"""
-            for rule in nat_rules:
-                if rule.type == "dnat":
-                    ruleset += self._convert_nat_rule_to_nft(rule)
-            ruleset += """
-    }
-"""
-
-            # Postrouting - SNAT/Masquerade
-            ruleset += """
-    # Postrouting - SNAT/Masquerade
-    chain postrouting {
-        type nat hook postrouting priority 100;
-        
-        # Masquerade WAN traffic
-        oif @wan_interfaces masquerade
-"""
-            for rule in nat_rules:
-                if rule.type in ["snat", "masquerade"]:
-                    ruleset += self._convert_nat_rule_to_nft(rule)
-            ruleset += """
-    }
-"""
-
-        ruleset += """
-}
-"""
-
-        return ruleset
+        """Generate a docker-safe nftables ruleset (table inet viswall only)."""
+        validation = self._validation_mode()
+        wan_ifaces = [
+            str(iface["name"])
+            for iface in interfaces
+            if iface.get("type") == "wan" and _safe_ifname(str(iface.get("name") or ""))
+        ]
+        # The named meters (ssh/http/https/wireguard_limit) are declared
+        # implicitly by the rule-level ``meter NAME { ... }`` statements below
+        # — nft < 1.1 rejects table-level ``meter`` declarations, so none are
+        # emitted here.
+        parts = [
+            self._render_header(),
+            "table inet viswall {",
+        ]
+        parts.append(self._render_input(validation, firewall_rules, enable_conntrack, enable_logging))
+        parts.append(self._render_forward(validation, firewall_rules, wan_ifaces, enable_conntrack))
+        parts.append(self._render_output(validation, enable_conntrack))
+        if nat_rules and not validation:
+            parts.append(self._render_nat(nat_rules))
+        parts.append("}")
+        return "\n".join(parts) + "\n"
 
     def _ip_family(self, addr: Optional[str]) -> str:
         """Return 'ip' or 'ip6' for an address or CIDR."""
@@ -299,85 +491,86 @@ table inet viswall {
             return "ip"
 
     def _convert_rule_to_nft(self, rule: FirewallRule) -> str:
-        """Convert a FirewallRule to nftables syntax (dual-stack aware)"""
-        nft_rule = "        "
+        """Convert a FirewallRule to an nftables rule line (8-space indent).
 
-        # Match criteria
-        conditions = []
+        Unparsable values are skipped rather than emitted, so a malformed rule
+        still yields a ruleset that passes ``nft -c``.
+        """
+        conditions: List[str] = []
 
-        if rule.interface_in:
-            conditions.append(f'iif "{rule.interface_in}"')
-        if rule.interface_out:
-            conditions.append(f'oif "{rule.interface_out}"')
+        if rule.interface_in and _safe_ifname(rule.interface_in):
+            conditions.append(f'iifname "{rule.interface_in}"')
+        if rule.interface_out and _safe_ifname(rule.interface_out):
+            conditions.append(f'oifname "{rule.interface_out}"')
 
         src_family = self._ip_family(rule.source)
         dst_family = self._ip_family(rule.destination)
-
-        if rule.source and rule.source != "any":
+        if rule.source and rule.source != "any" and _valid_net(rule.source):
             conditions.append(f"{src_family} saddr {rule.source}")
-
-        if rule.destination and rule.destination != "any":
+        if rule.destination and rule.destination != "any" and _valid_net(rule.destination):
             conditions.append(f"{dst_family} daddr {rule.destination}")
 
-        if rule.protocol and rule.protocol != "any":
-            # If both src and dst are IPv6, use ip6 nexthdr; otherwise default to ip protocol
+        if rule.protocol and rule.protocol != "any" and rule.protocol.lower() in _PROTO_NAMES:
+            proto = rule.protocol.lower()
             family = "ip6" if (src_family == "ip6" or dst_family == "ip6") else "ip"
             if family == "ip6":
-                conditions.append(f"ip6 nexthdr {rule.protocol}")
+                conditions.append(f"ip6 nexthdr {proto}")
             else:
-                conditions.append(f"ip protocol {rule.protocol}")
-
-            if rule.source_port:
-                conditions.append(f"{rule.protocol} sport {rule.source_port}")
-            if rule.destination_port:
-                conditions.append(f"{rule.protocol} dport {rule.destination_port}")
+                conditions.append(f"ip protocol {proto}")
+            if rule.source_port and 1 <= rule.source_port <= 65535:
+                conditions.append(f"{proto} sport {rule.source_port}")
+            if rule.destination_port and 1 <= rule.destination_port <= 65535:
+                conditions.append(f"{proto} dport {rule.destination_port}")
 
         if rule.state:
-            conditions.append(f"ct state {rule.state}")
+            states = [s.strip().upper() for s in rule.state.split(",")]
+            valid = [s for s in states if s in _CT_STATES]
+            if valid:
+                conditions.append("ct state " + ",".join(valid))
 
-        if rule.limit:
+        if rule.limit and _valid_limit(rule.limit):
             conditions.append(f"limit rate {rule.limit}")
 
-        # Build rule
-        if conditions:
-            nft_rule += " ".join(conditions) + " "
+        nft_rule = "        " + (" ".join(conditions) + " " if conditions else "")
+        name = _quote(f"[NFT {rule.name or ''}]")
 
-        # Action
-        if rule.log:
-            nft_rule += f'log prefix "[NFT {rule.name}]" '
-
-        nft_rule += rule.action.value
+        if rule.action is FirewallAction.LOG:
+            nft_rule += f"log prefix {name} accept"
+        else:
+            if rule.log:
+                nft_rule += f"log prefix {name} "
+            nft_rule += rule.action.value
 
         if rule.comment:
-            nft_rule += f' comment "{rule.comment}"'
+            nft_rule += f" comment {_quote(rule.comment)}"
 
-        nft_rule += "\n"
-        return nft_rule
+        return nft_rule + "\n"
 
     def _convert_nat_rule_to_nft(self, rule: NATRule) -> str:
         """Convert a NATRule to nftables syntax (dual-stack aware)"""
         nft_rule = "        "
         conditions = []
 
-        if rule.interface:
-            conditions.append(f'iif "{rule.interface}"')
+        if rule.interface and _safe_ifname(rule.interface):
+            conditions.append(f'iifname "{rule.interface}"')
 
         src_family = self._ip_family(rule.source)
         dst_family = self._ip_family(rule.destination)
 
-        if rule.source:
+        if rule.source and _valid_net(rule.source):
             conditions.append(f"{src_family} saddr {rule.source}")
-        if rule.destination:
+        if rule.destination and _valid_net(rule.destination):
             conditions.append(f"{dst_family} daddr {rule.destination}")
 
-        if rule.protocol:
+        if rule.protocol and rule.protocol != "any" and rule.protocol.lower() in _PROTO_NAMES:
+            proto = rule.protocol.lower()
             family = "ip6" if (src_family == "ip6" or dst_family == "ip6") else "ip"
             if family == "ip6":
-                conditions.append(f"ip6 nexthdr {rule.protocol}")
+                conditions.append(f"ip6 nexthdr {proto}")
             else:
-                conditions.append(f"ip protocol {rule.protocol}")
-            if rule.port:
-                conditions.append(f"{rule.protocol} dport {rule.port}")
+                conditions.append(f"ip protocol {proto}")
+            if rule.port and 1 <= rule.port <= 65535:
+                conditions.append(f"{proto} dport {rule.port}")
 
         if conditions:
             nft_rule += " ".join(conditions) + " "
@@ -386,11 +579,9 @@ table inet viswall {
             nft_rule += f"dnat to {rule.to_destination}"
         elif rule.type == "snat":
             nft_rule += f"snat to {rule.to_source}"
-        elif rule.type == "masquerade":
-            nft_rule += "masquerade"
 
         if rule.comment:
-            nft_rule += f' comment "{rule.comment}"'
+            nft_rule += f" comment {_quote(rule.comment)}"
 
         nft_rule += "\n"
         return nft_rule
@@ -422,6 +613,20 @@ table inet viswall {
             if proc.returncode != 0:
                 print(f"nftables validation failed: {stderr.decode()}")
                 return False
+
+            # Swap only the viswall table: delete it first (a first apply has
+            # no such table — a non-zero exit there is expected and harmless),
+            # then load the rendered file. Docker's tables are never touched.
+            del_proc = await asyncio.create_subprocess_exec(
+                "nft",
+                "delete",
+                "table",
+                "inet",
+                "viswall",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await del_proc.communicate()
 
             # Apply ruleset
             proc = await asyncio.create_subprocess_exec(
