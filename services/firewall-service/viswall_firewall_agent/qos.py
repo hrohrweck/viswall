@@ -1,14 +1,164 @@
 """Traffic shaping (tc) management for the Viswall firewall agent.
 
 Ported from the former single-file agent
-(``services/firewall-service/firewall_agent.py``, ``TrafficControlManager``) —
-moved, not improved. QoS ``classes`` delivery and the stats shape fix are
-todo 11.
+(``services/firewall-service/firewall_agent.py``, ``TrafficControlManager``).
+
+Todo 11 changes:
+
+* ``setup_qos`` consumes the QoS ``classes`` list sent by the gateway. With
+  ``algorithm="htb"`` and a non-empty list, the classes drive the hierarchy:
+  class N becomes ``1:{10+N}`` with ``rate=min_rate_kbps``,
+  ``ceil=max_rate_kbps`` and ``prio=priority``, an ``fq_codel`` leaf and one
+  u32/flower filter per ``match_ports`` entry (tcp+udp for ``match_protocol
+  == "any"``). Without classes the historical 30/40/30 default hierarchy is
+  applied unchanged.
+* Class payloads are validated *before* the first tc invocation, so a
+  malformed payload raises :class:`QoSValidationError` and leaves the live
+  qdisc untouched (the API maps it to 422).
+* ``get_stats`` returns the contract shape
+  ``{"queues": [{name, bytes, packets, dropped, rate}], "raw": "<tc -s>"}``
+  instead of a qdisc-keyed dict, matching the gateway's QoSStatsResponse
+  mapping.
 """
 
 import asyncio
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+#: First minor id used for HTB leaf classes (1:10, 1:11, ...).
+HTB_CLASS_BASE_ID = 10
+
+#: Protocols accepted in ``match_protocol``; "any" expands to tcp + udp.
+_SUPPORTED_PROTOCOLS = {"any", "tcp", "udp"}
+
+_SENT_RE = re.compile(r"Sent (\d+) bytes (\d+) pkt")
+_DROPPED_RE = re.compile(r"\(dropped (\d+)")
+_BANDWIDTH_RE = re.compile(r"\b(?:bandwidth|rate)\s+([0-9.]+[a-zA-Z/]*)")
+_QDISC_LINE_RE = re.compile(r"^qdisc\s+(\S+)\s+(\S+)")
+
+
+class QoSValidationError(ValueError):
+    """Raised when a QoS class payload cannot be applied as-is."""
+
+
+def _number(value: Any, label: str, index: int, minimum: int = 1) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise QoSValidationError(f"class {index}: {label} must be a number")
+    if isinstance(value, float) and not value.is_integer():
+        raise QoSValidationError(f"class {index}: {label} must be an integer")
+    number = int(value)
+    if number < minimum:
+        raise QoSValidationError(
+            f"class {index}: {label} must be >= {minimum} (got {number})"
+        )
+    return number
+
+
+def _optional_number(
+    value: Any, label: str, index: int, minimum: int = 1
+) -> Optional[int]:
+    if value is None:
+        return None
+    return _number(value, label, index, minimum)
+
+
+def _normalize_classes(classes: Any) -> List[Dict[str, Any]]:
+    """Validate a gateway class list and return a normalized copy.
+
+    Raises :class:`QoSValidationError` on any malformed entry. Called before
+    the qdisc is deleted so an invalid payload cannot partially apply.
+    """
+    if not isinstance(classes, (list, tuple)):
+        raise QoSValidationError("classes must be a list")
+
+    normalized: List[Dict[str, Any]] = []
+    for index, entry in enumerate(classes):
+        if not isinstance(entry, dict):
+            raise QoSValidationError(f"class {index} must be an object")
+
+        min_rate = entry.get("min_rate_kbps", entry.get("min_rate"))
+        if min_rate is None:
+            raise QoSValidationError(f"class {index}: min_rate_kbps is required")
+        max_rate = entry.get("max_rate_kbps", entry.get("max_rate"))
+
+        ports = entry.get("match_ports") or []
+        if not isinstance(ports, (list, tuple)):
+            raise QoSValidationError(f"class {index}: match_ports must be a list")
+        clean_ports: List[int] = []
+        for port in ports:
+            clean_ports.append(_number(port, "match_ports entry", index))
+            if clean_ports[-1] > 65535:
+                raise QoSValidationError(
+                    f"class {index}: match_ports entry {clean_ports[-1]} "
+                    "exceeds 65535"
+                )
+
+        protocol = entry.get("match_protocol") or "any"
+        if not isinstance(protocol, str):
+            raise QoSValidationError(f"class {index}: match_protocol must be a string")
+        protocol = protocol.lower()
+        if protocol not in _SUPPORTED_PROTOCOLS:
+            raise QoSValidationError(
+                f"class {index}: unsupported match_protocol {protocol!r} "
+                f"(expected one of {sorted(_SUPPORTED_PROTOCOLS)})"
+            )
+
+        priority = entry.get("priority", index + 1)
+        if isinstance(priority, bool) or not isinstance(priority, int):
+            raise QoSValidationError(f"class {index}: priority must be an integer")
+        if not 0 <= priority <= 7:
+            raise QoSValidationError(
+                f"class {index}: priority must be between 0 and 7"
+            )
+
+        normalized.append(
+            {
+                "name": str(entry.get("name") or f"class-{index}"),
+                "priority": priority,
+                "min_rate_kbps": _number(min_rate, "min_rate_kbps", index),
+                "max_rate_kbps": _optional_number(max_rate, "max_rate_kbps", index),
+                "match_ports": clean_ports,
+                "match_protocol": protocol,
+            }
+        )
+
+    return normalized
+
+
+def _parse_qdisc_stats(output: str) -> List[Dict[str, Any]]:
+    """Parse ``tc -s qdisc show`` text into the gateway queue shape."""
+    queues: List[Dict[str, Any]] = []
+    current: Optional[Dict[str, Any]] = None
+
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        qdisc_match = _QDISC_LINE_RE.match(line)
+        if qdisc_match:
+            kind, handle = qdisc_match.group(1), qdisc_match.group(2)
+            bandwidth = _BANDWIDTH_RE.search(line)
+            current = {
+                "name": handle if handle not in ("", "0:") else kind,
+                "bytes": 0,
+                "packets": 0,
+                "dropped": 0,
+                "rate": bandwidth.group(1) if bandwidth else "",
+            }
+            queues.append(current)
+            continue
+
+        if current is None:
+            continue
+
+        sent = _SENT_RE.search(line)
+        if sent:
+            current["bytes"] = int(sent.group(1))
+            current["packets"] = int(sent.group(2))
+
+        dropped = _DROPPED_RE.search(line)
+        if dropped:
+            current["dropped"] = int(dropped.group(1))
+
+    return queues
 
 
 class TrafficControlManager:
@@ -23,8 +173,17 @@ class TrafficControlManager:
         download_rate: int,  # kbps
         upload_rate: int,  # kbps
         algorithm: str = "cake",  # cake, fq_codel, htb
+        classes: Optional[Sequence[Dict[str, Any]]] = None,
     ) -> bool:
-        """Setup QoS on an interface"""
+        """Setup QoS on an interface.
+
+        ``classes`` is the gateway-serialized QoSClass list. It only affects
+        ``algorithm="htb"``; other algorithms ignore it. Validation happens
+        before any tc command runs.
+        """
+        # Validate first: a malformed class list must not touch the qdisc.
+        normalized_classes = _normalize_classes(classes) if classes else []
+
         try:
             # Clear existing qdisc
             await self._run_tc(["qdisc", "del", "dev", interface, "root"])
@@ -72,7 +231,7 @@ class TrafficControlManager:
 
             elif algorithm == "htb":
                 # Hierarchical Token Bucket (for complex shaping)
-                await self._setup_htb(interface, download_rate)
+                await self._setup_htb(interface, download_rate, normalized_classes)
 
             return True
 
@@ -80,8 +239,25 @@ class TrafficControlManager:
             print(f"QoS setup failed: {e}")
             return False
 
-    async def _setup_htb(self, interface: str, rate: int) -> None:
-        """Setup HTB for complex traffic classes"""
+    async def _setup_htb(
+        self,
+        interface: str,
+        rate: int,
+        classes: Optional[Sequence[Dict[str, Any]]] = None,
+    ) -> None:
+        """Setup HTB for complex traffic classes.
+
+        When ``classes`` is non-empty it defines the leaf hierarchy; otherwise
+        the legacy 30/40/30 default hierarchy with VoIP/DNS/SSH filters is
+        installed.
+        """
+        classes = list(classes or [])
+
+        if classes:
+            default_minor = str(HTB_CLASS_BASE_ID + len(classes) - 1)
+        else:
+            default_minor = "12"
+
         # Root qdisc
         await self._run_tc(
             [
@@ -94,7 +270,7 @@ class TrafficControlManager:
                 "1:",
                 "htb",
                 "default",
-                "12",
+                default_minor,
             ]
         )
 
@@ -117,14 +293,18 @@ class TrafficControlManager:
             ]
         )
 
-        # Priority classes
-        classes = [
+        if classes:
+            await self._add_class_leaves(interface, rate, classes)
+            return
+
+        # Legacy default hierarchy: (classid, rate, prio)
+        default_classes = [
             ("1:10", int(rate * 0.3), "100"),  # High priority: 30% - VoIP, SSH, DNS
             ("1:11", int(rate * 0.4), "200"),  # Normal: 40% - General traffic
             ("1:12", int(rate * 0.3), "300"),  # Low: 30% - Bulk downloads
         ]
 
-        for classid, class_rate, prio in classes:
+        for classid, class_rate, prio in default_classes:
             await self._run_tc(
                 [
                     "class",
@@ -160,6 +340,50 @@ class TrafficControlManager:
         # SSH
         await self._add_filter(interface, "1:10", "tcp", "22")
         await self._add_filter_ipv6(interface, "1:10", "tcp", "22")
+
+    async def _add_class_leaves(
+        self, interface: str, root_rate: int, classes: Sequence[Dict[str, Any]]
+    ) -> None:
+        """Install one HTB leaf + fq_codel + filters per gateway class."""
+        for index, spec in enumerate(classes):
+            classid = f"1:{HTB_CLASS_BASE_ID + index}"
+            ceil_rate = spec.get("max_rate_kbps") or root_rate
+
+            await self._run_tc(
+                [
+                    "class",
+                    "add",
+                    "dev",
+                    interface,
+                    "parent",
+                    "1:1",
+                    "classid",
+                    classid,
+                    "htb",
+                    "rate",
+                    f"{spec['min_rate_kbps']}kbit",
+                    "ceil",
+                    f"{ceil_rate}kbit",
+                    "prio",
+                    str(spec["priority"]),
+                ]
+            )
+
+            await self._run_tc(
+                ["qdisc", "add", "dev", interface, "parent", classid, "fq_codel"]
+            )
+
+            protocols = (
+                ("tcp", "udp")
+                if spec["match_protocol"] == "any"
+                else (spec["match_protocol"],)
+            )
+            for port in spec["match_ports"]:
+                for protocol in protocols:
+                    await self._add_filter(interface, classid, protocol, str(port))
+                    await self._add_filter_ipv6(
+                        interface, classid, protocol, str(port)
+                    )
 
     async def _add_filter(
         self, interface: str, classid: str, protocol: str, port: str
@@ -228,7 +452,12 @@ class TrafficControlManager:
         return proc.returncode, stdout.decode(), stderr.decode()
 
     async def get_stats(self, interface: str) -> Dict[str, Any]:
-        """Get traffic control statistics"""
+        """Get traffic control statistics in the gateway contract shape.
+
+        Returns ``{"queues": [{name, bytes, packets, dropped, rate}], "raw":
+        "<tc -s output>"}`` so ``QoSStatsResponse.queues`` can be populated by
+        the gateway.
+        """
         try:
             proc = await asyncio.create_subprocess_exec(
                 "tc",
@@ -241,30 +470,12 @@ class TrafficControlManager:
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await proc.communicate()
+        except Exception as e:
+            print(f"QoS stats failed: {e}")
+            return {"queues": [], "raw": ""}
 
-            # Parse tc output
-            stats = {}
-            current_qdisc = None
-
-            for line in stdout.decode().split("\n"):
-                if "qdisc" in line:
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        current_qdisc = parts[1]
-                        stats[current_qdisc] = {"sent": 0, "dropped": 0}
-                elif current_qdisc and "Sent" in line:
-                    match = re.search(r"Sent (\d+) bytes (\d+) pkt", line)
-                    if match:
-                        stats[current_qdisc]["sent_bytes"] = int(match.group(1))
-                        stats[current_qdisc]["sent_pkts"] = int(match.group(2))
-                elif current_qdisc and "dropped" in line:
-                    match = re.search(r"dropped (\d+)", line)
-                    if match:
-                        stats[current_qdisc]["dropped"] = int(match.group(1))
-
-            return stats
-        except:
-            return {}
+        raw = stdout.decode(errors="replace")
+        return {"queues": _parse_qdisc_stats(raw), "raw": raw}
 
     async def limit_per_ip(
         self, interface: str, rate: str = "10mbit", burst: str = "100k"
@@ -315,5 +526,5 @@ class TrafficControlManager:
                 )
 
             return True
-        except:
+        except Exception:
             return False

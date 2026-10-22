@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from viswall_firewall_agent.nft import NATRule, NFTablesManager, FirewallRule
-from viswall_firewall_agent.qos import TrafficControlManager
+from viswall_firewall_agent.qos import QoSValidationError, TrafficControlManager
 from viswall_firewall_agent.routing import RoutingManager
 
 try:
@@ -189,12 +189,16 @@ if FASTAPI_AVAILABLE:
 
     @app.post("/qos/apply")
     async def api_apply_qos(request: QoSApplyRequest):
-        ok = await agent.tc.setup_qos(
-            interface=request.interface,
-            download_rate=request.download_kbps,
-            upload_rate=request.upload_kbps,
-            algorithm=request.algorithm,
-        )
+        try:
+            ok = await agent.tc.setup_qos(
+                interface=request.interface,
+                download_rate=request.download_kbps,
+                upload_rate=request.upload_kbps,
+                algorithm=request.algorithm,
+                classes=request.classes,
+            )
+        except QoSValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e))
         if not ok:
             raise HTTPException(status_code=500, detail="Failed to apply QoS")
         return {
@@ -213,8 +217,17 @@ if FASTAPI_AVAILABLE:
 
     @app.get("/qos/stats/{interface}")
     async def api_qos_stats(interface: str):
+        # Contract: stats.queues is a list of {name, bytes, packets, dropped,
+        # rate} (mapped by the gateway into QoSQueueStats) and stats.raw is the
+        # literal `tc -s` text for advanced display.
         stats = await agent.tc.get_stats(interface)
-        return {"interface": interface, "stats": stats}
+        return {
+            "interface": interface,
+            "stats": {
+                "queues": stats.get("queues", []),
+                "raw": stats.get("raw", ""),
+            },
+        }
 
     @app.get("/stats")
     async def api_system_stats():
