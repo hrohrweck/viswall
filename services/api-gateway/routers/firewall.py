@@ -38,6 +38,7 @@ from shared.schemas import (
 from shared.security import require_auth, require_admin
 from shared.audit_logger import log_audit
 from utils.agent_client import agent_request, AgentClientError, log_agent_dispatch
+from utils.firewall_dispatch import apply_firewall_config
 
 router = APIRouter()
 
@@ -68,7 +69,6 @@ async def list_firewall_rules(
 async def create_firewall_rule(
     instance_id: int,
     data: FirewallRuleCreate,
-    background_tasks: BackgroundTasks,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -102,12 +102,15 @@ async def create_firewall_rule(
     db.add(rule)
     await db.commit()
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="create", resource_type="firewall_rule", resource_id=rule.id, instance_id=rule.instance_id)
+    await log_audit(db=db, user_id=admin_id, action="create", resource_type="firewall_rule", resource_id=rule.id, instance_id=rule.instance_id)
 
     await db.refresh(rule)
 
-    # Trigger firewall reload
-    background_tasks.add_task(reload_firewall, instance_id)
+    # Synchronous dispatch: agent failure → 502, DB write kept (desired-state).
+    try:
+        await apply_firewall_config(db, instance_id, user_id=admin_id)
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
     return FirewallRuleResponse.model_validate(rule)
 
@@ -132,7 +135,6 @@ async def get_firewall_rule(
 async def update_firewall_rule(
     rule_id: int,
     data: FirewallRuleUpdate,
-    background_tasks: BackgroundTasks,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -152,11 +154,14 @@ async def update_firewall_rule(
 
     await db.commit()
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="update", resource_type="firewall_rule", resource_id=rule.id, instance_id=rule.instance_id)
+    await log_audit(db=db, user_id=admin_id, action="update", resource_type="firewall_rule", resource_id=rule.id, instance_id=rule.instance_id)
 
     await db.refresh(rule)
 
-    background_tasks.add_task(reload_firewall, rule.instance_id)
+    try:
+        await apply_firewall_config(db, rule.instance_id, user_id=admin_id)
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
     return FirewallRuleResponse.model_validate(rule)
 
@@ -164,7 +169,6 @@ async def update_firewall_rule(
 @router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_firewall_rule(
     rule_id: int,
-    background_tasks: BackgroundTasks,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -179,10 +183,12 @@ async def delete_firewall_rule(
     await db.delete(rule)
     await db.commit()
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="delete", resource_type="firewall_rule", resource_id=rule_id, instance_id=instance_id)
+    await log_audit(db=db, user_id=admin_id, action="delete", resource_type="firewall_rule", resource_id=rule_id, instance_id=instance_id)
 
-
-    background_tasks.add_task(reload_firewall, instance_id)
+    try:
+        await apply_firewall_config(db, instance_id, user_id=admin_id)
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
     return None
 
@@ -235,6 +241,11 @@ async def move_rule(
             rule.order_index, below.order_index = below.order_index, rule.order_index
 
     await db.commit()
+
+    try:
+        await apply_firewall_config(db, rule.instance_id, user_id=admin_id)
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
     return {"status": "moved", "direction": direction}
 
@@ -922,7 +933,14 @@ async def get_firewall_stats(instance_id: int, user_id: int = Depends(require_au
 
 
 async def reload_firewall(instance_id: int):
-    """Reload firewall configuration on an instance"""
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"Firewall reload requested for instance {instance_id} (agent endpoint not yet implemented)")
+    """Push the desired firewall state of an instance to its agent.
+
+    Background-task entry point (``background_tasks.add_task``): opens its
+    own session after the response is sent, following the ``apply_qos_policy``
+    fresh-session pattern. Failures are audit-logged by
+    ``apply_firewall_config``; the DB keeps the desired state.
+    """
+    from shared.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        await apply_firewall_config(db, instance_id)
