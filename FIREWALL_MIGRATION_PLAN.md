@@ -575,6 +575,32 @@ ready, rollback runbook in hand.
 Any probe failure before step 9: let the trap restore, diagnose, fix, and re-enter
 from step 2. Never improvise inside the window.
 
+#### Cutover readiness gate (todo 43) — status 2026-10-23
+
+Technical items **GREEN** (evidence pack: `.omo/evidence/task-43-readiness.md`): netns validation
+(todo 38), parity checklist 137 PASS / 4 intentional DIFF (todo 39), watchdog + revert-trap drills
+and byte-identical restore rehearsals (todos 40/41), VPN live roundtrip with a tunnel-carrying
+proof (todo 42), cold backup SHA256 verified, `iptables-restore --test` green on both the cold
+backup and the newest agent snapshot, rollback runbook present, and two distinct `who` entries
+including a new connection through the public IP.
+
+**WAN-SSH evidence gate (mandatory):** every firewall-state-changing step above must record a
+fresh `ssh` login over the public IP — a NEW connection, timestamped — in the cutover evidence
+BEFORE proceeding. The automated prober's checks are loopback-scoped; a policy-routing failure
+that kills only WAN tcp/22 would otherwise go unnoticed.
+
+**Status: PENDING — OPERATOR ITEMS (do not start the window):**
+
+- [ ] An independent second SSH session from the operator workstation to the public IP, open for
+      the whole window (a host-originated connection proves the path but cannot survive a
+      host-level failure).
+- [ ] Hetzner KVM/rescue console reachability verified (inside the window).
+- [ ] Maintenance window announced/confirmed, target under 30 minutes.
+- [ ] Rollback runbook (section 7) visible in the second session.
+- [ ] Explicit GO for the cutover.
+
+Mark this section **READY, reviewed** only when all five are checked.
+
 ### Phase 6: Verification (todo 45)
 
 Full probe battery at t0 and t+24h, Docker publish spot checks (nextcloud,
