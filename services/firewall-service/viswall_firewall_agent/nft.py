@@ -10,20 +10,33 @@ are rendered in their dedicated sections and skipped by the generic
 user-rule pass):
 
 * managed-port meter — ``chain="input"`` + ``protocol``/``destination_port``
-  matching 22/80/443/51820 + ``limit`` set: drives the per-source meter rate
-  (single bucket — the DB value wins, the built-in default is used only when
-  no such rule exists; never both).
+  matching 22/80/443/51820 + ``limit`` set: drives the per-source meter rate.
+  Two family-scoped buckets per port — ``meta nfproto ipv4`` (``ip saddr``)
+  and ``meta nfproto ipv6`` (``ip6 saddr``). A row whose name ends ``_v6``
+  (the importer names rules.v6 hashlimit rows by their live
+  ``--hashlimit-name``, e.g. ``ssh_limit_v6``) feeds the v6 bucket; any other
+  matching row feeds the v4 bucket. The DB ``limit`` string is emitted
+  VERBATIM inside the meter as ``limit rate over <rate>`` — ``over`` makes
+  the meter match only the OVER-limit traffic (live ``--hashlimit-above``
+  semantics; plain ``limit rate`` drops the FIRST burst packets instead),
+  and no burst clause is ever appended twice. The built-in default is used
+  only when no such row exists; never both.
 * loopback guard — ``chain="input"`` + ``action=DROP`` +
   ``destination="127.0.0.1"`` + ``protocol="tcp"`` + ``destination_port``:
   grouped into one ``iifname != "lo"`` guarded dport set.
 * container-IP anti-spoof — ``anti_spoof=True`` (or "anti-spoof" in
-  ``name``/``comment``) + ``chain="forward"`` + ``interface_in``=bridge +
-  ``destination``=container IP: rendered as
-  ``iifname != "<bridge>" ip daddr <ip> drop`` in the forward chain.
+  ``name``/``comment``) + ``chain="forward"`` + ``destination``=container
+  IP: rendered as ``iifname != "<bridge>" <family> daddr <ip> drop`` in the
+  forward chain. The bridge comes from ``interface_in`` when set; otherwise
+  it is parsed from the name's ``via <bridge>`` suffix (todo 34 importer
+  convention: "anti-spoof <ip> via <bridge>" — the FirewallRule schema has
+  no interface_in column, so the bridge rides in the row name).
 * internal-port protection — "internal-port" in ``name``/``comment`` +
   ``chain="forward"`` + ``protocol="tcp"`` + ``destination_port``: grouped
   into the DOCKER-USER replacement set (built-in boseman defaults used when
-  no DB-origin rule exists).
+  no DB-origin rule exists), rendered BEFORE the docker0/br-* bridge accepts
+  (live jumps to DOCKER-USER before DOCKER-FORWARD; a bridge accept first
+  would let WAN->published internal ports through).
 
 When env ``VALIDATION_MODE=1`` the renderer emits a pass-through ruleset:
 every chain policy accept, no drop/limit/meter rules, log-only matches with
@@ -87,9 +100,9 @@ class NATRule:
     comment: Optional[str] = None
 
 
-# (protocol, port) -> (meter name, default rate). The rendered meter is the
-# single bucket: a FirewallRule matching protocol+port with ``limit`` set
-# overrides the default rate; the meter itself is always emitted.
+# (protocol, port) -> (meter name, default rate). Both the ipv4 and the
+# ipv6 meter are always emitted; a FirewallRule matching protocol+port with
+# ``limit`` set overrides its family's default rate (see ``_meter_rate``).
 METER_SPECS: Dict[Tuple[str, int], Tuple[str, str]] = {
     ("tcp", 22): ("ssh_limit", "10/minute"),
     ("tcp", 80): ("http_limit", "100/minute"),
@@ -127,6 +140,13 @@ _PROTO_NAMES = {"tcp", "udp", "icmp", "icmpv6", "sctp", "igmp", "esp", "ah", "gr
 _CT_STATES = {"NEW", "ESTABLISHED", "RELATED", "INVALID", "UNTRACKED"}
 _IFNAME_RE = re.compile(r"[A-Za-z0-9_.:*+@-]+\Z")
 _LIMIT_RE = re.compile(r"[0-9]+\s*/\s*(second|minute|hour|day)(\s+burst\s+[0-9]+\s+packets)?\Z")
+#: Bridge extraction from the todo-34 importer row name convention
+#: "anti-spoof <ip> via <bridge>" (the schema has no interface_in column).
+_BRIDGE_VIA_RE = re.compile(r"\bvia\s+(\S+)")
+#: Default burst appended exactly once when a DB limit string carries none
+#: (live hashlimit burst is 5; the old render appended a second burst to
+#: strings that already had one, which made nft -c fail).
+_DEFAULT_BURST = " burst 5 packets"
 
 
 def _quote(value: str) -> str:
@@ -179,10 +199,15 @@ class NFTablesManager:
 
     @staticmethod
     def _parse_addr_family(addr: str) -> Optional[str]:
+        """'ip' / 'ip6' for a bare address OR a CIDR; None when unparsable."""
         try:
             ip = ipaddress.ip_address(addr)
         except ValueError:
-            return None
+            try:
+                net = ipaddress.ip_network(addr, strict=False)
+            except ValueError:
+                return None
+            return "ip6" if isinstance(net, ipaddress.IPv6Network) else "ip"
         return "ip6" if isinstance(ip, ipaddress.IPv6Address) else "ip"
 
     @staticmethod
@@ -192,8 +217,17 @@ class NFTablesManager:
             parts.append(f"{p[0]}-{p[1]}" if isinstance(p, tuple) else str(p))
         return "{" + ", ".join(parts) + "}"
 
-    def _meter_rate(self, rules: List[FirewallRule], proto: str, port: int) -> str:
-        """Single-bucket rate: DB-origin ``limit`` wins, built-in default otherwise."""
+    def _meter_rate(
+        self, rules: List[FirewallRule], proto: str, port: int, family: str = "ip"
+    ) -> str:
+        """Single-bucket rate: DB-origin ``limit`` wins, built-in default otherwise.
+
+        ``family`` selects the bucket: ``"ip6"`` accepts only rows whose name
+        ends ``_v6`` (the importer names rules.v6 hashlimit rows by their live
+        --hashlimit-name), ``"ip"`` only rows that do not. The returned string
+        is the DB ``limit`` verbatim (with or without its burst clause); the
+        caller appends the default burst only when it is absent.
+        """
         for rule in rules:
             if (rule.chain or "").lower() != "input":
                 continue
@@ -201,9 +235,16 @@ class NFTablesManager:
                 continue
             if rule.destination_port != port or not rule.limit:
                 continue
+            if ((rule.name or "").lower().endswith("_v6")) != (family == "ip6"):
+                continue
             if _valid_limit(rule.limit):
                 return rule.limit
         return METER_SPECS[(proto, port)][1]
+
+    @staticmethod
+    def _with_burst(limit: str) -> str:
+        """Ensure exactly ONE burst clause (duplicating it breaks nft -c)."""
+        return limit if " burst " in limit else limit + _DEFAULT_BURST
 
     @staticmethod
     def _is_loopback_guard(rule: FirewallRule) -> bool:
@@ -256,18 +297,37 @@ class NFTablesManager:
         }
         return tuple(sorted(p for p in ports if p is not None)) or DEFAULT_INTERNAL_PORTS
 
+    def _anti_spoof_bridge(self, rule: FirewallRule) -> Optional[str]:
+        """Bridge for one anti-spoof row; None when it cannot be determined.
+
+        Precedence: an explicit ``interface_in``; otherwise the bridge is
+        parsed from the row name's ``via <bridge>`` suffix. Parsing rule
+        (todo 34 importer convention — the FirewallRule schema has no
+        interface_in column, so the bridge rides in the name):
+        ``build_rows`` emits ``anti-spoof {dest_ip} via {in_iface}``, e.g.
+        "anti-spoof 172.18.0.3 via br-d46e3a305cbd"; the token after the
+        final " via " is the bridge and must pass ``_safe_ifname``.
+        """
+        if rule.interface_in and _safe_ifname(rule.interface_in):
+            return rule.interface_in
+        match = _BRIDGE_VIA_RE.search(rule.name or "")
+        if match and _safe_ifname(match.group(1)):
+            return match.group(1)
+        return None
+
     def _anti_spoof_lines(self, rules: List[FirewallRule]) -> List[str]:
         lines: List[str] = []
         for rule in rules:
             if (rule.chain or "").lower() != "forward" or not self._is_anti_spoof(rule):
                 continue
-            if not rule.interface_in or not _safe_ifname(rule.interface_in) or not rule.destination:
+            bridge = self._anti_spoof_bridge(rule)
+            if not bridge or not rule.destination:
                 continue
             family = self._parse_addr_family(rule.destination)
             if family is None:
                 continue
             lines.append(
-                f'        iifname != "{rule.interface_in}" {family} daddr {rule.destination} drop'
+                f'        iifname != "{bridge}" {family} daddr {rule.destination} drop'
             )
         return lines
 
@@ -324,20 +384,27 @@ class NFTablesManager:
             [
                 "        # Loopback",
                 '        iif "lo" accept',
-                "        # Container bridges (docker coexistence)",
+                "        # Container bridges (docker coexistence) — live INPUT accepts docker0 only",
                 '        iifname "docker0" accept',
-                '        iifname "br-*" accept',
                 "        # ICMP / ICMPv6 rate limited",
                 "        ip protocol icmp limit rate 5/second accept",
                 "        ip6 nexthdr icmpv6 limit rate 5/second accept",
             ]
         )
-        # dport-scoped per-source meters (single bucket; never alongside a dup)
+        # dport-scoped per-source meters, family-split so v6 traffic cannot
+        # bypass them; ``limit rate over`` drops only the OVER-limit traffic
+        # (live --hashlimit-above semantics — plain ``limit rate`` would drop
+        # the first burst packets and let the flood through).
         for (proto, port), (name, _default) in METER_SPECS.items():
-            rate = self._meter_rate(rules, proto, port)
+            rate_v4 = self._with_burst(self._meter_rate(rules, proto, port, "ip"))
+            rate_v6 = self._with_burst(self._meter_rate(rules, proto, port, "ip6"))
             lines.append(
-                f"        {proto} dport {port} meter {name} "
-                f"{{ ip saddr limit rate {rate} burst 5 packets }} drop"
+                f"        meta nfproto ipv4 {proto} dport {port} meter {name} "
+                f"{{ ip saddr limit rate over {rate_v4} }} drop"
+            )
+            lines.append(
+                f"        meta nfproto ipv6 {proto} dport {port} meter {name}_v6 "
+                f"{{ ip6 saddr limit rate over {rate_v6} }} drop"
             )
         # Management accepts, family-scoped from the single _MGMT_ACCEPTS list
         v4_tcp = [p for proto, p in _MGMT_ACCEPTS if proto == "tcp"]
@@ -389,6 +456,15 @@ class NFTablesManager:
             lines.append("        ct state established,related accept")
         lines.append("        # Container-IP anti-spoof drops")
         lines.extend(self._anti_spoof_lines(rules))
+        ports = self._internal_ports(rules)
+        # DOCKER-USER replacement, rendered BEFORE the bridge accepts: live
+        # jumps to DOCKER-USER before DOCKER-FORWARD — a bridge accept first
+        # would let WAN->published internal ports through.
+        lines.append("        # DOCKER-USER replacement: external access to internal ports")
+        for wan in wan_ifaces or [DEFAULT_WAN]:
+            lines.append(
+                f'        iifname "{wan}" ct direction original ct original proto-dst {self._port_set(ports)} drop'
+            )
         lines.extend(
             [
                 "        # Container bridge traffic (docker coexistence)",
@@ -396,14 +472,8 @@ class NFTablesManager:
                 '        oifname "docker0" accept',
                 '        iifname "br-*" accept',
                 '        oifname "br-*" accept',
-                "        # DOCKER-USER replacement: external access to internal ports",
             ]
         )
-        ports = self._internal_ports(rules)
-        for wan in wan_ifaces or [DEFAULT_WAN]:
-            lines.append(
-                f'        iifname "{wan}" ct direction original ct original proto-dst {self._port_set(ports)} drop'
-            )
         lines.extend(self._user_rules(rules, "forward"))
         lines.append("        accept")
         lines.append("    }")

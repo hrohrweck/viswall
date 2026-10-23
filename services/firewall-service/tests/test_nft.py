@@ -187,17 +187,26 @@ class TestLockoutRegression:
         ruleset = _render(NFTablesManager(), rules=rules, nat=nat, **kwargs)
         input_chain = _chain_section(ruleset, "input")
 
-        # ssh meter: rate limit guarded by its own dport (Oracle #11). The rate
-        # differs per fixture (DB-origin limit overrides the default).
+        # ssh meter: dport-guarded (Oracle #11), family-scoped, ``over`` so it
+        # drops only the over-limit traffic, with exactly ONE burst clause.
+        # The rate differs per fixture (DB-origin limit overrides the default).
         assert re.search(
-            r"tcp dport 22 meter ssh_limit \{ ip saddr limit rate \S+ burst 5 packets \} drop",
+            r"meta nfproto ipv4 tcp dport 22 meter ssh_limit \{ ip saddr "
+            r"limit rate over \S+ burst 5 packets \} drop",
+            input_chain,
+        )
+        # v6 ssh meter: family-scoped v6 bucket never bypassed (todo 39 E02).
+        assert re.search(
+            r"meta nfproto ipv6 tcp dport 22 meter ssh_limit_v6 \{ ip6 saddr "
+            r"limit rate over \S+ burst 5 packets \} drop",
             input_chain,
         )
         # ssh accept: 22 is inside both family-scoped accept sets.
         assert "meta nfproto ipv4 tcp dport {22, " in input_chain
         assert "meta nfproto ipv6 tcp dport {22, 80, 443} accept" in input_chain
-        # wg 51820: meter + family-scoped accepts.
-        assert "udp dport 51820 meter wireguard_limit" in input_chain
+        # wg 51820: family-scoped meter + family-scoped accepts.
+        assert "meta nfproto ipv4 udp dport 51820 meter wireguard_limit" in input_chain
+        assert "meta nfproto ipv6 udp dport 51820 meter wireguard_limit_v6" in input_chain
         assert "51820" in input_chain.split("meta nfproto ipv4 udp dport")[1]
         assert "meta nfproto ipv6 udp dport {51820} accept" in input_chain
         # established/related must always come first.
@@ -207,7 +216,51 @@ class TestLockoutRegression:
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
         ruleset = _render(NFTablesManager())
         assert (
-            "tcp dport 22 meter ssh_limit { ip saddr limit rate 8/minute burst 5 packets } drop"
+            "meta nfproto ipv4 tcp dport 22 meter ssh_limit "
+            "{ ip saddr limit rate over 8/minute burst 5 packets } drop"
+            in ruleset
+        )
+
+    def test_db_limit_with_burst_emitted_verbatim_once(self, monkeypatch) -> None:
+        """Todo 38 finding #1: a DB limit that already carries burst must NOT
+        get a second burst clause appended (double-burst fails nft -c)."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        rules = [
+            r
+            if r.id != 1
+            else _rule(1, "ssh limit", protocol="tcp", destination_port=22,
+                       limit="10/minute burst 5 packets")
+            for r in _base_rules()
+        ]
+        ruleset = _render(NFTablesManager(), rules=rules)
+        assert (
+            "meta nfproto ipv4 tcp dport 22 meter ssh_limit "
+            "{ ip saddr limit rate over 10/minute burst 5 packets } drop"
+            in ruleset
+        )
+        assert "burst 5 packets burst 5 packets" not in ruleset
+
+    def test_v6_meter_rate_from_v6_suffixed_row(self, monkeypatch) -> None:
+        """The _v6-named row feeds the v6 bucket; a plain row feeds v4."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        rules = _base_rules() + [
+            _rule(
+                21,
+                "ssh_limit_v6",
+                protocol="tcp",
+                destination_port=22,
+                limit="7/minute",
+            )
+        ]
+        ruleset = _render(NFTablesManager(), rules=rules)
+        assert (
+            "meta nfproto ipv4 tcp dport 22 meter ssh_limit "
+            "{ ip saddr limit rate over 8/minute burst 5 packets } drop"
+            in ruleset
+        )
+        assert (
+            "meta nfproto ipv6 tcp dport 22 meter ssh_limit_v6 "
+            "{ ip6 saddr limit rate over 7/minute burst 5 packets } drop"
             in ruleset
         )
 
@@ -218,9 +271,14 @@ class TestLockoutRegression:
         meter_lines = [
             line.strip() for line in ruleset.splitlines() if " meter " in line
         ]
-        assert len(meter_lines) == 4
+        assert len(meter_lines) == 8  # 4 ports x (ipv4 + ipv6)
         for line in meter_lines:
-            assert re.match(r"^(tcp|udp) dport \d+ meter \w+ \{ ip saddr", line), line
+            assert re.match(
+                r"^meta nfproto ipv[46] (tcp|udp) dport \d+ meter \w+ \{ ip6? saddr",
+                line,
+            ), line
+        assert sum("ipv4" in line for line in meter_lines) == 4
+        assert sum("ipv6" in line for line in meter_lines) == 4
 
 
 class TestDockerCoexistence:
@@ -229,8 +287,9 @@ class TestDockerCoexistence:
         ruleset = _render(NFTablesManager())
         input_chain = _chain_section(ruleset, "input")
         forward_chain = _chain_section(ruleset, "forward")
+        # todo 38/39: live INPUT accepts docker0 ONLY — no br-* INPUT accept.
         assert 'iifname "docker0" accept' in input_chain
-        assert 'iifname "br-*" accept' in input_chain
+        assert 'iifname "br-*" accept' not in input_chain
         for expected in (
             'iifname "docker0" accept',
             'oifname "docker0" accept',
@@ -238,6 +297,19 @@ class TestDockerCoexistence:
             'oifname "br-*" accept',
         ):
             assert expected in forward_chain
+
+    def test_docker_user_replacement_precedes_bridge_accepts(self, monkeypatch) -> None:
+        """Todo 38 finding #2: the DOCKER-USER replacement must fire BEFORE
+        the bridge accepts, or WAN->published internal ports slip through."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        forward_chain = _chain_section(ruleset, "forward")
+        established = forward_chain.index("ct state established,related accept")
+        docker_user = forward_chain.index(
+            'iifname "enp0s31f6" ct direction original ct original proto-dst'
+        )
+        bridge_accept = forward_chain.index('iifname "docker0" accept')
+        assert established < docker_user < bridge_accept
 
     def test_docker_user_port_set_with_db_rule(self, monkeypatch) -> None:
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
@@ -324,6 +396,34 @@ class TestChainPlacement:
         assert 'iifname != "br-abc123" ip daddr 172.19.0.5 drop' in forward_chain
         assert "172.19.0.5" not in input_chain
 
+    def test_anti_spoof_bridge_parsed_from_name_convention(self, monkeypatch) -> None:
+        """Todo 38/39 gap: rows carry the bridge in the name ("via <bridge>"),
+        not in interface_in (the schema column does not exist)."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        rules = _base_rules() + [
+            _rule(
+                14,
+                "anti-spoof 172.18.0.3 via br-d46e3a305cbd",
+                chain="forward",
+                destination="172.18.0.3/32",
+                action=FirewallAction.DROP,
+            ),
+            _rule(
+                15,
+                "anti-spoof fd00:42::2 via docker0",
+                chain="forward",
+                destination="fd00:42::2/128",
+                action=FirewallAction.DROP,
+            ),
+        ]
+        ruleset = _render(NFTablesManager(), rules=rules)
+        forward_chain = _chain_section(ruleset, "forward")
+        assert (
+            'iifname != "br-d46e3a305cbd" ip daddr 172.18.0.3/32 drop'
+            in forward_chain
+        )
+        assert 'iifname != "docker0" ip6 daddr fd00:42::2/128 drop' in forward_chain
+
     def test_ipv6_scoping_matches_open_set(self, monkeypatch) -> None:
         """Oracle #8: v6 opens only 22/80/443/51820; mail ports stay v4-only."""
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
@@ -343,7 +443,8 @@ class TestChainPlacement:
         lines = ruleset.splitlines()
         mandatory = lines.index("        ct state established,related accept")
         meter = lines.index(
-            "        tcp dport 22 meter ssh_limit { ip saddr limit rate 8/minute burst 5 packets } drop"
+            "        meta nfproto ipv4 tcp dport 22 meter ssh_limit "
+            "{ ip saddr limit rate over 8/minute burst 5 packets } drop"
         )
         first_user = next(
             i for i, line in enumerate(lines) if "user rule input" in line
