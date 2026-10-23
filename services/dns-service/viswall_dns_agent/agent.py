@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import random
 import secrets
 import subprocess
 from datetime import datetime
@@ -127,10 +126,10 @@ class DNSAgent:
         return f"{zone.name}. 3600 IN DNSKEY 257 3 13 {blob}"
 
     def _generate_key_tag(self, zone: DNSZonePayload, key_type: str, key_size: int) -> int:
-        base = abs(
-            hash(f"{zone.id}:{zone.name}:{key_type}:{key_size}:{random.randint(1, 999999)}")
-        )
-        return (base % 64511) + 1024
+        # Key tags are 16-bit identifiers rather than secrets, but draw them
+        # from the CSPRNG so no Mersenne-Twister state is shared with the
+        # TSIG secret generation above.
+        return secrets.randbelow(64511) + 1024
 
     def _build_ds_record(self, zone: DNSZonePayload, key_tag: int, digest: str) -> str:
         digest_hex = hashlib.sha256(digest.encode("utf-8")).hexdigest()

@@ -12,9 +12,19 @@ DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.yaml"
 
 
 class Config:
-    """CLI configuration."""
+    """CLI configuration.
+
+    The bearer token is read from the environment or the config file and
+    sent as an Authorization header to `url`. Both inputs are attacker-
+    controllable files, so the URL is validated to an http(s) origin and
+    the token is only ever persisted with owner-only file permissions.
+    """
 
     def __init__(self, url: Optional[str] = None, token: Optional[str] = None):
+        if url and not url.lower().startswith(("http://", "https://")):
+            raise ValueError(
+                f"invalid url {url!r}: must start with http:// or https://"
+            )
         self.url = url
         self.token = token
 
@@ -32,6 +42,11 @@ class Config:
         config_path = path or DEFAULT_CONFIG_FILE
         if not config_path.exists():
             return cls()
+
+        # A token stored by an older CLI version may be group/world
+        # readable — tighten it before reading (ssh-style).
+        if config_path.stat().st_mode & 0o077:
+            config_path.chmod(0o600)
 
         with open(config_path) as f:
             data = yaml.safe_load(f) or {}
@@ -52,8 +67,11 @@ class Config:
         if self.token:
             data["token"] = self.token
 
-        with config_path.open("w") as f:
+        # The file carries a bearer token, so create/keep it owner-only.
+        fd = os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
             yaml.dump(data, f, default_flow_style=False)
+        config_path.chmod(0o600)
 
     def merge(self, other: "Config") -> "Config":
         """Merge another config, preferring non-None values from other."""
