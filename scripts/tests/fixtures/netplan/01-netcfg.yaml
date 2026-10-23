@@ -1,0 +1,21 @@
+### Hetzner Online GmbH installimage
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp0s31f6:
+      addresses:
+        - 46.4.63.216/32
+        - 2a01:4f8:140:22ef::2/64
+      routes:
+        - on-link: true
+          to: 0.0.0.0/0
+          via: 46.4.63.193
+        - to: ::/0
+          via: fe80::1
+      nameservers:
+        addresses:
+          - 185.12.64.1
+          - 2a01:4ff:ff00::add:2
+          - 185.12.64.2
+          - 2a01:4ff:ff00::add:1
