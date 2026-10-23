@@ -575,6 +575,70 @@ ready, rollback runbook in hand.
 Any probe failure before step 9: let the trap restore, diagnose, fix, and re-enter
 from step 2. Never improvise inside the window.
 
+#### Cutover readiness gate (todo 43) — status 2026-10-23
+
+Technical items **GREEN** (evidence pack: `.omo/evidence/task-43-readiness.md`): netns validation
+(todo 38), parity checklist 137 PASS / 4 intentional DIFF (todo 39), watchdog + revert-trap drills
+and byte-identical restore rehearsals (todos 40/41), VPN live roundtrip with a tunnel-carrying
+proof (todo 42), cold backup SHA256 verified, `iptables-restore --test` green on both the cold
+backup and the newest agent snapshot, rollback runbook present, and two distinct `who` entries
+including a new connection through the public IP.
+
+**WAN-SSH evidence gate (mandatory):** every firewall-state-changing step above must record a
+fresh `ssh` login over the public IP — a NEW connection, timestamped — in the cutover evidence
+BEFORE proceeding. The automated prober's checks are loopback-scoped; a policy-routing failure
+that kills only WAN tcp/22 would otherwise go unnoticed.
+
+**Container-churn drift (found 2026-10-23 — must be handled in the window):** the legacy raw
+anti-spoof rows are keyed on live container IPs. Between the cold capture (2026-10-22 22:21,
+63 anti-spoof drops) and the first post-deploy snapshot (2026-10-23 09:41, 65 drops) the
+api-gateway container was recreated and two rows appeared (`anti-spoof 172.17.0.7 via docker0`
+and `anti-spoof 2001:db8:1::7 via docker0`). The console had been imported from the cold capture,
+so the rendered table would have silently dropped those two protections at the strip. They have
+been imported (console now holds 109 rows, matching the newest snapshot), but the window MUST
+repeat the reconciliation against its own fresh snapshot.
+
+**Who generates them:** the todo-1 investigation found the off-host Ansible generator *dormant*
+(last activity 2025-10-26, no local trigger), and a 2026-10-23 correlation is conclusive: **all 46
+live container IPv4s across every docker network have a matching raw PREROUTING drop** (two stale
+entries remain for removed containers). The set is reconciled to the live container set by the
+container runtime on every start/stop, not by Ansible — it will keep drifting with container churn.
+
+**Window requirements:**
+
+1. **Freeze container churn** for the window (no deploys, no `docker compose up/restart` of
+   unmodified services) and confirm no `/etc/iptables` or live-rule write occurs for a full
+   interval before the snapshot (this also covers any dormant/unidentified automation; record the
+   re-enable command if something is paused off-host).
+2. Take the fresh snapshot (step 2).
+3. **Reconcile bidirectionally against the CURRENT live ruleset.** The importer only *adds*:
+   `python3 scripts/migrate_legacy_firewall.py --apply --rules-file /tmp/live-v4 --rules6-file
+   /tmp/live-v6` (captures from `iptables-save` / `ip6tables-save` taken after the freeze). Then
+   remove any console anti-spoof row whose IP is no longer in the live set (`DELETE
+   /api/v1/firewall/rules/{id}`). The console row count must equal the live plan exactly; anything
+   beyond container-churn anti-spoof is a stop-and-investigate. (Observed during preparation: the
+   v4 anti-spoof set oscillated 48 <-> 49 within minutes.)
+4. After applying the real ruleset, run `python3 scripts/firewall_parity_gate.py --rules-v4
+   /tmp/live-v4 --rules-v6 /tmp/live-v6 --nft-table <(nft list table inet viswall)`. Any DIFF
+   blocks the iptables strip. **Never use a snapshot created by an intermediate console write as
+   the expected side** — every apply snapshots the *pre-apply* state, so it is stale as soon as the
+   apply changes anything. Use the post-freeze live capture. Verified end-to-end 2026-10-23:
+   console payload (109 rules) -> real-mode render -> `nft -c` rc 0 -> ALL PASS vs live.
+
+**Status: PENDING — OPERATOR ITEMS (do not start the window):**
+
+- [ ] Container churn is frozen for the window and no off-host automation will write the rules
+      during it (the todo-1 generator is dormant; record the re-enable command if anything is paused).
+- [ ] An independent second SSH session from the operator workstation to the public IP, open for
+      the whole window (a host-originated connection proves the path but cannot survive a
+      host-level failure).
+- [ ] Hetzner KVM/rescue console reachability verified (inside the window).
+- [ ] Maintenance window announced/confirmed, target under 30 minutes.
+- [ ] Rollback runbook (section 7) visible in the second session.
+- [ ] Explicit GO for the cutover.
+
+Mark this section **READY, reviewed** only when all six are checked.
+
 ### Phase 6: Verification (todo 45)
 
 Full probe battery at t0 and t+24h, Docker publish spot checks (nextcloud,
