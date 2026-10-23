@@ -1,28 +1,81 @@
 import { ViswallClient } from '../client';
+import type { components } from '../types/generated';
+
+/**
+ * Client configuration payload returned by the admin-only
+ * `GET /vpn/clients/{client_id}/config` endpoint (mirrors
+ * `VPNClientConfig` in shared/schemas.py — the router declares no
+ * response_model, so the OpenAPI export carries no schema for it).
+ */
+export interface VPNClientConfig {
+  client_id: number;
+  server_name: string;
+  protocol: string;
+  config_format: string;
+  /** Base64-encoded config text (embeds the WireGuard private key). */
+  config_data: string;
+  filename: string;
+}
 
 export class VPNResource {
   constructor(private readonly client: ViswallClient) {}
 
-  async listServers(instanceId: number): Promise<unknown[]> {
-    return this.client.request('GET', `/vpn/servers/${instanceId}`);
+  /**
+   * List VPN servers for an instance (require_auth).
+   * Plain `VPNServerResponse` — never carries `private_key`.
+   */
+  async listServers(
+    instanceId: number,
+  ): Promise<components['schemas']['VPNServerResponse'][]> {
+    return this.client.request<components['schemas']['VPNServerResponse'][]>(
+      'GET',
+      `/vpn/servers/${instanceId}`,
+    );
   }
 
+  /**
+   * Create a VPN server (require_admin).
+   * Returns `VPNServerAdminResponse` — the only server shape that may
+   * carry `private_key`.
+   */
   async createServer(
     instanceId: number,
     data: Record<string, unknown>,
-  ): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/vpn/servers/${instanceId}`, { data });
+  ): Promise<components['schemas']['VPNServerAdminResponse']> {
+    return this.client.request<components['schemas']['VPNServerAdminResponse']>(
+      'POST',
+      `/vpn/servers/${instanceId}`,
+      { data },
+    );
   }
 
-  async getServer(serverId: number): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/vpn/servers/detail/${serverId}`);
+  /**
+   * Get VPN server by ID (require_auth).
+   * Plain `VPNServerResponse` — never carries `private_key`.
+   */
+  async getServer(
+    serverId: number,
+  ): Promise<components['schemas']['VPNServerResponse']> {
+    return this.client.request<components['schemas']['VPNServerResponse']>(
+      'GET',
+      `/vpn/servers/detail/${serverId}`,
+    );
   }
 
+  /**
+   * Update a VPN server (require_admin).
+   * Returns `VPNServerAdminResponse` — the only server shape that may
+   * carry `private_key`.
+   */
   async updateServer(
     serverId: number,
     data: Record<string, unknown>,
-  ): Promise<Record<string, unknown>> {
-    return this.client.request('PATCH', `/vpn/servers/${serverId}`, { data });
+  ): Promise<components['schemas']['VPNServerAdminResponse']> {
+    return this.client.request<components['schemas']['VPNServerAdminResponse']>(
+      'PATCH',
+      `/vpn/servers/${serverId}`,
+      { data },
+    );
   }
 
   async deleteServer(serverId: number): Promise<void> {
@@ -45,34 +98,77 @@ export class VPNResource {
     return this.client.request('GET', `/vpn/servers/${serverId}/stats`);
   }
 
-  async listClients(serverId: number): Promise<unknown[]> {
-    return this.client.request('GET', `/vpn/clients/${serverId}`);
+  /**
+   * List VPN clients for a server (require_auth).
+   * Plain `VPNClientResponse` — never carries `config_file`/`config_qr`.
+   */
+  async listClients(
+    serverId: number,
+  ): Promise<components['schemas']['VPNClientResponse'][]> {
+    return this.client.request<components['schemas']['VPNClientResponse'][]>(
+      'GET',
+      `/vpn/servers/${serverId}/clients`,
+    );
   }
 
+  /**
+   * Create a VPN client (require_admin).
+   * Returns `VPNClientAdminResponse` — the only client shape that carries
+   * the generated `config_file`/`config_qr` (which embed the private key).
+   */
   async createClient(
     serverId: number,
     data: Record<string, unknown>,
-  ): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/vpn/clients/${serverId}`, { data });
+  ): Promise<components['schemas']['VPNClientAdminResponse']> {
+    return this.client.request<components['schemas']['VPNClientAdminResponse']>(
+      'POST',
+      `/vpn/servers/${serverId}/clients`,
+      { data },
+    );
   }
 
-  async getClient(clientId: number): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/vpn/clients/detail/${clientId}`);
+  /**
+   * Get VPN client by ID (require_auth).
+   * Plain `VPNClientResponse` — never carries `config_file`/`config_qr`.
+   */
+  async getClient(
+    clientId: number,
+  ): Promise<components['schemas']['VPNClientResponse']> {
+    return this.client.request<components['schemas']['VPNClientResponse']>(
+      'GET',
+      `/vpn/clients/${clientId}`,
+    );
   }
 
   async updateClient(
     clientId: number,
     data: Record<string, unknown>,
-  ): Promise<Record<string, unknown>> {
-    return this.client.request('PATCH', `/vpn/clients/${clientId}`, { data });
+  ): Promise<components['schemas']['VPNClientResponse']> {
+    return this.client.request<components['schemas']['VPNClientResponse']>(
+      'PATCH',
+      `/vpn/clients/${clientId}`,
+      { data },
+    );
   }
 
   async deleteClient(clientId: number): Promise<void> {
     return this.client.request('DELETE', `/vpn/clients/${clientId}`);
   }
 
-  async getClientConfig(clientId: number): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/vpn/clients/${clientId}/config`);
+  /**
+   * Download a client configuration (require_admin — the config embeds the
+   * raw WireGuard private key, so the endpoint is admin-gated; a non-admin
+   * call is rejected server-side with 403).
+   */
+  async getClientConfig(
+    clientId: number,
+    format: string = 'auto',
+  ): Promise<VPNClientConfig> {
+    return this.client.request<VPNClientConfig>(
+      'GET',
+      `/vpn/clients/${clientId}/config`,
+      { params: { format } },
+    );
   }
 
   async regenerateClient(clientId: number): Promise<Record<string, unknown>> {

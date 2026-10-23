@@ -249,6 +249,24 @@ export interface paths {
      */
     get: operations["get_firewall_stats_api_v1_firewall_stats__instance_id__get"];
   };
+  "/api/v1/firewall/status/{instance_id}": {
+    /**
+     * Get Firewall Agent Status
+     * @description Pass through the agent's live firewall status.
+     *
+     * Covers validation mode, table presence, last apply timestamp and any
+     * apply error. An unreachable agent is a normal answer here (the UI renders
+     * the instance as offline), so it returns a sentinel body instead of 502.
+     */
+    get: operations["get_firewall_agent_status_api_v1_firewall_status__instance_id__get"];
+  };
+  "/api/v1/firewall/rollback/{instance_id}": {
+    /**
+     * Rollback Firewall
+     * @description Restore the newest pre-apply snapshot on the firewall agent.
+     */
+    post: operations["rollback_firewall_api_v1_firewall_rollback__instance_id__post"];
+  };
   "/api/v1/routing/rules/{instance_id}": {
     /**
      * Get Routing Rules
@@ -580,7 +598,10 @@ export interface paths {
   "/api/v1/vpn/servers/{instance_id}": {
     /**
      * List Servers
-     * @description List all VPN servers for an instance
+     * @description List all VPN servers for an instance.
+     *
+     * The response model carries no ``private_key`` — a non-admin list can
+     * never expose the site-to-site tunnel private key.
      */
     get: operations["list_servers_api_v1_vpn_servers__instance_id__get"];
     /**
@@ -592,7 +613,10 @@ export interface paths {
   "/api/v1/vpn/servers/detail/{server_id}": {
     /**
      * Get Server
-     * @description Get VPN server details
+     * @description Get VPN server details.
+     *
+     * The response model carries no ``private_key`` — a non-admin detail can
+     * never expose the site-to-site tunnel private key.
      */
     get: operations["get_server_api_v1_vpn_servers_detail__server_id__get"];
   };
@@ -639,7 +663,10 @@ export interface paths {
   "/api/v1/vpn/servers/{server_id}/clients": {
     /**
      * List Clients
-     * @description List all clients for a VPN server
+     * @description List all clients for a VPN server.
+     *
+     * The response model carries no config fields — a non-admin list can never
+     * expose the generated config (which embeds the raw WireGuard private key).
      */
     get: operations["list_clients_api_v1_vpn_servers__server_id__clients_get"];
     /**
@@ -675,7 +702,8 @@ export interface paths {
   "/api/v1/vpn/clients/{client_id}/config": {
     /**
      * Download Client Config
-     * @description Download client configuration file
+     * @description Download client configuration file (admin only — the config embeds the
+     * raw WireGuard private key, so any authenticated user must NOT reach it).
      */
     get: operations["download_client_config_api_v1_vpn_clients__client_id__config_get"];
   };
@@ -4667,6 +4695,65 @@ export interface components {
       /** Configs Zip */
       configs_zip: string;
     };
+    /**
+     * VPNClientAdminResponse
+     * @description Admin-only client shape: carries the generated config (which embeds the
+     * raw WireGuard private key). Non-admin routes answer VPNClientResponse,
+     * which has no config fields — the key is never listable by a plain user.
+     */
+    VPNClientAdminResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** @default user */
+      client_type?: components["schemas"]["VPNClientType"];
+      /** @default cert */
+      auth_type?: components["schemas"]["VPNAuthType"];
+      /** Assigned Ip */
+      assigned_ip?: string | null;
+      /** Allowed Ips */
+      allowed_ips?: string[];
+      /** Push Routes Override */
+      push_routes_override?: string[];
+      /** Id */
+      id: number;
+      /** Server Id */
+      server_id: number;
+      /** User Id */
+      user_id: number | null;
+      /** Last Connected */
+      last_connected: string | null;
+      /** Last Ip */
+      last_ip: string | null;
+      /** Connection Count */
+      connection_count: number;
+      /** Bytes Received */
+      bytes_received: number;
+      /** Bytes Sent */
+      bytes_sent: number;
+      /** Public Key */
+      public_key: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Config Qr */
+      config_qr: string | null;
+      /** Config File */
+      config_file: string | null;
+    };
     /** VPNClientCreate */
     VPNClientCreate: {
       /** Name */
@@ -4735,10 +4822,6 @@ export interface components {
       bytes_sent: number;
       /** Public Key */
       public_key: string | null;
-      /** Config Qr */
-      config_qr: string | null;
-      /** Config File */
-      config_file: string | null;
       /**
        * Created At
        * Format: date-time
@@ -4877,6 +4960,96 @@ export interface components {
        */
       created_at: string;
     };
+    /**
+     * VPNServerAdminResponse
+     * @description Admin-only server shape: carries the site-to-site tunnel private key.
+     *
+     * Mirrors VPNClientAdminResponse (F2 MAJOR #6): admin-gated routes
+     * (create / update) answer this variant; the plain VPNServerResponse has no
+     * private_key, so a non-admin list/detail can never expose the tunnel key.
+     */
+    VPNServerAdminResponse: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      protocol: components["schemas"]["VPNProtocol"];
+      /**
+       * Listen Address
+       * @default 0.0.0.0
+       */
+      listen_address?: string;
+      /** Listen Port */
+      listen_port?: number | null;
+      /**
+       * Network Cidr
+       * @default 10.200.0.0/24
+       */
+      network_cidr?: string;
+      /** Ipv6 Tunnel Network */
+      ipv6_tunnel_network?: string | null;
+      /** Dns Servers */
+      dns_servers?: string[];
+      /** Push Routes */
+      push_routes?: string[];
+      /**
+       * Internet Redirect
+       * @default false
+       */
+      internet_redirect?: boolean;
+      /**
+       * Tunnel Type
+       * @default server
+       */
+      tunnel_type?: ("server" | "client" | "site-to-site") | null;
+      /** Endpoint */
+      endpoint?: string | null;
+      /** Peer Public Key */
+      peer_public_key?: string | null;
+      /** Allowed Ips */
+      allowed_ips?: string | null;
+      /**
+       * Persistent Keepalive
+       * @default 25
+       */
+      persistent_keepalive?: number | null;
+      /** Local Address */
+      local_address?: string | null;
+      /** Id */
+      id: number;
+      /** Instance Id */
+      instance_id: number;
+      status: components["schemas"]["VPNStatus"];
+      /** Config */
+      config: {
+        [key: string]: unknown;
+      };
+      /** Connected Clients */
+      connected_clients: number;
+      /** Bytes Received */
+      bytes_received: number;
+      /** Bytes Sent */
+      bytes_sent: number;
+      /** Created By */
+      created_by: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Private Key */
+      private_key?: string | null;
+    };
     /** VPNServerCreate */
     VPNServerCreate: {
       /** Name */
@@ -4930,13 +5103,13 @@ export interface components {
       persistent_keepalive?: number | null;
       /** Local Address */
       local_address?: string | null;
-      /** Private Key */
-      private_key?: string | null;
       wireguard_config?: components["schemas"]["WireGuardConfig"] | null;
       ipsec_config?: components["schemas"]["IPSecConfig"] | null;
       openvpn_config?: components["schemas"]["OpenVPNConfig"] | null;
       l2tp_config?: components["schemas"]["L2TPConfig"] | null;
       pptp_config?: components["schemas"]["PPTPConfig"] | null;
+      /** Private Key */
+      private_key?: string | null;
     };
     /** VPNServerResponse */
     VPNServerResponse: {
@@ -4991,8 +5164,6 @@ export interface components {
       persistent_keepalive?: number | null;
       /** Local Address */
       local_address?: string | null;
-      /** Private Key */
-      private_key?: string | null;
       /** Id */
       id: number;
       /** Instance Id */
@@ -6216,6 +6387,60 @@ export interface operations {
    * @description Get firewall statistics
    */
   get_firewall_stats_api_v1_firewall_stats__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Firewall Agent Status
+   * @description Pass through the agent's live firewall status.
+   *
+   * Covers validation mode, table presence, last apply timestamp and any
+   * apply error. An unreachable agent is a normal answer here (the UI renders
+   * the instance as offline), so it returns a sentinel body instead of 502.
+   */
+  get_firewall_agent_status_api_v1_firewall_status__instance_id__get: {
+    parameters: {
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Rollback Firewall
+   * @description Restore the newest pre-apply snapshot on the firewall agent.
+   */
+  rollback_firewall_api_v1_firewall_rollback__instance_id__post: {
     parameters: {
       path: {
         instance_id: number;
@@ -7516,7 +7741,10 @@ export interface operations {
   };
   /**
    * List Servers
-   * @description List all VPN servers for an instance
+   * @description List all VPN servers for an instance.
+   *
+   * The response model carries no ``private_key`` — a non-admin list can
+   * never expose the site-to-site tunnel private key.
    */
   list_servers_api_v1_vpn_servers__instance_id__get: {
     parameters: {
@@ -7558,7 +7786,7 @@ export interface operations {
       /** @description Successful Response */
       201: {
         content: {
-          "application/json": components["schemas"]["VPNServerResponse"];
+          "application/json": components["schemas"]["VPNServerAdminResponse"];
         };
       };
       /** @description Validation Error */
@@ -7571,7 +7799,10 @@ export interface operations {
   };
   /**
    * Get Server
-   * @description Get VPN server details
+   * @description Get VPN server details.
+   *
+   * The response model carries no ``private_key`` — a non-admin detail can
+   * never expose the site-to-site tunnel private key.
    */
   get_server_api_v1_vpn_servers_detail__server_id__get: {
     parameters: {
@@ -7636,7 +7867,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": components["schemas"]["VPNServerResponse"];
+          "application/json": components["schemas"]["VPNServerAdminResponse"];
         };
       };
       /** @description Validation Error */
@@ -7749,7 +7980,10 @@ export interface operations {
   };
   /**
    * List Clients
-   * @description List all clients for a VPN server
+   * @description List all clients for a VPN server.
+   *
+   * The response model carries no config fields — a non-admin list can never
+   * expose the generated config (which embeds the raw WireGuard private key).
    */
   list_clients_api_v1_vpn_servers__server_id__clients_get: {
     parameters: {
@@ -7791,7 +8025,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": components["schemas"]["VPNClientResponse"];
+          "application/json": components["schemas"]["VPNClientAdminResponse"];
         };
       };
       /** @description Validation Error */
@@ -7912,7 +8146,8 @@ export interface operations {
   };
   /**
    * Download Client Config
-   * @description Download client configuration file
+   * @description Download client configuration file (admin only — the config embeds the
+   * raw WireGuard private key, so any authenticated user must NOT reach it).
    */
   download_client_config_api_v1_vpn_clients__client_id__config_get: {
     parameters: {

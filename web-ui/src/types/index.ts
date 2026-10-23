@@ -558,6 +558,10 @@ export interface VPNServer {
   allowed_ips?: string | null;
   persistent_keepalive?: number | null;
   local_address?: string | null;
+}
+
+/** Admin-only create/update shape — the only variant that carries the site-to-site tunnel private_key. */
+export interface VPNServerAdmin extends VPNServer {
   private_key?: string | null;
 }
 
@@ -679,10 +683,28 @@ export interface VPNClient {
   bytes_received: number;
   bytes_sent: number;
   public_key: string | null;
-  config_qr: string | null;
-  config_file: string | null;
+  // Admin-only (create/regenerate responses) — list/detail never include these;
+  // they embed the raw WireGuard private key, so non-admin data must not carry them.
+  config_qr?: string | null;
+  config_file?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Admin-only create response shape — the only variant that carries the generated config. */
+export interface VPNClientAdmin extends VPNClient {
+  config_qr: string | null;
+  config_file: string | null;
+}
+
+/** Client configuration payload returned by the admin-only download endpoint. */
+export interface VPNClientConfig {
+  client_id: number;
+  server_name: string;
+  protocol: VPNProtocol;
+  config_format: string;
+  config_data: string; // Base64 encoded
+  filename: string;
 }
 
 export interface VPNClientCreate {

@@ -33,9 +33,12 @@ import type {
   VPNServer,
   VPNServerCreate,
   VPNServerUpdate,
+  VPNServerAdmin,
   VPNClient,
   VPNClientCreate,
   VPNClientUpdate,
+  VPNClientAdmin,
+  VPNClientConfig,
   VPNProtocolRecommendation,
   VPNSiteToSiteStatus,
   VPNSiteToSiteInitialize,
@@ -837,7 +840,7 @@ export function useCreateVPNServer(instanceId: number) {
   return useMutation({
     mutationFn: async (body: VPNServerCreate) => {
       const { data } = await api.post(`/vpn/servers/${instanceId}`, body)
-      return data as VPNServer
+      return data as VPNServerAdmin
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.vpnServers(instanceId) })
@@ -850,7 +853,7 @@ export function useUpdateVPNServer(instanceId: number) {
   return useMutation({
     mutationFn: async ({ id, ...body }: VPNServerUpdate & { id: number }) => {
       const { data } = await api.patch(`/vpn/servers/${id}`, body)
-      return data as VPNServer
+      return data as VPNServerAdmin
     },
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: queryKeys.vpnServers(instanceId) })
@@ -888,7 +891,7 @@ export function useCreateVPNClient(instanceId: number, serverId: number) {
   return useMutation({
     mutationFn: async (body: VPNClientCreate) => {
       const { data } = await api.post(`/vpn/servers/${serverId}/clients`, body)
-      return data as VPNClient
+      return data as VPNClientAdmin
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.vpnClients(instanceId, serverId) })
@@ -983,6 +986,15 @@ export function useRegenerateVPNClient(instanceId: number, serverId?: number) {
       if (serverId) {
         qc.invalidateQueries({ queryKey: queryKeys.vpnClients(instanceId, serverId) })
       }
+    },
+  })
+}
+
+export function useVPNClientConfig() {
+  return useMutation({
+    mutationFn: async (clientId: number) => {
+      const { data } = await api.get<VPNClientConfig>(`/vpn/clients/${clientId}/config`)
+      return data
     },
   })
 }

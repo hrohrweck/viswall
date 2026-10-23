@@ -18,11 +18,11 @@ def list_servers(
     token: Optional[str] = typer.Option(None, "--token", "-t"),
     format: str = typer.Option("table", "--format", "-f"),
 ) -> None:
-    """List VPN servers for an instance."""
+    """List VPN servers for an instance (never shows the tunnel private key)."""
     client = get_client(url=url, token=token)
     try:
         servers = client.vpn.list_servers(instance_id)
-        print_result(servers, format=format, columns=["id", "name", "protocol", "port", "status"])
+        print_result(servers, format=format, columns=["id", "name", "protocol", "listen_port", "status"])
     except ViswallAPIError as e:
         print_error(str(e))
         raise typer.Exit(1)
@@ -39,7 +39,12 @@ def create_server(
     token: Optional[str] = typer.Option(None, "--token", "-t"),
     format: str = typer.Option("json", "--format", "-f"),
 ) -> None:
-    """Create a VPN server."""
+    """Create a VPN server (admin only).
+
+    The create response is the admin-only ``VPNServerAdminResponse`` and may
+    carry the tunnel ``private_key`` — it is shown only via this admin-gated
+    endpoint, never by ``vpn servers``.
+    """
     client = get_client(url=url, token=token)
     try:
         server = client.vpn.create_server(
@@ -129,11 +134,11 @@ def list_clients(
     token: Optional[str] = typer.Option(None, "--token", "-t"),
     format: str = typer.Option("table", "--format", "-f"),
 ) -> None:
-    """List VPN clients for a server."""
+    """List VPN clients for a server (never shows the generated config)."""
     client = get_client(url=url, token=token)
     try:
         clients = client.vpn.list_clients(server_id)
-        print_result(clients, format=format, columns=["id", "name", "ip_address", "enabled"])
+        print_result(clients, format=format, columns=["id", "name", "assigned_ip", "enabled"])
     except ViswallAPIError as e:
         print_error(str(e))
         raise typer.Exit(1)
@@ -148,7 +153,13 @@ def create_client(
     token: Optional[str] = typer.Option(None, "--token", "-t"),
     format: str = typer.Option("json", "--format", "-f"),
 ) -> None:
-    """Create a VPN client."""
+    """Create a VPN client (admin only).
+
+    The create response is the admin-only ``VPNClientAdminResponse`` and
+    carries the generated ``config_file``/``config_qr`` (which embed the
+    private key) — shown only via this admin-gated endpoint. Later fetches
+    must use ``vpn client-config`` (also admin-only).
+    """
     client = get_client(url=url, token=token)
     try:
         data: Dict[str, Any] = {"name": name}
@@ -168,7 +179,7 @@ def get_client_config(
     url: Optional[str] = typer.Option(None, "--url", "-u"),
     token: Optional[str] = typer.Option(None, "--token", "-t"),
 ) -> None:
-    """Get VPN client configuration."""
+    """Download VPN client configuration (admin only — 403 for non-admins)."""
     client = get_client(url=url, token=token)
     try:
         config = client.vpn.get_client_config(client_id)
