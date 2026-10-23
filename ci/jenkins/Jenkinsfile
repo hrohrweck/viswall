@@ -150,6 +150,17 @@ pipeline {
             viswall-ci-python:3.12 \
             bash -c "set -e; cd /repo/services/vpn-service && python3 -m pytest tests/ -v"
         '''
+        // Legacy importer suite (scripts/tests, todo 37). Socket/subprocess-mocked,
+        // fixture-driven — no root, no netns, no sidecars. PyYAML (module-level
+        // import in migrate_legacy_interfaces.py) comes transitively from
+        // uvicorn[standard]==0.27.0 in services/api-gateway/requirements.txt,
+        // so the same base image needs no extra pip layer.
+        sh '''
+          docker run --rm \
+            -v "$PWD":/repo -w /repo \
+            viswall-ci-python:3.12 \
+            bash -c "set -e; cd /repo/scripts && python3 -m pytest tests/ -v"
+        '''
       }
       post {
         always {
