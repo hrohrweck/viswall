@@ -589,8 +589,30 @@ fresh `ssh` login over the public IP — a NEW connection, timestamped — in th
 BEFORE proceeding. The automated prober's checks are loopback-scoped; a policy-routing failure
 that kills only WAN tcp/22 would otherwise go unnoticed.
 
+**Container-churn drift (found 2026-10-23 — must be handled in the window):** the legacy raw
+anti-spoof rows are keyed on live container IPs. Between the cold capture (2026-10-22 22:21,
+63 anti-spoof drops) and the first post-deploy snapshot (2026-10-23 09:41, 65 drops) the
+api-gateway container was recreated and two rows appeared (`anti-spoof 172.17.0.7 via docker0`
+and `anti-spoof 2001:db8:1::7 via docker0`). The console had been imported from the cold capture,
+so the rendered table would have silently dropped those two protections at the strip. They have
+been imported (console now holds 109 rows, matching the newest snapshot), but the window MUST
+repeat the reconciliation against its own fresh snapshot:
+
+1. Pause the external rules generator (off-host Ansible control node) **before** taking the fresh
+   snapshot — not at step 10 — and confirm there are no live-rule or `/etc/iptables` writes for a
+   full generator interval.
+2. Take the fresh snapshot (step 2).
+3. `python3 scripts/migrate_legacy_firewall.py --apply --rules-file <snap>/rules.v4
+   --rules6-file <snap>/rules.v6` (idempotent name-skip). It must report only container-churn
+   deltas; anything else is a stop-and-investigate.
+4. After applying the real ruleset, run `python3 scripts/firewall_parity_gate.py --rules-v4
+   <snap>/rules.v4 --rules-v6 <snap>/rules.v6 --nft-table <(nft list table inet viswall)`.
+   Any DIFF blocks the iptables strip.
+
 **Status: PENDING — OPERATOR ITEMS (do not start the window):**
 
+- [ ] The external rules generator (off-host Ansible) is PAUSED before the fresh snapshot, with the
+      exact re-enable command recorded (a live generator re-adds operator rules after the strip).
 - [ ] An independent second SSH session from the operator workstation to the public IP, open for
       the whole window (a host-originated connection proves the path but cannot survive a
       host-level failure).
@@ -599,7 +621,7 @@ that kills only WAN tcp/22 would otherwise go unnoticed.
 - [ ] Rollback runbook (section 7) visible in the second session.
 - [ ] Explicit GO for the cutover.
 
-Mark this section **READY, reviewed** only when all five are checked.
+Mark this section **READY, reviewed** only when all six are checked.
 
 ### Phase 6: Verification (todo 45)
 
