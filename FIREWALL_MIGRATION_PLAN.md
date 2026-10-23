@@ -611,12 +611,19 @@ container runtime on every start/stop, not by Ansible — it will keep drifting 
    interval before the snapshot (this also covers any dormant/unidentified automation; record the
    re-enable command if something is paused off-host).
 2. Take the fresh snapshot (step 2).
-3. `python3 scripts/migrate_legacy_firewall.py --apply --rules-file <snap>/rules.v4
-   --rules6-file <snap>/rules.v6` (idempotent name-skip). It must report only container-churn
-   deltas; anything else is a stop-and-investigate.
+3. **Reconcile bidirectionally against the CURRENT live ruleset.** The importer only *adds*:
+   `python3 scripts/migrate_legacy_firewall.py --apply --rules-file /tmp/live-v4 --rules6-file
+   /tmp/live-v6` (captures from `iptables-save` / `ip6tables-save` taken after the freeze). Then
+   remove any console anti-spoof row whose IP is no longer in the live set (`DELETE
+   /api/v1/firewall/rules/{id}`). The console row count must equal the live plan exactly; anything
+   beyond container-churn anti-spoof is a stop-and-investigate. (Observed during preparation: the
+   v4 anti-spoof set oscillated 48 <-> 49 within minutes.)
 4. After applying the real ruleset, run `python3 scripts/firewall_parity_gate.py --rules-v4
-   <snap>/rules.v4 --rules-v6 <snap>/rules.v6 --nft-table <(nft list table inet viswall)`.
-   Any DIFF blocks the iptables strip.
+   /tmp/live-v4 --rules-v6 /tmp/live-v6 --nft-table <(nft list table inet viswall)`. Any DIFF
+   blocks the iptables strip. **Never use a snapshot created by an intermediate console write as
+   the expected side** — every apply snapshots the *pre-apply* state, so it is stale as soon as the
+   apply changes anything. Use the post-freeze live capture. Verified end-to-end 2026-10-23:
+   console payload (109 rules) -> real-mode render -> `nft -c` rc 0 -> ALL PASS vs live.
 
 **Status: PENDING — OPERATOR ITEMS (do not start the window):**
 
