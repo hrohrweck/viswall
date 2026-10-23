@@ -113,6 +113,58 @@ def test_missing_5432_drop_is_diff(rendered: str, rules_v4, rules_v6) -> None:
     ]
 
 
+def test_input_policy_accept_is_diff(rendered: str, rules_v4, rules_v6) -> None:
+    # Fail-open regression: the input hook must never be flipped to accept.
+    mutated = rendered.replace(
+        "type filter hook input priority -200; policy drop;",
+        "type filter hook input priority -200; policy accept;",
+        1,
+    )
+
+    assert _diff_lines(mutated, rules_v4, rules_v6) == [
+        "DIFF policy: chain input is 'accept', expected 'drop'"
+    ]
+
+
+def test_missing_loopback_guard_port_is_diff(rendered: str, rules_v4, rules_v6) -> None:
+    # 9121 appears only in the raw_prerouting guard set, so this is surgical.
+    assert rendered.count("9121") == 1
+    mutated = rendered.replace(", 9121, 20000}", ", 20000}", 1)
+
+    diffs = _diff_lines(mutated, rules_v4, rules_v6)
+
+    assert len(diffs) == 1
+    assert diffs[0].startswith("DIFF loopback guards:")
+    assert "9121" in diffs[0].split("rendered ")[0]
+    assert "9121" not in diffs[0].split("rendered ")[1]
+
+
+def test_missing_docker_internal_port_is_diff(rendered: str, rules_v4, rules_v6) -> None:
+    # 11434 appears only in the DOCKER-USER replacement set.
+    assert rendered.count("11434") == 1
+    mutated = rendered.replace("10000, 11434}", "10000}", 1)
+
+    diffs = _diff_lines(mutated, rules_v4, rules_v6)
+
+    assert len(diffs) == 1
+    assert diffs[0].startswith("DIFF docker internal ports:")
+    assert "11434" in diffs[0].split("rendered ")[0]
+    assert "11434" not in diffs[0].split("rendered ")[1]
+
+
+def test_missing_meter_is_diff(rendered: str, rules_v4, rules_v6) -> None:
+    # Remove only the IPv4 ssh meter, never its v6 sibling.
+    mutated = "\n".join(
+        line
+        for line in rendered.splitlines()
+        if "meter ssh_limit {" not in line
+    )
+
+    assert _diff_lines(mutated, rules_v4, rules_v6) == [
+        "DIFF meter missing: ssh_limit (10/minute)"
+    ]
+
+
 def test_meter_rate_change_is_diff(rendered: str, rules_v4, rules_v6) -> None:
     mutated = rendered.replace("limit rate over 10/minute", "limit rate over 99/minute")
 
