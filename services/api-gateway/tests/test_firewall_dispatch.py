@@ -674,3 +674,40 @@ class TestFirewallRollbackPassthrough:
             "service": "firewall",
             "json": {},
         }
+
+
+class TestNatRuleSchemaInjectionGuard:
+    """F2 MAJOR #4: NATRuleBase rejects ruleset-injection to_source/
+    to_destination values (newline + ``flush chain input``)."""
+
+    def test_create_rejects_newline_injection(self):
+        from pydantic import ValidationError
+
+        from shared.schemas import NATRuleCreate
+
+        with pytest.raises(ValidationError):
+            NATRuleCreate(
+                name="evil",
+                type="dnat",
+                to_destination="172.20.0.10:25\n        flush chain input",
+            )
+
+    def test_create_rejects_equals_injection(self):
+        from pydantic import ValidationError
+
+        from shared.schemas import NATRuleCreate
+
+        with pytest.raises(ValidationError):
+            NATRuleCreate(name="evil", type="snat", to_source="46.4.63.216 = 1.2.3.4")
+
+    def test_create_accepts_valid_targets(self):
+        from shared.schemas import NATRuleCreate
+
+        rule = NATRuleCreate(
+            name="mail dnat",
+            type="dnat",
+            to_destination="172.20.0.10:25",
+            to_source="[2001:db8::1]:51820",
+        )
+        assert rule.to_destination == "172.20.0.10:25"
+        assert rule.to_source == "[2001:db8::1]:51820"

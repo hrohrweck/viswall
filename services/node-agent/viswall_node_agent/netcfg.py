@@ -681,7 +681,10 @@ async def apply_try_mode(
     stamp = _utc_stamp()
 
     if os.path.exists(path):
-        backup_dir = os.path.join(config.netplan_dir, f"backup-{stamp}")
+        # F2 MAJOR #8: the try-mode backup lives under $STATE_DIR/backups/,
+        # never inside /etc/netplan — a stray backup-<stamp> dir in netplan
+        # would be parsed as a second netplan source on the host.
+        backup_dir = os.path.join(config.state_dir, "backups", stamp)
         os.makedirs(backup_dir, exist_ok=True)
         backup_path = os.path.join(backup_dir, config.netplan_file)
         shutil.copyfile(path, backup_path)

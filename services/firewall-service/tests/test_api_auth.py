@@ -198,6 +198,68 @@ def test_firewall_rollback_500_without_snapshot(
     assert "no snapshot available" in response.json()["detail"]
 
 
+def test_firewall_rollback_validates_before_deleting_table(
+    client: TestClient,
+    auth_headers: dict,
+    api_state_dir: Path,
+    subprocess_fake,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """F2 MAJOR #7: a corrupt capture must fail the --test BEFORE the viswall
+    table is deleted — otherwise the delete leaves the host with no firewall."""
+    snapshot = api_state_dir / "snapshots" / "20261023-000000-000001"
+    snapshot.mkdir(parents=True)
+    (snapshot / "rules.v4").write_text("*filter\n")
+    (snapshot / "rules.v6").write_text("*filter\nCORRUPT\n")
+    monkeypatch.setattr(api_module.shutil, "which", lambda _name: None)
+    subprocess_fake.on(
+        lambda c: c[0] == "iptables-restore" and "--test" in c, rc=0
+    )
+    subprocess_fake.on(
+        lambda c: c[0] == "ip6tables-restore" and "--test" in c, rc=1, err=b"syntax error"
+    )
+
+    response = client.post("/firewall/rollback", headers=auth_headers)
+
+    assert response.status_code == 500
+    assert "ip6tables-restore --test failed" in response.json()["detail"]
+    assert not any("delete" in c for c in subprocess_fake.commands)
+
+
+def test_firewall_rollback_restore_failure_reapplies_last_good(
+    client: TestClient,
+    auth_headers: dict,
+    api_state_dir: Path,
+    subprocess_fake,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """F2 MAJOR #7: when iptables-restore fails mid-rollback, the last-good
+    nft conf is re-applied so neither firewall stays absent."""
+    snapshot = api_state_dir / "snapshots" / "20261023-000000-000001"
+    snapshot.mkdir(parents=True)
+    (snapshot / "rules.v4").write_text("*filter\n")
+    (snapshot / "rules.v6").write_text("*filter\n")
+    (api_state_dir / "nftables.conf.last-good").write_text("table inet viswall {}\n")
+    monkeypatch.setattr(api_module.shutil, "which", lambda _name: None)
+    subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "delete", rc=0)
+    subprocess_fake.on(
+        lambda c: c[0] == "iptables-restore" and "--test" in c, rc=0
+    )
+    subprocess_fake.on(
+        lambda c: c[0] == "iptables-restore" and "--test" not in c, rc=1, err=b"restore failed"
+    )
+    subprocess_fake.on(
+        lambda c: c[0] == "ip6tables-restore" and "--test" in c, rc=0
+    )
+    subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-f", rc=0)
+
+    response = client.post("/firewall/rollback", headers=auth_headers)
+
+    assert response.status_code == 500
+    assert "iptables-restore failed" in response.json()["detail"]
+    assert any(len(c) > 1 and c[1] == "-f" for c in subprocess_fake.commands)
+
+
 def test_block_unblock_200(client: TestClient, auth_headers: dict, subprocess_fake) -> None:
     subprocess_fake.on(lambda c: c[0] == "nft", rc=0)
     block = client.post("/block", json={"ip": "1.2.3.4"}, headers=auth_headers)
@@ -210,6 +272,53 @@ def test_block_unblock_200(client: TestClient, auth_headers: dict, subprocess_fa
     assert ["nft", "add", "element", "inet", "viswall", "blacklist_v4"] in [
         c[:6] for c in subprocess_fake.commands
     ]
+
+
+def test_block_rejects_invalid_ip_with_422(
+    client: TestClient, auth_headers: dict, subprocess_fake
+) -> None:
+    """F2 MAJOR #5: the ip is rendered into an nft element statement."""
+    response = client.post(
+        "/block", json={"ip": "1.2.3.4; flush ruleset"}, headers=auth_headers
+    )
+    assert response.status_code == 422
+    assert subprocess_fake.commands == []
+
+
+def test_block_rejects_invalid_timeout_with_422(
+    client: TestClient, auth_headers: dict, subprocess_fake
+) -> None:
+    """F2 MAJOR #5: the timeout is rendered into an nft element statement."""
+    response = client.post(
+        "/block", json={"ip": "1.2.3.4", "timeout": "1h; flush chain input"}, headers=auth_headers
+    )
+    assert response.status_code == 422
+    assert subprocess_fake.commands == []
+
+
+def test_unblock_rejects_invalid_ip_with_422(
+    client: TestClient, auth_headers: dict, subprocess_fake
+) -> None:
+    response = client.post(
+        "/unblock", json={"ip": "not-an-ip"}, headers=auth_headers
+    )
+    assert response.status_code == 422
+    assert subprocess_fake.commands == []
+
+
+def test_block_with_ipv6_uses_blacklist_v6(
+    client: TestClient, auth_headers: dict, subprocess_fake
+) -> None:
+    subprocess_fake.on(lambda c: c[0] == "nft", rc=0)
+    response = client.post(
+        "/block", json={"ip": "2001:db8::1", "timeout": "30m"}, headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert ["nft", "add", "element", "inet", "viswall", "blacklist_v6"] in [
+        c[:6] for c in subprocess_fake.commands
+    ]
+    assert "timeout" in subprocess_fake.commands[0]
+    assert "30m" in subprocess_fake.commands[0]
 
 
 def test_qos_apply_200(client: TestClient, auth_headers: dict, subprocess_fake) -> None:
@@ -361,3 +470,26 @@ class TestPayloadConversion:
             {"id": 2, "name": "vpn", "type": "snat", "to_source": "46.4.63.216"}, 1
         )
         assert snat.chain == "postrouting"
+
+    def test_nat_from_payload_rejects_newline_injection(self) -> None:
+        """F2 MAJOR #4: an injected nft statement fails the apply loudly."""
+        from viswall_firewall_agent.api import FirewallApplyError
+
+        with pytest.raises(FirewallApplyError, match="to_destination"):
+            api_module._nat_from_payload(
+                {
+                    "id": 1,
+                    "name": "evil",
+                    "type": "dnat",
+                    "to_destination": "172.20.0.10:25\n        flush chain input",
+                },
+                0,
+            )
+
+    def test_nat_from_payload_rejects_invalid_to_source(self) -> None:
+        from viswall_firewall_agent.api import FirewallApplyError
+
+        with pytest.raises(FirewallApplyError, match="to_source"):
+            api_module._nat_from_payload(
+                {"id": 1, "name": "evil", "type": "snat", "to_source": "not-an-ip"}, 0
+            )

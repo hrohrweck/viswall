@@ -296,6 +296,15 @@ Key properties:
 - **Dispatch.** Console mutation → gateway composes full desired state → POST
   `/firewall/apply` or `/vpn/apply` to the loopback agent with `X-Instance-Key`.
   The agent snapshots, renders, validates (`nft -c -f`), then applies.
+  **Key-transit posture (F2 review #14, accepted as-is): the instance API key
+  and every agent payload travel in CLEARTEXT over loopback HTTP
+  (`http://127.0.0.1:<port>` / `http://host.docker.internal:<port>`) — no TLS
+  on the agent control plane. This is an accepted, documented posture: the
+  transport never leaves the host (loopback + host bridge), and the mitigations
+  are the bridge-scoped INPUT accepts for the agent ports only (parity row
+  A35), `X-Instance-Key` auth on every endpoint except `/health`, and no
+  published agent ports. Anyone already able to sniff the host's loopback is
+  root-equivalent anyway.**
 - **Heartbeat.** Each agent posts `{"api_key": ..., "status": "ok"}` to
   `POST http://127.0.0.1:8010/api/v1/instances/1/heartbeat` so the console shows
   liveness. Auth is on the request body for this route (section 10).
@@ -362,7 +371,12 @@ and `/opt/viswall` are out of bounds.
 - `VALIDATION_MODE=1` renders a pass-through table (all policies accept, no
   drop/limit/meter rules, `VW-VALIDATION` log prefix, log rate 10/minute) and
   `/firewall/status` reports `validation_mode: true`. The repo default stays 1 and
-  the host `.env` flips to 0 only inside the cutover window.
+  the host `.env` flips to 0 only inside the cutover window. **Posture
+  warning (F2 review #9): VALIDATION_MODE=1 renders an ACCEPT-ALL host — every
+  INPUT/FORWARD policy is `accept` and nothing is dropped, rate-limited or
+  blacklisted. It exists purely to observe log flows without risk; it must
+  never be armed on a public host outside the bounded validation window, and
+  must never be mistaken for a protecting firewall.**
 
 ### Phase 2: Cold backup (done)
 

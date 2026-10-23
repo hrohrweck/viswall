@@ -709,8 +709,11 @@ def test_try_mode_writes_newline_only_after_all_probes_pass(tmp_path, monkeypatc
     assert argv[9].startswith("DBUS_SYSTEM_BUS_ADDRESS=")
     assert argv[10:14] == ["netplan", "try", "--timeout", "120"]
 
-    backups = [p for p in netplan_dir.iterdir() if p.name.startswith("backup-")]
+    backups = [p for p in (state_dir / "backups").iterdir()] if (state_dir / "backups").exists() else []
     assert len(backups) == 1
+    assert (backups[0] / "60-viswall.yaml").read_text().startswith("network:")
+    # F2 MAJOR #8: nothing backup-shaped may land inside the netplan dir.
+    assert [p for p in netplan_dir.iterdir() if p.name.startswith("backup-")] == []
     assert (netplan_dir / "60-viswall.yaml").read_text() == render_netplan(
         _try_request().interfaces
     )

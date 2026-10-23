@@ -1,4 +1,5 @@
 import re
+import ipaddress
 from pydantic import BaseModel, Field, IPvAnyNetwork, field_validator, model_validator
 from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime, timezone
@@ -18,6 +19,132 @@ def to_naive_utc(value: Optional[datetime]) -> Optional[datetime]:
     if value is None or value.tzinfo is None:
         return value
     return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+# ---------------------------------------------------------------------------
+# WireGuard config-value validation (F2 BLOCKER #3)
+# ---------------------------------------------------------------------------
+
+#: WireGuard keys are 32 bytes rendered as 44 base64 chars + trailing "=".
+_WG_KEY_RE = re.compile(r"^[A-Za-z0-9+/]{43}=$")
+
+#: Characters that can break out of a wg-quick config line (newline injection
+#: into a root-run config is RCE via PostUp) or alter an assignment.
+_WG_FORBIDDEN = ("\n", "\r", "=")
+
+
+def _reject_wg_forbidden(value: str, label: str) -> str:
+    if any(ch in value for ch in _WG_FORBIDDEN):
+        raise ValueError(
+            f"{label} contains characters that cannot appear in a WireGuard config value"
+        )
+    return value
+
+
+def validate_wg_key(value: Optional[str], label: str) -> Optional[str]:
+    """A WireGuard key must be 44-char base64 (the trailing '=' is the only one)."""
+    if value is None:
+        return None
+    if not _WG_KEY_RE.fullmatch(value):
+        raise ValueError(f"{label} must be a 44-character base64 WireGuard key")
+    return value
+
+
+def validate_wg_cidr_list(value: Optional[str]) -> Optional[str]:
+    """allowed_ips must be a comma-separated list of parseable CIDRs."""
+    if value is None:
+        return None
+    tokens = [token.strip() for token in value.split(",") if token.strip()]
+    if not tokens:
+        raise ValueError("allowed_ips must list at least one CIDR")
+    for token in tokens:
+        _reject_wg_forbidden(token, "allowed_ips")
+        try:
+            ipaddress.ip_network(token, strict=False)
+        except ValueError as exc:
+            raise ValueError(f"invalid CIDR in allowed_ips: {token!r}") from exc
+    return value
+
+
+def validate_wg_local_address(value: Optional[str]) -> Optional[str]:
+    """local_address must be a strict IPv4Interface/IPv6Interface (with prefix)."""
+    if value is None:
+        return None
+    _reject_wg_forbidden(value, "local_address")
+    try:
+        ipaddress.ip_interface(value)
+    except ValueError as exc:
+        raise ValueError(
+            f"local_address must be an IPv4/IPv6 address with prefix: {value!r}"
+        ) from exc
+    return value
+
+
+def validate_wg_endpoint(value: Optional[str]) -> Optional[str]:
+    """endpoint must be ``host``, ``host:port`` or bracketed ``[v6]:port``."""
+    if value is None:
+        return None
+    _reject_wg_forbidden(value, "endpoint")
+    candidate = value.strip()
+    if not candidate:
+        raise ValueError("endpoint must not be empty")
+    if candidate.startswith("["):
+        match = re.fullmatch(r"\[[0-9a-fA-F:.]+\](?::(\d+))?", candidate)
+        if not match:
+            raise ValueError(f"invalid endpoint: {value!r}")
+        port = match.group(1)
+    else:
+        parts = candidate.split(":")
+        if len(parts) > 2 or not re.fullmatch(r"[A-Za-z0-9.\-]+", parts[0]):
+            raise ValueError(f"invalid endpoint: {value!r}")
+        port = parts[1] if len(parts) == 2 else None
+    if port is not None:
+        try:
+            if not 1 <= int(port) <= 65535:
+                raise ValueError
+        except ValueError as exc:
+            raise ValueError(f"invalid endpoint port: {value!r}") from exc
+    return value
+
+
+def validate_nat_to_addr(value: Optional[str]) -> Optional[str]:
+    """NAT to_source/to_destination: ``<ip>(:<port>)?`` (v4) or ``[<v6>](:<port>)?``.
+
+    F2 MAJOR #4 — these values are rendered verbatim into the agent's
+    ruleset, so newline/CR/`=` (nft statement injection) and anything that is
+    not a strict address[:port] form is rejected here at the schema boundary.
+    """
+    if value is None:
+        return None
+    if any(ch in value for ch in ("\n", "\r", "=")):
+        raise ValueError("NAT target contains characters that cannot appear in a ruleset value")
+    if value.startswith("["):
+        match = re.fullmatch(r"\[([0-9a-fA-F:.%]+)\](?::(\d{1,5}))?", value)
+        if not match:
+            raise ValueError(f"invalid NAT target: {value!r}")
+        try:
+            address = str(ipaddress.IPv6Address(match.group(1)))
+        except ValueError as exc:
+            raise ValueError(f"invalid NAT target: {value!r}") from exc
+        port_text = match.group(2)
+        if port_text is not None and not 1 <= int(port_text) <= 65535:
+            raise ValueError(f"invalid NAT target port: {value!r}")
+        return f"[{address}]" + (f":{port_text}" if port_text else "")
+    if ":" in value:
+        address_text, _, port_text = value.rpartition(":")
+        if not re.fullmatch(r"\d{1,5}", port_text):
+            raise ValueError(f"invalid NAT target: {value!r}")
+        if not 1 <= int(port_text) <= 65535:
+            raise ValueError(f"invalid NAT target port: {value!r}")
+        try:
+            address = str(ipaddress.IPv4Address(address_text))
+        except ValueError as exc:
+            raise ValueError(f"invalid NAT target: {value!r}") from exc
+        return f"{address}:{port_text}"
+    try:
+        return str(ipaddress.IPv4Address(value))
+    except ValueError as exc:
+        raise ValueError(f"invalid NAT target: {value!r}") from exc
 
 
 # Enums
@@ -206,6 +333,15 @@ class NATRuleBase(BaseModel):
     to_destination: Optional[str] = None
     service_protocol: Optional[str] = None
     service_ports: Optional[str] = None
+
+    # F2 MAJOR #4: NAT targets are rendered verbatim into the agent's
+    # ruleset — a newline injects arbitrary nft statements (e.g.
+    # ``flush chain input``) into a root-run ``nft -f``. Only
+    # ``<ip>(:<port>)?`` (v4) / ``[<v6>](:<port>)?`` forms may pass.
+    @field_validator("to_source", "to_destination")
+    @classmethod
+    def _v_to_addr(cls, value: Optional[str]) -> Optional[str]:
+        return validate_nat_to_addr(value)
 
 class NATRuleCreate(NATRuleBase):
     pass
@@ -1033,6 +1169,35 @@ class VPNServerCreate(VPNServerBase):
     l2tp_config: Optional[L2TPConfig] = None
     pptp_config: Optional[PPTPConfig] = None
 
+    # F2 BLOCKER #3: every value that can land in a wg-quick client.conf is
+    # validated at the schema boundary (shared by the VPN agent's own
+    # render-seam validation). Newline/CR/`=` injection (PostUp RCE), bad
+    # CIDRs, bad addresses/endpoints and malformed keys are rejected.
+    @field_validator("allowed_ips")
+    @classmethod
+    def _v_allowed_ips(cls, value: Optional[str]) -> Optional[str]:
+        return validate_wg_cidr_list(value)
+
+    @field_validator("local_address")
+    @classmethod
+    def _v_local_address(cls, value: Optional[str]) -> Optional[str]:
+        return validate_wg_local_address(value)
+
+    @field_validator("endpoint")
+    @classmethod
+    def _v_endpoint(cls, value: Optional[str]) -> Optional[str]:
+        return validate_wg_endpoint(value)
+
+    @field_validator("peer_public_key")
+    @classmethod
+    def _v_peer_public_key(cls, value: Optional[str]) -> Optional[str]:
+        return validate_wg_key(value, "peer_public_key")
+
+    @field_validator("private_key")
+    @classmethod
+    def _v_private_key(cls, value: Optional[str]) -> Optional[str]:
+        return validate_wg_key(value, "private_key")
+
 
 class VPNServerUpdate(BaseModel):
     name: Optional[str] = None
@@ -1054,6 +1219,32 @@ class VPNServerUpdate(BaseModel):
     persistent_keepalive: Optional[int] = Field(default=None, ge=0, le=65535)
     local_address: Optional[str] = None
     private_key: Optional[str] = None
+
+    # Same WireGuard injection guard as VPNServerCreate (F2 BLOCKER #3).
+    @field_validator("allowed_ips")
+    @classmethod
+    def _v_allowed_ips(cls, value: Optional[str]) -> Optional[str]:
+        return validate_wg_cidr_list(value)
+
+    @field_validator("local_address")
+    @classmethod
+    def _v_local_address(cls, value: Optional[str]) -> Optional[str]:
+        return validate_wg_local_address(value)
+
+    @field_validator("endpoint")
+    @classmethod
+    def _v_endpoint(cls, value: Optional[str]) -> Optional[str]:
+        return validate_wg_endpoint(value)
+
+    @field_validator("peer_public_key")
+    @classmethod
+    def _v_peer_public_key(cls, value: Optional[str]) -> Optional[str]:
+        return validate_wg_key(value, "peer_public_key")
+
+    @field_validator("private_key")
+    @classmethod
+    def _v_private_key(cls, value: Optional[str]) -> Optional[str]:
+        return validate_wg_key(value, "private_key")
 
 
 class VPNServerResponse(VPNServerBase):
@@ -1127,15 +1318,20 @@ class VPNClientResponse(VPNClientBase):
     # For WireGuard
     public_key: Optional[str]
 
-    # Config delivery
-    config_qr: Optional[str]
-    config_file: Optional[str]
-
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class VPNClientAdminResponse(VPNClientResponse):
+    """Admin-only client shape: carries the generated config (which embeds the
+    raw WireGuard private key). Non-admin routes answer VPNClientResponse,
+    which has no config fields — the key is never listable by a plain user."""
+
+    config_qr: Optional[str]
+    config_file: Optional[str]
 
 
 class VPNClientConfig(BaseModel):

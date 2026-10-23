@@ -97,6 +97,10 @@
 
 | A34 | docker-owned NAT not imported | nat table v4:232-339 (108 lines) + v6:104-125 (22 lines); 67 MASQUERADE (47 identical dups, docker-recreated) | no nat chains rendered (`nat_rules=[]`); renderer skips masquerade by design | v6 nat likewise not imported | PASS | documented intentional (todo 34 divergence report + todo 48 MASQUERADE baseline 67). Docker keeps owning NAT; the viswall table never emits masquerade. |
 
+| A35 | agent control ports (firewall :8081, vpn :8083, node :8085) INPUT accepts on the bridge interfaces | no live equivalent (live had no host-net viswall agents) | `iifname "docker0" tcp dport {8081, 8083, 8085} accept` + `iifname "br-*" tcp dport {8081, 8083, 8085} accept` | no live v6 equivalent | DIFF | INTENTIONAL (F2 review fix #9): the gateway container dispatches to the host-net agents via host.docker.internal, which arrives on a br-* bridge. Port-scoped AND bridge-scoped, so only the agent control surface opens on the bridges — never a broad br-* INPUT accept (row A04 stays fixed). |
+
+| A36 | blacklist sets + INPUT references (todo-20 /block /unblock carryover) | no live equivalent (live had no dynamic block API) | `set blacklist_v4 { type ipv4_addr; flags timeout }` + `set blacklist_v6 { type ipv6_addr; flags timeout }` declared; `ip saddr @blacklist_v4 drop` / `ip6 saddr @blacklist_v6 drop` referenced BEFORE the final log-drop | same | DIFF | INTENTIONAL (F2 review fix #5): the /block endpoint was broken — it inserted elements into sets the ruleset never declared and no INPUT rule referenced. Empty by default, so verdict-parity with live holds until an element is added. |
+
 ## Section B — container-IP anti-spoof (live raw PREROUTING `-d <ip>/32 ! -i <bridge> -j DROP`)
 
 Importer: 63 rows (48 v4 + 15 v6), task-34 divergence. Renderer output: **63/63 lines** in `chain raw_prerouting` (nft:14-76), the live raw-PREROUTING hook — pre-DNAT, pre-conntrack. Every row PASS.
@@ -338,10 +342,10 @@ Set membership exact (17/17, both families covered by the one inet rule); `meta 
 
 ## Summary (literal counts)
 
-- Total rows: **139** (A01-A34 = 34, B01-B63 = 63, C01-C12 = 12, D01-D18 = 18, E01-E12 = 12)
+- Total rows: **141** (A01-A36 = 36, B01-B63 = 63, C01-C12 = 12, D01-D18 = 18, E01-E12 = 12)
 - PASS: **137** (status cell exactly `PASS`)
-- DIFF: **2** (A05, A06) — **every DIFF row carries an INTENTIONAL-reason string (0 unexplained)**.
-- Invariant: PASS = rows − documented exceptions: 137 = 139 − 2.
+- DIFF: **4** (A05, A06, A35, A36) — **every DIFF row carries an INTENTIONAL-reason string (0 unexplained)**.
+- Invariant: PASS = rows − documented exceptions: 137 = 141 − 4.
 
 ## DIFF disposition (acceptance gate for todo 44)
 
@@ -350,6 +354,8 @@ Both remaining DIFFs are deliberate, documented renderer features (plan todo 7 d
 | Rows | Defect | Disposition (todo 39b) |
 |---|---|---|
 | A05, A06 | renderer adds rate-limited icmp/icmpv6 accepts (live drops all icmp) | INTENTIONAL — documented. icmpv6 accept is required for NDP (live v6 inbound was broken without it); rate-capped echo adds monitoring pingability. Not a port change. |
+| A35 | agent control ports (8081/8083/8085) opened on docker0/br-* | INTENTIONAL (F2 review fix #9) — port-scoped + bridge-scoped accepts so the gateway container can dispatch to the host-net agents; never a broad br-* INPUT accept. |
+| A36 | blacklist_v4/blacklist_v6 sets declared + referenced in INPUT | INTENTIONAL (F2 review fix #5) — repairs the broken /block endpoint; empty sets are verdict-neutral until an element is added. |
 | A07, A26-A28, E02-E05 | meter double-burst / inversion / v6 bypass | FIXED in renderer (todo 7b): `over` + single burst + family-split buckets. |
 | A04 | br-* INPUT over-accept | FIXED in renderer (todo 7b): docker0-only INPUT accept. |
 | A29 | udp/25 over-open | FIXED in renderer (todo 39b): removed from `_MGMT_ACCEPTS`. |
@@ -364,7 +370,7 @@ contains no status-cell tokens, so the counts below are unambiguous.
 
 ```bash
 awk -F'|' '/^\| [ABCDE][0-9]+ \|/{for(i=1;i<=NF;i++){if($i~/^ *PASS *$/)p++; if($i~/^ *DIFF *$/)d++}} END{print "PASS="p, "DIFF="d, "rows="p+d}' docs/firewall-parity-checklist.md
-# expect: PASS=137 DIFF=2 rows=139
+# expect: PASS=137 DIFF=4 rows=141
 awk -F'|' '{for(i=1;i<=NF;i++) if($i ~ /^ *DIFF *$/ && $(i+1) ~ /^ *$/) print NR": missing reason"}' docs/firewall-parity-checklist.md
 # expect: 0 lines (every DIFF row has a reason string)
 ```

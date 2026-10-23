@@ -361,3 +361,47 @@ def test_generate_keys_when_binary_missing(
     )
     assert response.status_code == 500
     assert "cannot execute wg" in response.json()["detail"]
+
+
+# -- config-value injection guard (F2 BLOCKER #3) ---------------------------
+
+
+def test_apply_rejects_allowed_ips_newline_injection_with_422(
+    client: TestClient, instance_key: str
+) -> None:
+    """A malicious allowed_ips (newline + PostUp) is rejected before writing."""
+    malicious = dict(APPLY_BODY, allowed_ips="10.80.0.0/16\nPostUp = /tmp/pwned")
+    response = client.post(
+        "/vpn/apply", json=malicious, headers={"X-Instance-Key": instance_key}
+    )
+    assert response.status_code == 422
+    assert any(
+        error["loc"] == ["body", "allowed_ips"] for error in response.json()["detail"]
+    )
+
+
+def test_apply_rejects_malformed_peer_key_with_422(
+    client: TestClient, instance_key: str
+) -> None:
+    body = dict(APPLY_BODY, peer_public_key="not-a-key")
+    response = client.post(
+        "/vpn/apply", json=body, headers={"X-Instance-Key": instance_key}
+    )
+    assert response.status_code == 422
+    assert any(
+        error["loc"] == ["body", "peer_public_key"]
+        for error in response.json()["detail"]
+    )
+
+
+def test_apply_rejects_bad_local_address_with_422(
+    client: TestClient, instance_key: str
+) -> None:
+    body = dict(APPLY_BODY, address="10.80.0.2/33")
+    response = client.post(
+        "/vpn/apply", json=body, headers={"X-Instance-Key": instance_key}
+    )
+    assert response.status_code == 422
+    assert any(
+        error["loc"] == ["body", "address"] for error in response.json()["detail"]
+    )

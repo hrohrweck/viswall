@@ -77,6 +77,57 @@ class TestApplyRulesetUnit:
         ]
         assert (fake_etc / "nftables.conf").read_text() == ruleset
 
+    def test_last_good_saved_before_overwrite(
+        self, subprocess_fake, fake_etc: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """F2 MAJOR #7: the previous conf is snapshotted to last-good before
+        the new ruleset overwrites /etc/nftables.conf."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        monkeypatch.setenv("STATE_DIR", str(tmp_path))
+        (fake_etc / "nftables.conf").write_text("OLD RULESET\n")
+        subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-c", rc=0)
+        subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "delete", rc=0)
+        subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-f", rc=0)
+        ruleset = _ruleset()
+
+        ok = asyncio.run(NFTablesManager().apply_ruleset(ruleset))
+
+        assert ok is True
+        assert (tmp_path / "nftables.conf.last-good").read_text() == "OLD RULESET\n"
+        assert (fake_etc / "nftables.conf").read_text() == ruleset
+
+    def test_apply_failure_restores_last_good_and_reapplies(
+        self, subprocess_fake, fake_etc: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """F2 MAJOR #7: when ``nft -f`` fails after the delete, the last-good
+        conf is written back and re-applied — the host never stays without a
+        firewall."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        monkeypatch.setenv("STATE_DIR", str(tmp_path))
+        (fake_etc / "nftables.conf").write_text("OLD RULESET\n")
+        subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-c", rc=0)
+        subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "delete", rc=0)
+        state = {"loads": 0}
+
+        def first_load_fails(command):
+            if command[0] == "nft" and command[1] == "-f":
+                state["loads"] += 1
+                return state["loads"] == 1
+            return False
+
+        subprocess_fake.on(first_load_fails, rc=1, err=b"Error: load failed")
+        subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-f", rc=0)
+
+        ok = asyncio.run(NFTablesManager().apply_ruleset(_ruleset()))
+
+        assert ok is False
+        # The failed load restored last-good and the re-apply ran.
+        assert (fake_etc / "nftables.conf").read_text() == "OLD RULESET\n"
+        assert [c for c in subprocess_fake.commands if c[1] == "-f"] == [
+            ["nft", "-f", _conf_path(fake_etc)],
+            ["nft", "-f", _conf_path(fake_etc)],
+        ]
+
 
 class TestApplyFlowHttp:
     def _mock_snapshot(self, monkeypatch: pytest.MonkeyPatch) -> None:

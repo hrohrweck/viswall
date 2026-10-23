@@ -19,6 +19,7 @@ import uuid
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -27,6 +28,7 @@ import utils.firewall_dispatch as dispatch_mod
 from main import app
 from shared.database import get_db
 from shared.models import Base, Instance, User, VPNClient, VPNServer
+from shared.schemas import VPNServerCreate, VPNServerUpdate
 from shared.security import get_password_hash
 from utils.agent_client import AgentConnectionError
 
@@ -315,6 +317,41 @@ class TestInitializeSiteToSite:
         )
         assert response.status_code == 422
 
+    async def test_malicious_allowed_ips_newline_returns_422(
+        self, client: AsyncClient, admin_user, instance
+    ):
+        """F2 BLOCKER #3: a newline smuggles PostUp into the client.conf."""
+        token = await _login(client, "vpnadmin", "vpnadminpass")
+        response = await client.post(
+            "/api/v1/vpn/site-to-site/initialize",
+            params={
+                "local_instance_id": instance.id,
+                "remote_endpoint": "base0.example.com:51820",
+                "remote_public_key": VALID_WG_PUB,
+                "allowed_ips": "10.80.0.0/16\nPostUp = /tmp/pwned",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+        assert "allowed_ips" in response.json()["detail"]
+
+    async def test_malicious_local_address_returns_422(
+        self, client: AsyncClient, admin_user, instance
+    ):
+        token = await _login(client, "vpnadmin", "vpnadminpass")
+        response = await client.post(
+            "/api/v1/vpn/site-to-site/initialize",
+            params={
+                "local_instance_id": instance.id,
+                "remote_endpoint": "base0.example.com:51820",
+                "remote_public_key": VALID_WG_PUB,
+                "local_address": "10.200.0.2\nPostUp = /tmp/pwned",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+        assert "local_address" in response.json()["detail"]
+
     async def test_duplicate_initialize_returns_409(
         self, client: AsyncClient, admin_user, instance
     ):
@@ -346,6 +383,184 @@ class TestInitializeSiteToSite:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 403
+
+
+class TestVPNServerSchemaInjectionGuard:
+    """F2 BLOCKER #3: VPNServerCreate/Update must reject config-injection
+    values at the schema boundary (newline/CR/`=`, bad CIDRs, bad keys)."""
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("allowed_ips", "10.80.0.0/16\nPostUp = /tmp/pwned"),
+            ("allowed_ips", "10.80.0.0/16 = evil"),
+            ("allowed_ips", "10.80.0.0/16,not-a-cidr"),
+            ("local_address", "10.200.0.2/24\nPostUp = /tmp/pwned"),
+            ("local_address", "10.200.0.2/33"),
+            ("endpoint", "base0.example:51820\nPostUp = /tmp/pwned"),
+            ("endpoint", "evil host:51820"),
+            ("peer_public_key", "not-a-key"),
+            ("peer_public_key", VALID_WG_PUB + "\nPostUp = /tmp/pwned"),
+            ("private_key", VALID_WG_PRIV + "\nPostUp = /tmp/pwned"),
+        ],
+    )
+    def test_create_rejects_injection(self, field, value):
+        payload = {
+            "name": "wg-server",
+            "protocol": "wireguard",
+            "tunnel_type": "site-to-site",
+            field: value,
+        }
+        with pytest.raises(ValidationError):
+            VPNServerCreate(**payload)
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("allowed_ips", "10.80.0.0/16\nPostUp = /tmp/pwned"),
+            ("local_address", "10.200.0.2/24\nPostUp = /tmp/pwned"),
+            ("endpoint", "base0.example:51820\nPostUp = /tmp/pwned"),
+            ("peer_public_key", "not-a-key"),
+            ("private_key", "short"),
+        ],
+    )
+    def test_update_rejects_injection(self, field, value):
+        with pytest.raises(ValidationError):
+            VPNServerUpdate(**{field: value})
+
+    def test_create_accepts_valid_tunnel_values(self):
+        server = VPNServerCreate(
+            name="wg-server",
+            protocol="wireguard",
+            tunnel_type="site-to-site",
+            endpoint="base0.example.com:51820",
+            peer_public_key=VALID_WG_PUB,
+            allowed_ips="10.80.0.0/16,10.200.0.0/24",
+            local_address="10.200.0.2/24",
+            private_key=VALID_WG_PRIV,
+        )
+        assert server.allowed_ips == "10.80.0.0/16,10.200.0.0/24"
+
+
+class TestClientPrivateKeyExposure:
+    """F2 MAJOR #6: the generated config embeds the raw WireGuard private
+    key — list/get must never carry it for a non-admin, and the download
+    route is admin-only."""
+
+    async def _seed_wireguard_server(self, instance_id: int) -> int:
+        async with TestSessionLocal() as session:
+            server = VPNServer(
+                instance_id=instance_id,
+                name="wg-main",
+                enabled=True,
+                protocol="wireguard",
+                tunnel_type="server",
+                status="running",
+                config={"public_key": VALID_WG_PUB},
+            )
+            session.add(server)
+            await session.commit()
+            await session.refresh(server)
+            return server.id
+
+    async def _seed_wireguard_client(self, server_id: int) -> int:
+        async with TestSessionLocal() as session:
+            client_row = VPNClient(
+                server_id=server_id,
+                name="road-warrior",
+                enabled=True,
+                public_key=VALID_WG_PUB,
+                assigned_ip="10.200.0.10",
+                allowed_ips=["10.200.0.0/24"],
+            )
+            session.add(client_row)
+            await session.commit()
+            await session.refresh(client_row)
+            return client_row.id
+
+    async def test_list_and_get_never_expose_config_to_non_admin(
+        self, client: AsyncClient, admin_user, readonly_user, instance, monkeypatch
+    ):
+        async def _fake_agent_request(db, instance_id, method, path, json_data=None, **kwargs):
+            return {"public_key": VALID_WG_PUB, "private_key": VALID_WG_PRIV}
+
+        monkeypatch.setattr(vpn_router, "agent_request", _fake_agent_request)
+        server_id = await self._seed_wireguard_server(instance.id)
+
+        admin_token = await _login(client, "vpnadmin", "vpnadminpass")
+        created = await client.post(
+            f"/api/v1/vpn/servers/{server_id}/clients",
+            json={"name": "road-warrior", "assigned_ip": "10.200.0.10"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert created.status_code == 200
+        assert VALID_WG_PRIV in base64.b64decode(created.json()["config_file"]).decode()
+
+        client_id = created.json()["id"]
+
+        readonly_token = await _login(client, "vpnreader", "vpnreaderpass")
+        listed = await client.get(
+            f"/api/v1/vpn/servers/{server_id}/clients",
+            headers={"Authorization": f"Bearer {readonly_token}"},
+        )
+        assert listed.status_code == 200
+        assert all("config_file" not in item for item in listed.json())
+        assert VALID_WG_PRIV not in listed.text
+
+        fetched = await client.get(
+            f"/api/v1/vpn/clients/{client_id}",
+            headers={"Authorization": f"Bearer {readonly_token}"},
+        )
+        assert fetched.status_code == 200
+        assert "config_file" not in fetched.json()
+        assert VALID_WG_PRIV not in fetched.text
+
+        download = await client.get(
+            f"/api/v1/vpn/clients/{client_id}/config",
+            headers={"Authorization": f"Bearer {readonly_token}"},
+        )
+        assert download.status_code == 403
+
+    async def test_admin_can_download_config_with_private_key(
+        self, client: AsyncClient, admin_user, readonly_user, instance, monkeypatch
+    ):
+        server_id = await self._seed_wireguard_server(instance.id)
+        client_id = await self._seed_wireguard_client(server_id)
+
+        async with TestSessionLocal() as session:
+            row = await session.get(VPNClient, client_id)
+            config_text = "# VPN Client Configuration\nPrivateKey = real-key-material\n"
+            row.config_file = base64.b64encode(config_text.encode()).decode()
+            await session.commit()
+
+        admin_token = await _login(client, "vpnadmin", "vpnadminpass")
+        download = await client.get(
+            f"/api/v1/vpn/clients/{client_id}/config",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert download.status_code == 200
+        body = download.json()
+        decoded = base64.b64decode(body["config_data"]).decode()
+        assert "PrivateKey = real-key-material" in decoded
+
+    async def test_admin_create_response_still_contains_config(
+        self, client: AsyncClient, admin_user, instance, monkeypatch
+    ):
+        async def _fake_agent_request(db, instance_id, method, path, json_data=None, **kwargs):
+            return {"public_key": VALID_WG_PUB, "private_key": VALID_WG_PRIV}
+
+        monkeypatch.setattr(vpn_router, "agent_request", _fake_agent_request)
+        server_id = await self._seed_wireguard_server(instance.id)
+
+        admin_token = await _login(client, "vpnadmin", "vpnadminpass")
+        created = await client.post(
+            f"/api/v1/vpn/servers/{server_id}/clients",
+            json={"name": "road-warrior", "assigned_ip": "10.200.0.10"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert created.status_code == 200
+        assert "config_file" in created.json()
+        assert VALID_WG_PRIV in base64.b64decode(created.json()["config_file"]).decode()
 
 
 class TestStartStopDispatch:

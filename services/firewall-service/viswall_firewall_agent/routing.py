@@ -250,21 +250,28 @@ class RoutingManager:
     def _desired(self, routing_rules: Optional[Sequence[Any]]) -> Tuple[List[_Rule], List[_Route]]:
         rules: List[_Rule] = []
         routes: List[_Route] = []
-        for raw in routing_rules or []:
+        for index, raw in enumerate(routing_rules or []):
             entry = self._as_dict(raw)
             if not entry or entry.get("enabled", True) is False:
                 continue
-            kind = entry.get("kind")
-            table = _table(entry.get("table", 254))
-            priority = int(entry.get("priority", entry.get("order_index", 100)) or 100)
-            source = _prefix(entry.get("source", entry.get("source_network")))
-            destination = _prefix(entry.get("destination", entry.get("dest_network")))
-            inbound = entry.get("inbound_interface") or entry.get("iif")
-            outbound = entry.get("outbound_interface") or entry.get("interface")
-            interface = inbound or entry.get("interface")
-            mark = _mark(entry.get("mark"))
-            gateway = entry.get("gateway")
-            metric = entry.get("metric")
+            try:
+                kind = entry.get("kind")
+                table = _table(entry.get("table", 254))
+                # F2 MINOR #12: a malformed priority must surface as a
+                # per-rule error in ``errors`` (surfaced by the apply
+                # response), never as an unhandled ValueError -> 500.
+                priority = int(entry.get("priority", entry.get("order_index", 100)) or 100)
+                source = _prefix(entry.get("source", entry.get("source_network")))
+                destination = _prefix(entry.get("destination", entry.get("dest_network")))
+                inbound = entry.get("inbound_interface") or entry.get("iif")
+                outbound = entry.get("outbound_interface") or entry.get("interface")
+                interface = inbound or entry.get("interface")
+                mark = _mark(entry.get("mark"))
+                gateway = entry.get("gateway")
+                metric = entry.get("metric")
+            except (ValueError, TypeError) as exc:
+                self.errors.append(f"routing rule {index}: {exc}")
+                continue
 
             if kind == "route":
                 routes.append(

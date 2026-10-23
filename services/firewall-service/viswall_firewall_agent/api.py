@@ -62,8 +62,11 @@ deliberate, not accidental.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
+import logging
 import os
+import re
 import secrets
 import shutil
 from datetime import datetime, timezone
@@ -75,15 +78,18 @@ from viswall_firewall_agent.nft import (
     NFTablesManager,
     FirewallAction,
     FirewallRule,
+    _valid_to_addr,
 )
 from viswall_firewall_agent.qos import QoSValidationError, TrafficControlManager
 from viswall_firewall_agent.routing import RoutingManager
 from viswall_firewall_agent.snapshots import snapshot_state
 
+logger = logging.getLogger(__name__)
+
 try:
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import JSONResponse
-    from pydantic import BaseModel
+    from pydantic import BaseModel, field_validator
     from typing import List as TypingList
 
     FASTAPI_AVAILABLE = True
@@ -101,6 +107,26 @@ RESTORE_SCRIPT = "restore_firewall.sh"
 _PORT_EXPANSION_CAP = 256
 
 _SOURCE_TYPES = {"host", "network", "range"}
+
+#: Block timeout shape: <digits> + one of s/m/h/d (rendered into an nft
+#: element statement — anything else is an injection vector).
+_TIMEOUT_RE = re.compile(r"^\d+(s|m|h|d)$")
+
+
+def _validate_block_ip(value: str) -> str:
+    try:
+        ipaddress.ip_address(value)
+    except ValueError as exc:
+        raise ValueError(f"invalid IP address: {value!r}") from exc
+    return value
+
+
+def _validate_block_timeout(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    if not _TIMEOUT_RE.fullmatch(value):
+        raise ValueError(f"invalid timeout: {value!r} (expected <N>(s|m|h|d))")
+    return value
 
 
 class FirewallApplyError(RuntimeError):
@@ -215,6 +241,16 @@ def _nat_from_payload(entry: Dict[str, Any], index: int) -> NATRule:
     try:
         nat_type = (entry.get("type") or "snat").lower()
         ports = _parse_service_ports(entry.get("service_ports"))
+        to_source = entry.get("to_source")
+        to_destination = entry.get("to_destination")
+        # F2 MAJOR #4: NAT targets are rendered verbatim into the ruleset —
+        # an unvalidated newline injects arbitrary nft statements. Reject
+        # loudly (never silently drop) so a malicious gateway payload fails
+        # the whole apply instead of half-applying.
+        if to_source is not None and not _valid_to_addr(to_source):
+            raise ValueError(f"invalid to_source: {to_source!r}")
+        if to_destination is not None and not _valid_to_addr(to_destination):
+            raise ValueError(f"invalid to_destination: {to_destination!r}")
         return NATRule(
             id=entry.get("id", 0),
             name=entry["name"],
@@ -222,8 +258,8 @@ def _nat_from_payload(entry: Dict[str, Any], index: int) -> NATRule:
             chain="postrouting" if nat_type in ("snat", "masquerade") else "prerouting",
             source=entry.get("source_network"),
             destination=entry.get("dest_network"),
-            to_source=entry.get("to_source"),
-            to_destination=entry.get("to_destination"),
+            to_source=to_source,
+            to_destination=to_destination,
             protocol=entry.get("service_protocol") or None,
             port=ports[0] if len(ports) == 1 else None,
             interface=entry.get("interface"),
@@ -321,23 +357,59 @@ async def _rollback_via_script(snapshot: Path) -> None:
 async def _rollback_direct(snapshot: Path) -> List[str]:
     """Restore from the snapshot dir's captured files (no script on PATH).
 
-    Order matches scripts/restore_firewall.sh: remove the viswall layer first
-    (its -200 input hook would shadow iptables-restore), then re-apply the
-    captured v4/v6 rules. Docker/wg restarts are intentionally absent — the
+    Order matches scripts/restore_firewall.sh: validate the captures FIRST
+    (F2 MAJOR #7 — a corrupt snapshot must not delete the viswall table),
+    then remove the viswall layer (its -200 input hook would shadow
+    iptables-restore), then re-apply the captured v4/v6 rules. On a restore
+    failure the last-good nft conf is re-applied so the host never ends up
+    with no firewall. Docker/wg restarts are intentionally absent — the
     agent must never restart docker mid-request; the host-native script owns
     those.
     """
-    await _run_capture("nft", "delete", "table", "inet", "viswall")  # missing table tolerated
-    restored: List[str] = []
-    for name, binary in (("rules.v4", "iptables-restore"), ("rules.v6", "ip6tables-restore")):
+    artifacts = (("rules.v4", "iptables-restore"), ("rules.v6", "ip6tables-restore"))
+    for name, binary in artifacts:
         path = snapshot / name
         if not path.is_file():
             raise FirewallApplyError(f"snapshot artifact missing: {name}")
-        rc, _, stderr = await _run_capture(binary, input_bytes=path.read_bytes())
+        rc, _, stderr = await _run_capture(binary, "--test", input_bytes=path.read_bytes())
         if rc != 0:
-            raise FirewallApplyError(f"{binary} failed ({rc}): {stderr.strip()}")
-        restored.append(name)
+            raise FirewallApplyError(f"{binary} --test failed ({rc}): {stderr.strip()}")
+
+    await _run_capture("nft", "delete", "table", "inet", "viswall")  # missing table tolerated
+
+    restored: List[str] = []
+    try:
+        for name, binary in artifacts:
+            path = snapshot / name
+            rc, _, stderr = await _run_capture(binary, input_bytes=path.read_bytes())
+            if rc != 0:
+                raise FirewallApplyError(f"{binary} failed ({rc}): {stderr.strip()}")
+            restored.append(name)
+    except FirewallApplyError:
+        await _reapply_last_good()
+        raise
     return restored
+
+
+async def _reapply_last_good() -> None:
+    """Re-apply the pre-apply nft conf after a failed rollback restore.
+
+    ``apply_ruleset`` snapshots the previously applied config to
+    ``$STATE_DIR/nftables.conf.last-good`` before every swap; when a direct
+    rollback's iptables-restore fails midway, re-applying it brings the
+    viswall table back instead of leaving the host with neither firewall.
+    """
+    last_good = Path(STATE_DIR) / "nftables.conf.last-good"
+    if not last_good.is_file():
+        logger.warning("rollback restore failed and no last-good nft conf exists")
+        return
+    rc, _, stderr = await _run_capture("nft", "-f", str(last_good))
+    if rc != 0:
+        logger.error(
+            "last-good re-apply after rollback failure exited %s: %s",
+            rc,
+            stderr.strip(),
+        )
 
 
 class FirewallAgent:
@@ -439,8 +511,8 @@ class FirewallAgent:
             )
             stdout, _ = await proc.communicate()
             conntrack_count = int(stdout.decode().strip())
-        except:
-            pass
+        except (OSError, ValueError):
+            logger.warning("conntrack -C unavailable; reporting 0 tracked connections")
 
         return {
             "nftables": nft_stats,
@@ -514,8 +586,23 @@ if FASTAPI_AVAILABLE:
         reason: Optional[str] = "manual"
         timeout: Optional[str] = "1h"
 
+        @field_validator("ip")
+        @classmethod
+        def _valid_ip(cls, value: str) -> str:
+            return _validate_block_ip(value)
+
+        @field_validator("timeout")
+        @classmethod
+        def _valid_timeout(cls, value: Optional[str]) -> Optional[str]:
+            return _validate_block_timeout(value)
+
     class UnblockRequest(BaseModel):
         ip: str
+
+        @field_validator("ip")
+        @classmethod
+        def _valid_ip(cls, value: str) -> str:
+            return _validate_block_ip(value)
 
     class QoSApplyRequest(BaseModel):
         interface: str

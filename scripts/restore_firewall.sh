@@ -8,13 +8,15 @@
 # containers are what broke, so it never depends on the agent or console.
 #
 # Sequence (order is deliberate):
-#   1. Remove the viswall layer FIRST: disable viswall-firewall-persist and
+#   1. No-op guard FIRST, before anything else: exit 0 if $STATE_DIR/COMMIT
+#      exists (cutover committed) or $STATE_DIR/ALIVE has mtime < 120 s
+#      (current proof-of-life — a fired trap with fresh proof-of-life is a
+#      scheduled no-op, never a restore). A scheduled no-op must never
+#      mutate anything, so this guard runs BEFORE the destructive steps.
+#   2. Remove the viswall layer: disable viswall-firewall-persist and
 #      `nft delete table inet viswall` (never a flush). The viswall input hook
 #      runs at priority -200, before iptables filter, so iptables-restore alone
 #      cannot revert the very failure this script exists for.
-#   2. No-op guard: exit 0 if $STATE_DIR/COMMIT exists (cutover committed) or
-#      $STATE_DIR/ALIVE has mtime < 120 s (current proof-of-life — a fired
-#      trap with fresh proof-of-life is a scheduled no-op, never a restore).
 #   3. Validate the snapshot with iptables-restore --test / ip6tables-restore
 #      --test BEFORE touching the live rules (a corrupt snapshot must never
 #      leave iptables half-loaded).
@@ -30,8 +32,8 @@
 # Everything is logged to /var/log/viswall-restore.log. Safe to run repeatedly.
 set -euo pipefail
 
-LOG=/var/log/viswall-restore.log
-STATE_DIR=/var/lib/viswall-firewall
+LOG="${LOG:-/var/log/viswall-restore.log}"
+STATE_DIR="${STATE_DIR:-/var/lib/viswall-firewall}"
 COMMIT_MARKER="$STATE_DIR/COMMIT"
 ALIVE_FILE="$STATE_DIR/ALIVE"
 ALIVE_MAX_AGE_SEC=120
@@ -123,11 +125,8 @@ fi
 
 log "=== restore_firewall.sh start (snapshot: $SNAPSHOT_DIR)"
 
-# 1. Remove the viswall layer FIRST (see header comment).
-run_tolerant systemctl disable --now viswall-firewall-persist
-run_tolerant nft delete table inet viswall
-
-# 2. No-op guard: committed cutover or fresh proof-of-life -> nothing to do.
+# 1. No-op guard FIRST: committed cutover or fresh proof-of-life -> nothing to
+#    do. Runs before any destructive command — a scheduled no-op never mutates.
 if [ -e "$COMMIT_MARKER" ]; then
     log "no-op: $COMMIT_MARKER exists (cutover committed) — exiting 0 without restoring"
     exit 0
@@ -140,6 +139,10 @@ if [ -f "$ALIVE_FILE" ]; then
     fi
     log "guard: $ALIVE_FILE age ${alive_age}s >= ${ALIVE_MAX_AGE_SEC}s — proceeding with restore"
 fi
+
+# 2. Remove the viswall layer (see header comment).
+run_tolerant systemctl disable --now viswall-firewall-persist
+run_tolerant nft delete table inet viswall
 
 # 3. Validate before touching anything (corrupt snapshot must not half-load).
 if [ ! -f "$SNAPSHOT_DIR/rules.v4" ] || [ ! -f "$SNAPSHOT_DIR/rules.v6" ]; then

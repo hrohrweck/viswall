@@ -22,8 +22,11 @@ Todo 11 changes:
 """
 
 import asyncio
+import logging
 import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+logger = logging.getLogger(__name__)
 
 #: First minor id used for HTB leaf classes (1:10, 1:11, ...).
 HTB_CLASS_BASE_ID = 10
@@ -39,6 +42,10 @@ _QDISC_LINE_RE = re.compile(r"^qdisc\s+(\S+)\s+(\S+)")
 
 class QoSValidationError(ValueError):
     """Raised when a QoS class payload cannot be applied as-is."""
+
+
+class QoSApplyError(RuntimeError):
+    """A tc command in the apply pipeline failed (carries the step name)."""
 
 
 def _number(value: Any, label: str, index: int, minimum: int = 1) -> int:
@@ -180,18 +187,27 @@ class TrafficControlManager:
         ``classes`` is the gateway-serialized QoSClass list. It only affects
         ``algorithm="htb"``; other algorithms ignore it. Validation happens
         before any tc command runs.
+
+        F2 MINOR #10: every qdisc/class/filter ADD is returncode-checked — a
+        failed step raises :class:`QoSApplyError` and this method returns
+        False instead of silently reporting success on a half-installed tree.
+
+        Rate semantics: the root qdisc shapes EGRESS only. For cake/fq_codel
+        the ``download_rate`` is applied as the qdisc ``bandwidth`` (egress
+        direction) and ``upload_rate`` is UNUSED — true ingress shaping needs
+        an IFB/mirred redirect, which is out of scope; treat ``upload_rate``
+        as egress-only metadata for these algorithms.
         """
         # Validate first: a malformed class list must not touch the qdisc.
         normalized_classes = _normalize_classes(classes) if classes else []
 
         try:
-            # Clear existing qdisc
+            # Clear existing qdisc (tolerated: a fresh interface has none).
             await self._run_tc(["qdisc", "del", "dev", interface, "root"])
 
             if algorithm == "cake":
                 # Common Applications Kept Enhanced (best for home/SMB)
-                # Download (ingress)
-                await self._run_tc(
+                await self._tc_checked(
                     [
                         "qdisc",
                         "add",
@@ -207,12 +223,13 @@ class TrafficControlManager:
                         "dual-srchost",
                         "nat",
                         "wash",
-                    ]
+                    ],
+                    "cake qdisc add",
                 )
 
             elif algorithm == "fq_codel":
                 # Fair Queueing Controlled Delay (lower overhead)
-                await self._run_tc(
+                await self._tc_checked(
                     [
                         "qdisc",
                         "add",
@@ -226,7 +243,8 @@ class TrafficControlManager:
                         "1024",
                         "quantum",
                         "1514",
-                    ]
+                    ],
+                    "fq_codel qdisc add",
                 )
 
             elif algorithm == "htb":
@@ -235,8 +253,8 @@ class TrafficControlManager:
 
             return True
 
-        except Exception as e:
-            print(f"QoS setup failed: {e}")
+        except (QoSApplyError, OSError) as exc:
+            logger.error("QoS setup failed on %s: %s", interface, exc)
             return False
 
     async def _setup_htb(
@@ -259,7 +277,7 @@ class TrafficControlManager:
             default_minor = "12"
 
         # Root qdisc
-        await self._run_tc(
+        await self._tc_checked(
             [
                 "qdisc",
                 "add",
@@ -271,11 +289,12 @@ class TrafficControlManager:
                 "htb",
                 "default",
                 default_minor,
-            ]
+            ],
+            "htb root qdisc add",
         )
 
         # Root class
-        await self._run_tc(
+        await self._tc_checked(
             [
                 "class",
                 "add",
@@ -290,7 +309,8 @@ class TrafficControlManager:
                 f"{rate}kbit",
                 "burst",
                 "15k",
-            ]
+            ],
+            "htb root class add",
         )
 
         if classes:
@@ -305,7 +325,7 @@ class TrafficControlManager:
         ]
 
         for classid, class_rate, prio in default_classes:
-            await self._run_tc(
+            await self._tc_checked(
                 [
                     "class",
                     "add",
@@ -322,12 +342,14 @@ class TrafficControlManager:
                     f"{rate}kbit",
                     "prio",
                     prio,
-                ]
+                ],
+                f"htb class {classid} add",
             )
 
             # Add fq_codel to each class
-            await self._run_tc(
-                ["qdisc", "add", "dev", interface, "parent", classid, "fq_codel"]
+            await self._tc_checked(
+                ["qdisc", "add", "dev", interface, "parent", classid, "fq_codel"],
+                f"fq_codel leaf {classid} add",
             )
 
         # Filters to classify traffic (dual-stack)
@@ -349,7 +371,7 @@ class TrafficControlManager:
             classid = f"1:{HTB_CLASS_BASE_ID + index}"
             ceil_rate = spec.get("max_rate_kbps") or root_rate
 
-            await self._run_tc(
+            await self._tc_checked(
                 [
                     "class",
                     "add",
@@ -366,11 +388,13 @@ class TrafficControlManager:
                     f"{ceil_rate}kbit",
                     "prio",
                     str(spec["priority"]),
-                ]
+                ],
+                f"htb class {classid} add",
             )
 
-            await self._run_tc(
-                ["qdisc", "add", "dev", interface, "parent", classid, "fq_codel"]
+            await self._tc_checked(
+                ["qdisc", "add", "dev", interface, "parent", classid, "fq_codel"],
+                f"fq_codel leaf {classid} add",
             )
 
             protocols = (
@@ -389,7 +413,7 @@ class TrafficControlManager:
         self, interface: str, classid: str, protocol: str, port: str
     ) -> None:
         """Add traffic filter (IPv4)"""
-        await self._run_tc(
+        await self._tc_checked(
             [
                 "filter",
                 "add",
@@ -414,14 +438,15 @@ class TrafficControlManager:
                 "0xffff",
                 "flowid",
                 classid,
-            ]
+            ],
+            f"filter {protocol}:{port} -> {classid} add",
         )
 
     async def _add_filter_ipv6(
         self, interface: str, classid: str, protocol: str, port: str
     ) -> None:
         """Add traffic filter (IPv6) using flower classifier"""
-        await self._run_tc(
+        await self._tc_checked(
             [
                 "filter",
                 "add",
@@ -440,7 +465,8 @@ class TrafficControlManager:
                 port,
                 "flowid",
                 classid,
-            ]
+            ],
+            f"filter6 {protocol}:{port} -> {classid} add",
         )
 
     async def _run_tc(self, args: List[str]) -> Tuple[int, str, str]:
@@ -450,6 +476,12 @@ class TrafficControlManager:
         )
         stdout, stderr = await proc.communicate()
         return proc.returncode, stdout.decode(), stderr.decode()
+
+    async def _tc_checked(self, args: List[str], step: str) -> None:
+        """Run a tc ADD step and raise QoSApplyError on any failure."""
+        rc, _, stderr = await self._run_tc(args)
+        if rc != 0:
+            raise QoSApplyError(f"{step} failed ({rc}): {stderr.strip()}")
 
     async def get_stats(self, interface: str) -> Dict[str, Any]:
         """Get traffic control statistics in the gateway contract shape.

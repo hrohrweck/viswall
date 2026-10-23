@@ -40,12 +40,16 @@ from viswall_vpn_agent.wg_client import (
     WgClientError,
     WgClientManager,
     WgUnitError,
+    validate_allowed_ips,
+    validate_endpoint,
+    validate_local_address,
+    validate_wg_key,
 )
 
 try:
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import JSONResponse
-    from pydantic import BaseModel, Field
+    from pydantic import BaseModel, Field, field_validator
 
     FASTAPI_AVAILABLE = True
 except ImportError:  # pragma: no cover - fastapi is a runtime dependency
@@ -103,6 +107,9 @@ if FASTAPI_AVAILABLE:
 
         ``private_key`` is optional: a partial model must render to a
         parseable file (key commented out) instead of failing validation.
+        Every value that lands in client.conf is validated here (F2 BLOCKER
+        #3): newline/CR/`=` injection, bad CIDRs, bad addresses/endpoints and
+        malformed keys are rejected with 422 before any file is written.
         """
 
         protocol: str
@@ -112,7 +119,34 @@ if FASTAPI_AVAILABLE:
         endpoint: str
         peer_public_key: str
         allowed_ips: str
-        persistent_keepalive: int = Field(default=25, ge=0)
+        persistent_keepalive: int = Field(default=25, ge=0, le=65535)
+
+        @field_validator("address")
+        @classmethod
+        def _valid_address(cls, value: str) -> str:
+            return validate_local_address(value)
+
+        @field_validator("endpoint")
+        @classmethod
+        def _valid_endpoint(cls, value: str) -> str:
+            return validate_endpoint(value)
+
+        @field_validator("allowed_ips")
+        @classmethod
+        def _valid_allowed_ips(cls, value: str) -> str:
+            return validate_allowed_ips(value)
+
+        @field_validator("peer_public_key")
+        @classmethod
+        def _valid_peer_key(cls, value: str) -> str:
+            result = validate_wg_key(value, "peer_public_key")
+            assert result is not None
+            return result
+
+        @field_validator("private_key")
+        @classmethod
+        def _valid_private_key(cls, value: str | None) -> str | None:
+            return validate_wg_key(value, "private_key")
 
     class VpnUnitRequest(BaseModel):
         """Body of ``POST /vpn/start`` / ``POST /vpn/stop``.

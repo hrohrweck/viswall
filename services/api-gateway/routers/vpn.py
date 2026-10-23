@@ -22,6 +22,7 @@ from shared.schemas import (
     VPNServerStats,
     VPNClientCreate,
     VPNClientUpdate,
+    VPNClientAdminResponse,
     VPNClientResponse,
     VPNClientConfig,
     VPNConnectionResponse,
@@ -34,6 +35,8 @@ from shared.schemas import (
     VPNStatus,
     VPNClientType,
     VPNAuthType,
+    validate_wg_cidr_list,
+    validate_wg_local_address,
 )
 from shared.security import require_auth, require_admin
 from shared.audit_logger import log_audit
@@ -471,7 +474,11 @@ async def list_clients(
     user_id: int = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all clients for a VPN server"""
+    """List all clients for a VPN server.
+
+    The response model carries no config fields — a non-admin list can never
+    expose the generated config (which embeds the raw WireGuard private key).
+    """
     result = await db.execute(
         select(VPNClient).where(VPNClient.server_id == server_id)
     )
@@ -479,7 +486,7 @@ async def list_clients(
     return [VPNClientResponse.model_validate(c) for c in clients]
 
 
-@router.post("/servers/{server_id}/clients", response_model=VPNClientResponse)
+@router.post("/servers/{server_id}/clients", response_model=VPNClientAdminResponse)
 async def create_client(
     server_id: int,
     data: VPNClientCreate,
@@ -537,7 +544,9 @@ async def create_client(
     await db.commit()
     await db.refresh(client)
 
-    return VPNClientResponse.model_validate(client)
+    # Admin-only shape: the create response is the ONE place the generated
+    # config (with the private key) is handed back; list/get never carry it.
+    return VPNClientAdminResponse.model_validate(client)
 
 
 @router.post("/servers/{server_id}/clients/bulk", response_model=VPNBulkGenerateResponse)
@@ -672,10 +681,11 @@ async def delete_client(
 async def download_client_config(
     client_id: int,
     format: str = "auto",
-    user_id: int = Depends(require_auth),
+    user_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Download client configuration file"""
+    """Download client configuration file (admin only — the config embeds the
+    raw WireGuard private key, so any authenticated user must NOT reach it)."""
     result = await db.execute(
         select(VPNClient).where(VPNClient.id == client_id)
     )
@@ -709,7 +719,13 @@ async def download_client_config(
             config_format = "txt"
 
     # Generate config
-    config_data = _generate_client_config_for_download(server, client, config_format)
+    if client.config_file:
+        try:
+            config_data = base64.b64decode(client.config_file).decode()
+        except (ValueError, UnicodeDecodeError):
+            config_data = _generate_client_config_for_download(server, client, config_format)
+    else:
+        config_data = _generate_client_config_for_download(server, client, config_format)
     filename = f"{client.name.replace(' ', '_')}.{config_format}"
 
     return VPNClientConfig(
@@ -1000,6 +1016,8 @@ async def initialize_site_to_site(
 
     _validate_remote_endpoint(remote_endpoint)
     _validate_wg_public_key(remote_public_key)
+    _validate_allowed_ips(allowed_ips)
+    _validate_local_address(local_address)
     if protocol != VPNProtocol.WIREGUARD:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1200,6 +1218,34 @@ def _validate_wg_public_key(key: str) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="remote_public_key must be a 44-character base64 WireGuard key",
         )
+
+
+def _validate_allowed_ips(allowed_ips: Optional[str]) -> None:
+    """Reject injection / malformed CIDRs in allowed_ips with 422.
+
+    F2 BLOCKER #3: initialize_site_to_site builds the VPNServer row directly
+    (no schema validation on the query params), and the value is rendered
+    verbatim into client.conf by the agent — a newline here is root RCE via
+    PostUp, so it is validated at this boundary too.
+    """
+    try:
+        validate_wg_cidr_list(allowed_ips)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+
+
+def _validate_local_address(local_address: Optional[str]) -> None:
+    """Reject injection / malformed local_address with 422 (F2 BLOCKER #3)."""
+    try:
+        validate_wg_local_address(local_address)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
 
 
 async def _generate_wireguard_keys(

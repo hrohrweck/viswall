@@ -52,13 +52,17 @@ prefix "VW-VALIDATION" and ``limit rate 10/minute`` on every log rule.
 import asyncio
 import ipaddress
 import json
+import logging
 import os
 import re
+import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+
+logger = logging.getLogger(__name__)
 
 
 class FirewallAction(Enum):
@@ -145,6 +149,9 @@ _PROTO_NAMES = {"tcp", "udp", "icmp", "icmpv6", "sctp", "igmp", "esp", "ah", "gr
 _CT_STATES = {"NEW", "ESTABLISHED", "RELATED", "INVALID", "UNTRACKED"}
 _IFNAME_RE = re.compile(r"[A-Za-z0-9_.:*+@-]+\Z")
 _LIMIT_RE = re.compile(r"[0-9]+\s*/\s*(second|minute|hour|day)(\s+burst\s+[0-9]+\s+packets)?\Z")
+#: Block timeout shape: <digits> + one of s/m/h/d (rendered into an nft
+#: element statement — anything else is an injection vector).
+_BLOCK_TIMEOUT_RE = re.compile(r"^\d+(s|m|h|d)$")
 #: Bridge extraction from the todo-34 importer row name convention
 #: "anti-spoof <ip> via <bridge>" (the schema has no interface_in column).
 _BRIDGE_VIA_RE = re.compile(r"\bvia\s+(\S+)")
@@ -155,8 +162,13 @@ _DEFAULT_BURST = " burst 5 packets"
 
 
 def _quote(value: str) -> str:
-    """Double-quote a string for nft, escaping backslashes and quotes."""
-    return '"' + value.replace("\\", "\\\\").replace('"', "'") + '"'
+    """Double-quote a string for nft, escaping backslashes and double quotes.
+
+    nft double-quoted strings escape ``"`` as ``\\"`` — replacing the quote
+    with ``'`` (the old behavior) silently rewrote the content instead of
+    producing a valid nft-quoted string.
+    """
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def _safe_ifname(name: str) -> bool:
@@ -175,15 +187,59 @@ def _valid_limit(value: str) -> bool:
     return bool(_LIMIT_RE.fullmatch(value))
 
 
-def _valid_to_addr(value: str) -> bool:
-    candidate = value
-    if ":" in value and "::" not in value:
-        candidate = value.rsplit(":", 1)[0]
+def _valid_block_ip(value: str) -> bool:
     try:
-        ipaddress.ip_network(candidate, strict=False)
+        ipaddress.ip_address(value)
         return True
     except ValueError:
         return False
+
+
+def _valid_block_timeout(value: str) -> bool:
+    return bool(_BLOCK_TIMEOUT_RE.fullmatch(value))
+
+
+def _valid_to_addr(value: str) -> bool:
+    return _normalize_to_addr(value) is not None
+
+
+def _normalize_to_addr(value: str) -> Optional[str]:
+    """Strictly parse a NAT target ``<ip>(:<port>)?`` (v4) or ``[<v6>](:<port>)?``.
+
+    Returns the canonical safe form, or None. to_source/to_destination are
+    rendered verbatim into the ruleset, so any newline/CR/`=` is rejected
+    outright — an unvalidated newline injects arbitrary nft statements (e.g.
+    ``flush chain input``) into a root-run ``nft -f``.
+    """
+    if not value or any(ch in value for ch in ("\n", "\r", "=")):
+        return None
+    if value.startswith("["):
+        match = re.fullmatch(r"\[([0-9a-fA-F:.%]+)\](?::(\d{1,5}))?", value)
+        if not match:
+            return None
+        try:
+            address = str(ipaddress.IPv6Address(match.group(1)))
+        except ValueError:
+            return None
+        port_text = match.group(2)
+        if port_text is not None and not 1 <= int(port_text) <= 65535:
+            return None
+        return f"[{address}]" + (f":{port_text}" if port_text else "")
+    if ":" in value:
+        address_text, _, port_text = value.rpartition(":")
+        if not re.fullmatch(r"\d{1,5}", port_text):
+            return None
+        if not 1 <= int(port_text) <= 65535:
+            return None
+        try:
+            address = str(ipaddress.IPv4Address(address_text))
+        except ValueError:
+            return None
+        return f"{address}:{port_text}"
+    try:
+        return str(ipaddress.IPv4Address(value))
+    except ValueError:
+        return None
 
 
 class NFTablesManager:
@@ -428,6 +484,14 @@ class NFTablesManager:
         # live (docker0 can reach the host's postgres socket).
         lines.append("        # Container bridges (docker coexistence) — live INPUT accepts docker0 only")
         lines.append('        iifname "docker0" accept')
+        # F2 MAJOR #9: agent control ports (firewall :8081, vpn :8083, node
+        # :8085) reachable from the bridge interfaces — the gateway container
+        # dispatches to the host-net agents via host.docker.internal, which
+        # arrives on a br-* bridge. Port-scoped and bridge-scoped, so only the
+        # agent control surface opens, nothing else. Intentional addition (no
+        # live equivalent — live had no host-net agents).
+        lines.append('        iifname "docker0" tcp dport {8081, 8083, 8085} accept')
+        lines.append('        iifname "br-*" tcp dport {8081, 8083, 8085} accept')
         lines.append("        # PostgreSQL never exposed")
         lines.append("        tcp dport 5432 drop")
         # User rules: ALWAYS after the mandatory accepts above (a console rule
@@ -439,6 +503,10 @@ class NFTablesManager:
             # unqualified accepts; this explicit drop covers exactly the
             # live policy-DROP remainder.
             lines.append("        ct state invalid drop")
+        # Blacklist drops, referenced BEFORE the final log-drop: /block adds
+        # timed elements to the declared blacklist_v4/blacklist_v6 sets.
+        lines.append("        ip saddr @blacklist_v4 drop")
+        lines.append("        ip6 saddr @blacklist_v6 drop")
         if logging:
             lines.append('        log prefix "FIREWALL-DROP: " limit rate 5/minute drop')
         else:
@@ -540,7 +608,9 @@ class NFTablesManager:
         ]
         for rule in nat_rules:
             if rule.type == "dnat" and rule.to_destination and _valid_to_addr(rule.to_destination):
-                lines.append(self._convert_nat_rule_to_nft(rule).rstrip("\n"))
+                rendered = self._convert_nat_rule_to_nft(rule).rstrip("\n")
+                if rendered:
+                    lines.append(rendered)
         lines.append("    }")
         lines.extend(
             [
@@ -550,12 +620,31 @@ class NFTablesManager:
         )
         for rule in nat_rules:
             if rule.type == "snat" and rule.to_source and _valid_to_addr(rule.to_source):
-                lines.append(self._convert_nat_rule_to_nft(rule).rstrip("\n"))
+                rendered = self._convert_nat_rule_to_nft(rule).rstrip("\n")
+                if rendered:
+                    lines.append(rendered)
             elif rule.type == "masquerade":
                 # Docker owns NAT; viswall never emits masquerade (on WAN or anywhere).
                 lines.append(f"        # masquerade skipped (docker owns NAT): {rule.name}")
         lines.append("    }")
         return "\n".join(lines)
+
+    def _render_blacklist_sets(self) -> str:
+        """Named sets the /block + /unblock endpoints add/delete elements in.
+
+        Declared on EVERY render so a block right after an apply always has a
+        set to insert into; the INPUT references are what make them enforce.
+        """
+        return (
+            "    set blacklist_v4 {\n"
+            "        type ipv4_addr\n"
+            "        flags timeout\n"
+            "    }\n"
+            "    set blacklist_v6 {\n"
+            "        type ipv6_addr\n"
+            "        flags timeout\n"
+            "    }\n"
+        )
 
     def generate_ruleset(
         self,
@@ -580,6 +669,7 @@ class NFTablesManager:
             self._render_header(),
             "table inet viswall {",
         ]
+        parts.append(self._render_blacklist_sets())
         parts.append(self._render_prerouting(validation, firewall_rules))
         parts.append(self._render_input(validation, firewall_rules, enable_conntrack, enable_logging))
         parts.append(self._render_forward(validation, firewall_rules, wan_ifaces, enable_conntrack))
@@ -689,9 +779,15 @@ class NFTablesManager:
             nft_rule += " ".join(conditions) + " "
 
         if rule.type == "dnat":
-            nft_rule += f"dnat to {rule.to_destination}"
+            target = _normalize_to_addr(rule.to_destination) if rule.to_destination else None
+            if target is None:
+                return ""
+            nft_rule += f"dnat to {target}"
         elif rule.type == "snat":
-            nft_rule += f"snat to {rule.to_source}"
+            target = _normalize_to_addr(rule.to_source) if rule.to_source else None
+            if target is None:
+                return ""
+            nft_rule += f"snat to {target}"
 
         if rule.comment:
             nft_rule += f" comment {_quote(rule.comment)}"
@@ -707,6 +803,16 @@ class NFTablesManager:
             conf_path = Path("/etc/nftables.conf").resolve()
             if not conf_path.is_relative_to(Path("/etc").resolve()):
                 raise ValueError("refusing to write ruleset outside /etc")
+
+            # F2 MAJOR #7: save the currently applied conf BEFORE overwriting
+            # it. Delete-then-load leaves NO firewall when the new file fails
+            # to load; the last-good copy is the undo point for that case.
+            last_good = (
+                Path(os.getenv("STATE_DIR", "/var/lib/viswall-firewall"))
+                / "nftables.conf.last-good"
+            )
+            if conf_path.exists():
+                shutil.copy2(conf_path, last_good)
 
             # Write config
             with conf_path.open("w") as f:
@@ -751,10 +857,32 @@ class NFTablesManager:
             )
             stdout, stderr = await proc.communicate()
 
-            return proc.returncode == 0
+            if proc.returncode != 0:
+                logger.error(
+                    "nft -f failed: %s — restoring last-good config",
+                    stderr.decode(errors="replace").strip(),
+                )
+                if last_good.exists():
+                    shutil.copy2(last_good, conf_path)
+                    restore_proc = await asyncio.create_subprocess_exec(
+                        "nft",
+                        "-f",
+                        str(conf_path),
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                    _, restore_stderr = await restore_proc.communicate()
+                    if restore_proc.returncode != 0:
+                        logger.error(
+                            "last-good re-apply failed: %s",
+                            restore_stderr.decode(errors="replace").strip(),
+                        )
+                return False
 
-        except Exception as e:
-            print(f"Failed to apply nftables: {e}")
+            return True
+
+        except (OSError, ValueError) as exc:
+            logger.error("failed to apply nftables: %s", exc)
             return False
 
     async def get_stats(self) -> Dict[str, Any]:
@@ -770,11 +898,15 @@ class NFTablesManager:
             )
             stdout, _ = await proc.communicate()
             return json.loads(stdout.decode())
-        except:
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            logger.error("nft list ruleset failed: %s", exc)
             return {}
 
     async def add_to_blacklist(self, ip: str, timeout: str = "1h") -> bool:
         """Dynamically add IP to blacklist (dual-stack aware)"""
+        if not _valid_block_ip(ip) or not _valid_block_timeout(timeout):
+            logger.warning("refusing to block invalid ip/timeout: %r %r", ip, timeout)
+            return False
         try:
             set_name = "blacklist_v6" if self._ip_family(ip) == "ip6" else "blacklist_v4"
             proc = await asyncio.create_subprocess_exec(
@@ -792,13 +924,19 @@ class NFTablesManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            await proc.communicate()
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                logger.error("nft add element %s failed: %s", set_name, stderr.decode(errors="replace").strip())
             return proc.returncode == 0
-        except:
+        except OSError as exc:
+            logger.error("nft add element failed: %s", exc)
             return False
 
     async def remove_from_blacklist(self, ip: str) -> bool:
         """Remove IP from blacklist (dual-stack aware)"""
+        if not _valid_block_ip(ip):
+            logger.warning("refusing to unblock invalid ip: %r", ip)
+            return False
         try:
             set_name = "blacklist_v6" if self._ip_family(ip) == "ip6" else "blacklist_v4"
             proc = await asyncio.create_subprocess_exec(
@@ -814,7 +952,10 @@ class NFTablesManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            await proc.communicate()
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                logger.error("nft delete element %s failed: %s", set_name, stderr.decode(errors="replace").strip())
             return proc.returncode == 0
-        except:
+        except OSError as exc:
+            logger.error("nft delete element failed: %s", exc)
             return False

@@ -232,3 +232,61 @@ class TestValidateBeforeTouch:
                     classes=classes,
                 )
             )
+
+
+class TestReturncodeChecks:
+    """F2 MINOR #10: a failed qdisc/class/filter ADD must yield False, not a
+    silent success on a half-installed tree."""
+
+    def test_setup_qos_returns_false_when_qdisc_add_fails(self, subprocess_fake) -> None:
+        manager = TrafficControlManager()
+        subprocess_fake.on(
+            lambda c: c[0] == "tc" and c[1] == "qdisc" and c[2] == "del", rc=0
+        )
+        subprocess_fake.on(
+            lambda c: c[0] == "tc" and c[1] == "qdisc" and c[2] == "add",
+            rc=2,
+            err=b"RTNETLINK answers: Operation not permitted",
+        )
+
+        ok = asyncio.run(
+            manager.setup_qos(interface="eth0", download_rate=1000, upload_rate=1000)
+        )
+
+        assert ok is False
+
+    def test_setup_qos_returns_false_when_class_add_fails(self, subprocess_fake) -> None:
+        manager = TrafficControlManager()
+        subprocess_fake.on(
+            lambda c: c[0] == "tc" and c[2] == "del", rc=0
+        )
+        subprocess_fake.on(
+            lambda c: c[0] == "tc" and c[1] == "class",
+            rc=1,
+            err=b"RTNETLINK answers: File exists",
+        )
+        subprocess_fake.on(
+            lambda c: c[0] == "tc" and c[1] == "qdisc" and c[2] == "add", rc=0
+        )
+
+        ok = asyncio.run(
+            manager.setup_qos(
+                interface="eth0",
+                download_rate=100000,
+                upload_rate=50000,
+                algorithm="htb",
+                classes=[],
+            )
+        )
+
+        assert ok is False
+
+    def test_setup_qos_still_succeeds_when_all_adds_ok(self, subprocess_fake) -> None:
+        manager = TrafficControlManager()
+        subprocess_fake.on(lambda c: c[0] == "tc", rc=0)
+
+        ok = asyncio.run(
+            manager.setup_qos(interface="eth0", download_rate=1000, upload_rate=1000)
+        )
+
+        assert ok is True

@@ -679,8 +679,18 @@ class TestPureHelpers:
     def test_quote_escapes(self) -> None:
         from viswall_firewall_agent.nft import _quote
 
-        assert _quote('a"b') == '"a\'b"'
+        assert _quote('a"b') == '"a\\"b"'
         assert _quote("plain") == '"plain"'
+        assert _quote('back\\slash') == '"back\\\\slash"'
+
+    def test_quote_output_is_valid_nft_string(self) -> None:
+        """F2 MINOR #13: the quoted form must round-trip the content — every
+        embedded quote is escaped, never rewritten to another character."""
+        from viswall_firewall_agent.nft import _quote
+
+        rendered = _quote('[NFT "evil" rule]')
+        assert rendered == '"[NFT \\"evil\\" rule]"'
+        assert "'" not in rendered
 
     def test_validators(self) -> None:
         from viswall_firewall_agent.nft import _safe_ifname, _valid_limit, _valid_net
@@ -691,3 +701,119 @@ class TestPureHelpers:
         assert _valid_limit("30/minutes") is False
         assert _safe_ifname("enp0s31f6") is True
         assert _safe_ifname("eth0; rm") is False
+
+
+class TestNatInjectionGuard:
+    """F2 MAJOR #4: NAT targets are rendered verbatim — newline injection
+    must never reach the emitted ruleset."""
+
+    def _render_nat(self, monkeypatch, **overrides) -> str:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        base = dict(
+            id=1,
+            name="inject",
+            type="dnat",
+            chain="prerouting",
+            destination="46.4.63.216",
+            protocol="tcp",
+            port=25,
+        )
+        return _render(NFTablesManager(), nat=[NATRule(**{**base, **overrides})])
+
+    def test_newline_to_destination_not_emitted(self, monkeypatch) -> None:
+        ruleset = self._render_nat(
+            monkeypatch,
+            to_destination="172.20.0.10:25\n        flush chain input",
+        )
+        assert "flush chain input" not in ruleset
+        assert "dnat to" not in ruleset
+
+    def test_newline_to_source_not_emitted(self, monkeypatch) -> None:
+        ruleset = self._render_nat(
+            monkeypatch,
+            type="snat",
+            chain="postrouting",
+            source="10.80.0.0/16",
+            to_source="46.4.63.216\n        flush chain input",
+        )
+        assert "flush chain input" not in ruleset
+        assert "snat to" not in ruleset
+
+    def test_equals_injection_not_emitted(self, monkeypatch) -> None:
+        ruleset = self._render_nat(monkeypatch, to_destination="172.20.0.10:25 = evil")
+        assert "dnat to" not in ruleset
+
+    def test_valid_targets_still_rendered(self, monkeypatch) -> None:
+        ruleset = self._render_nat(monkeypatch, to_destination="172.20.0.10:25")
+        assert "dnat to 172.20.0.10:25" in ruleset
+
+    def test_valid_to_addr_shapes(self) -> None:
+        from viswall_firewall_agent.nft import _normalize_to_addr, _valid_to_addr
+
+        assert _valid_to_addr("172.20.0.10") is True
+        assert _valid_to_addr("172.20.0.10:25") is True
+        assert _valid_to_addr("[2001:db8::1]") is True
+        assert _valid_to_addr("[2001:db8::1]:51820") is True
+        assert _valid_to_addr("172.20.0.10:25\nflush chain input") is False
+        assert _valid_to_addr("2001:db8::1") is False  # bare v6 must be bracketed
+        assert _valid_to_addr("172.20.0.10:99999") is False
+        assert _valid_to_addr("172.20.0.10:25:26") is False
+        assert _normalize_to_addr("[2001:db8::1]:51820") == "[2001:db8::1]:51820"
+
+
+class TestBlacklistSets:
+    """F2 MAJOR #5: /block + /unblock were broken — the sets they insert into
+    were never declared and no INPUT rule referenced them."""
+
+    def test_sets_declared_in_every_render(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        assert "set blacklist_v4 {" in ruleset
+        assert "set blacklist_v6 {" in ruleset
+        assert "type ipv4_addr" in ruleset
+        assert "type ipv6_addr" in ruleset
+        assert "flags timeout" in ruleset
+
+    def test_input_chain_references_sets_before_final_log_drop(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        input_chain = _chain_section(ruleset, "input")
+        assert "ip saddr @blacklist_v4 drop" in input_chain
+        assert "ip6 saddr @blacklist_v6 drop" in input_chain
+        final_drop = input_chain.index('log prefix "FIREWALL-DROP: ')
+        assert input_chain.index("ip saddr @blacklist_v4 drop") < final_drop
+        assert input_chain.index("ip6 saddr @blacklist_v6 drop") < final_drop
+
+    def test_block_ip_after_apply_targets_the_declared_set(self, monkeypatch) -> None:
+        """A blocked IP lands in a set that exists and is referenced."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        assert "set blacklist_v4" in ruleset
+        assert "ip saddr @blacklist_v4 drop" in ruleset
+
+
+class TestAgentControlPorts:
+    """F2 MAJOR #9: the gateway container reaches the host-net agents
+    (firewall :8081, vpn :8083, node :8085) via host.docker.internal —
+    traffic arrives on a bridge interface and needs an INPUT accept."""
+
+    def test_control_port_accepts_scoped_to_bridges(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        input_chain = _chain_section(ruleset, "input")
+        assert 'iifname "docker0" tcp dport {8081, 8083, 8085} accept' in input_chain
+        assert 'iifname "br-*" tcp dport {8081, 8083, 8085} accept' in input_chain
+
+    def test_no_unscoped_control_port_accept(self, monkeypatch) -> None:
+        """Only the bridge-scoped accepts exist — never an unscoped one."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        assert "tcp dport {8081, 8083, 8085} accept" not in ruleset.replace(
+            'iifname "docker0" tcp dport {8081, 8083, 8085} accept', ""
+        ).replace('iifname "br-*" tcp dport {8081, 8083, 8085} accept', "")
+
+    def test_validation_mode_renders_no_control_port_rules(self, monkeypatch) -> None:
+        monkeypatch.setenv("VALIDATION_MODE", "1")
+        ruleset = _render(NFTablesManager())
+        assert "8081" not in ruleset
+        assert 'log prefix "VW-VALIDATION: input "' in ruleset

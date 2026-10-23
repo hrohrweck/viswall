@@ -27,6 +27,7 @@ All subprocess calls below are READ-ONLY except ``_systemctl`` (nsenter) and
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import re
@@ -47,9 +48,101 @@ _ENDPOINT_RE = re.compile(r"endpoint:\s+(\S+)")
 _ALLOWED_IPS_RE = re.compile(r"allowed ips:\s+(\S[^\n]*)")
 _SIZE_UNITS = {"B": 1, "KiB": 1024, "MiB": 1024**2, "GiB": 1024**3, "TiB": 1024**4}
 
+#: WireGuard keys are 32 bytes rendered as 44 base64 chars + trailing "=".
+_WG_KEY_RE = re.compile(r"^[A-Za-z0-9+/]{43}=$")
+
+#: Characters that could break out of a config line (newline injection into
+#: a root-run wg-quick config is RCE — PostUp etc.) or alter an assignment.
+_FORBIDDEN_CONFIG_CHARS = ("\n", "\r", "=")
+
 
 class WgClientError(Exception):
     """Base class for WireGuard client manager failures."""
+
+
+class WgConfigValidationError(WgClientError, ValueError):
+    """A value that would land in client.conf failed validation."""
+
+
+def validate_wg_key(value: str | None, label: str) -> str | None:
+    """44-char base64 WireGuard key (the trailing '=' is the sole allowed one)."""
+    if value is None:
+        return None
+    if not _WG_KEY_RE.fullmatch(value):
+        raise WgConfigValidationError(
+            f"{label} must be a 44-character base64 WireGuard key"
+        )
+    return value
+
+
+def validate_local_address(value: str) -> str:
+    """Strict IPv4Interface/IPv6Interface — an address with its prefix."""
+    if any(ch in value for ch in _FORBIDDEN_CONFIG_CHARS):
+        raise WgConfigValidationError("local_address contains forbidden characters")
+    try:
+        ipaddress.ip_interface(value)
+    except ValueError as exc:
+        raise WgConfigValidationError(
+            f"local_address must be an IPv4/IPv6 address with prefix: {value!r}"
+        ) from exc
+    return value
+
+
+def validate_allowed_ips(value: str) -> str:
+    """Comma-separated CIDRs; every token must parse as an ip_network."""
+    tokens = [token.strip() for token in value.split(",") if token.strip()]
+    if not tokens:
+        raise WgConfigValidationError("allowed_ips must list at least one CIDR")
+    for token in tokens:
+        if any(ch in token for ch in _FORBIDDEN_CONFIG_CHARS):
+            raise WgConfigValidationError("allowed_ips contains forbidden characters")
+        try:
+            ipaddress.ip_network(token, strict=False)
+        except ValueError as exc:
+            raise WgConfigValidationError(
+                f"invalid CIDR in allowed_ips: {token!r}"
+            ) from exc
+    return value
+
+
+def validate_endpoint(value: str) -> str:
+    """``host``, ``host:port`` or bracketed ``[v6]:port`` — nothing else."""
+    if any(ch in value for ch in _FORBIDDEN_CONFIG_CHARS):
+        raise WgConfigValidationError("endpoint contains forbidden characters")
+    if value.startswith("["):
+        match = re.fullmatch(r"\[[0-9a-fA-F:.]+\](?::(\d+))?", value)
+        if not match:
+            raise WgConfigValidationError(f"invalid endpoint: {value!r}")
+        port = match.group(1)
+    else:
+        parts = value.split(":")
+        if len(parts) > 2 or not re.fullmatch(r"[A-Za-z0-9.\-]+", parts[0]):
+            raise WgConfigValidationError(f"invalid endpoint: {value!r}")
+        port = parts[1] if len(parts) == 2 else None
+    if port is not None:
+        try:
+            if not 1 <= int(port) <= 65535:
+                raise ValueError
+        except ValueError as exc:
+            raise WgConfigValidationError(f"invalid endpoint port: {value!r}") from exc
+    return value
+
+
+def validate_config(model: "WgClientConfig") -> None:
+    """Reject any model that would render an unsafe client.conf.
+
+    Called by ``render_config`` so every path (API apply, direct write) is
+    guarded at the final render seam.
+    """
+    validate_local_address(model.address)
+    validate_endpoint(model.endpoint)
+    validate_wg_key(model.peer_public_key, "peer_public_key")
+    validate_wg_key(model.private_key, "private_key")
+    validate_allowed_ips(model.allowed_ips)
+    if not isinstance(model.persistent_keepalive, int) or not 0 <= model.persistent_keepalive <= 65535:
+        raise WgConfigValidationError(
+            "persistent_keepalive must be an integer between 0 and 65535"
+        )
 
 
 class WgUnitError(WgClientError):
@@ -103,8 +196,12 @@ def render_config(model: WgClientConfig) -> str:
     """Render the wg-quick config text for ``model``.
 
     Comment text mirrors the live ``/etc/wireguard/client.conf`` so a render
-    from the current model diff-drifts only in whitespace/comments.
+    from the current model diff-drifts only in whitespace/comments. Raises
+    :class:`WgConfigValidationError` when any value would inject into the
+    config (newline/CR/`=`), parse as a bad CIDR/address/endpoint, or is not
+    a well-formed WireGuard key.
     """
+    validate_config(model)
     lines: list[str] = []
     lines.append("[Interface]")
     if model.private_key:

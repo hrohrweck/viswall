@@ -15,6 +15,7 @@ from viswall_vpn_agent.wg_client import (
     WgApplyError,
     WgClientConfig,
     WgClientManager,
+    WgConfigValidationError,
     WgUnitError,
     _parse_handshake_sec,
     _parse_size,
@@ -397,3 +398,48 @@ def test_status_when_wg_fails_still_reports_up_with_unknown_fields(
     assert status.address == "10.80.0.2/32"
     assert status.latest_handshake_sec is None
     assert status.endpoint is None
+
+
+# -- config-value validation (F2 BLOCKER #3) --------------------------------
+
+
+def test_render_config_rejects_allowed_ips_newline_injection() -> None:
+    """A newline smuggles a PostUp line into a root-run wg-quick config."""
+    malicious = "10.80.0.0/16\nPostUp = /tmp/pwned"
+    with pytest.raises(WgConfigValidationError):
+        render_config(_model(allowed_ips=malicious))
+
+
+def test_render_config_rejects_allowed_ips_equals_injection() -> None:
+    with pytest.raises(WgConfigValidationError):
+        render_config(_model(allowed_ips="10.80.0.0/16 = evil"))
+
+
+def test_render_config_rejects_allowed_ips_bad_cidr() -> None:
+    with pytest.raises(WgConfigValidationError):
+        render_config(_model(allowed_ips="10.80.0.0/16,not-a-cidr"))
+
+
+def test_render_config_rejects_bad_local_address() -> None:
+    with pytest.raises(WgConfigValidationError):
+        render_config(_model(address="10.80.0.2/33"))  # prefix > 32
+
+
+def test_render_config_rejects_non_ip_local_address() -> None:
+    with pytest.raises(WgConfigValidationError):
+        render_config(_model(address="not-an-address/24"))
+
+
+def test_render_config_rejects_bad_endpoint() -> None:
+    with pytest.raises(WgConfigValidationError):
+        render_config(_model(endpoint="evil host:51820"))
+
+
+def test_render_config_rejects_malformed_private_key() -> None:
+    with pytest.raises(WgConfigValidationError):
+        render_config(_model(private_key="not-a-key\nPostUp = evil"))
+
+
+def test_render_config_rejects_malformed_peer_public_key() -> None:
+    with pytest.raises(WgConfigValidationError):
+        render_config(_model(peer_public_key="not-a-key"))

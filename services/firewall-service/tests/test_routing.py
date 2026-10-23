@@ -233,3 +233,33 @@ class TestTableRegistry:
         ) is True
         assert routing.file_mutations == []
         assert routing.mutations == []
+
+
+class TestMalformedEntryErrors:
+    """F2 MINOR #12: a bad priority/prefix in one entry yields a per-rule
+    error in ``errors`` — never an unhandled ValueError that 500s the apply."""
+
+    def test_bad_priority_records_error_and_skips_rule(self, manager) -> None:
+        routing, _state, _rt_tables = manager
+        payload = [
+            dict(PAYLOAD[0], priority="high"),  # non-numeric priority
+            PAYLOAD[1],
+        ]
+
+        ok = asyncio.run(routing.apply_routing(payload))
+
+        assert ok is True
+        assert any("routing rule 0" in e and "high" in e for e in routing.errors)
+        # The malformed entry never mutated anything; the valid one still applied.
+        assert all("from" not in mutation for mutation in routing.mutations)
+        assert any("fwmark" in mutation for mutation in routing.mutations)
+
+    def test_bad_source_prefix_records_error(self, manager) -> None:
+        routing, _state, _rt_tables = manager
+        payload = [dict(PAYLOAD[0], source="not-a-cidr")]
+
+        ok = asyncio.run(routing.apply_routing(payload))
+
+        assert ok is True
+        assert any("routing rule 0" in e for e in routing.errors)
+        assert routing.mutations == []
