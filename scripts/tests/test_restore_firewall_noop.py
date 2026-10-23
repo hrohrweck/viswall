@@ -145,3 +145,54 @@ class TestNoOpGuardRunsFirst:
         assert "nft" in recorded
         assert "iptables-restore" in recorded
         assert "ip6tables-restore" in recorded
+
+
+class TestDefaultSnapshotSelection:
+    """The dead-man trap invokes the script with no positional snapshot arg.
+
+    restore_firewall.sh must then pick the newest directory under
+    $STATE_DIR/snapshots (todo 40). Before this fix the trap would fire into a
+    usage error (exit 2) and silently restore nothing.
+    """
+
+    @staticmethod
+    def _run_no_arg(bindir: Path, state_dir: Path, log_file: Path) -> subprocess.CompletedProcess[str]:
+        env = dict(os.environ)
+        env["PATH"] = f"{bindir}:{os.environ['PATH']}"
+        env["STATE_DIR"] = str(state_dir)
+        env["LOG"] = str(log_file)
+        proc = _POPEN(
+            ["bash", str(SCRIPT), "--no-restart-docker"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+        )
+        stdout, stderr = proc.communicate(timeout=30)
+        return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
+
+    def test_no_arg_uses_newest_snapshot_directory(self, harness):
+        bindir, state_dir, _snapshot, log_file, calls = harness
+        snaps = state_dir / "snapshots"
+        for name in ("20260101-000000-000000", "20261023-120000-000000"):
+            d = snaps / name
+            d.mkdir(parents=True)
+            (d / "rules.v4").write_text("*filter\nCOMMIT\n")
+            (d / "rules.v6").write_text("*filter\nCOMMIT\n")
+
+        result = self._run_no_arg(bindir, state_dir, log_file)
+
+        assert result.returncode == 0, result.stderr
+        log = log_file.read_text()
+        assert "using newest snapshot" in log
+        assert "20261023-120000-000000" in log
+        assert "iptables-restore" in _recorded(calls)
+
+    def test_no_arg_and_no_snapshots_fails_closed(self, harness):
+        bindir, state_dir, _snapshot, log_file, calls = harness
+
+        result = self._run_no_arg(bindir, state_dir, log_file)
+
+        assert result.returncode == 2
+        assert _recorded(calls) == []
+        assert "no snapshots" in log_file.read_text()
