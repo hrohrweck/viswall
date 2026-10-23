@@ -195,19 +195,39 @@ check_wg() {
         log "check wg: SKIPPED (wg binary '$WG' not found — bypassed with warning)"
         return 0
     fi
-    local out line age
+    local out age
     out=$("$WG" show client latest-handshakes 2>/dev/null) || {
         log "check wg: FAIL (wg show client failed — interface down or missing)"
         return 1
     }
-    line=$(printf '%s\n' "$out" | grep -m1 'latest handshake') || {
-        log "check wg: FAIL (no handshake recorded)"
-        return 1
-    }
-    age=$(wg_age_seconds "$line")
+    if printf '%s\n' "$out" | grep -q 'latest handshake'; then
+        # Older/verbose wg output: "latest handshake: 1 minute, 30 seconds ago"
+        age=$(printf '%s\n' "$out" | grep -m1 'latest handshake' | wg_age_seconds)
+    else
+        # Machine format of `wg show <iface> latest-handshakes`: "<pubkey>\t<epoch>"
+        # (epoch 0 means "never"). The previous implementation grepped for the
+        # human-readable "latest handshake" phrase, which this command never
+        # emits — the WG probe could never pass and the armed trap would fire
+        # spuriously after its window.
+        local epoch now
+        epoch=$(printf '%s\n' "$out" | awk 'NF >= 2 { print $2; exit }')
+        case "$epoch" in
+            ''|*[!0-9]*)
+                log "check wg: FAIL (no parseable handshake epoch in latest-handshakes)"
+                return 1
+                ;;
+        esac
+        if [ "$epoch" -eq 0 ]; then
+            log "check wg: FAIL (no handshake recorded — epoch 0)"
+            return 1
+        fi
+        now=$(date +%s)
+        age=$((now - epoch))
+        if [ "$age" -lt 0 ]; then age=0; fi
+    fi
     case "$age" in
         ''|*[!0-9]*)
-            log "check wg: FAIL (unparseable handshake line: $line)"
+            log "check wg: FAIL (unparseable handshake age: $age)"
             return 1
             ;;
     esac
