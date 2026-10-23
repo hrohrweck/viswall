@@ -19,6 +19,7 @@ from shared.schemas import (
     VPNServerCreate,
     VPNServerUpdate,
     VPNServerResponse,
+    VPNServerAdminResponse,
     VPNServerStats,
     VPNClientCreate,
     VPNClientUpdate,
@@ -122,7 +123,11 @@ async def list_servers(
     user_id: int = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all VPN servers for an instance"""
+    """List all VPN servers for an instance.
+
+    The response model carries no ``private_key`` — a non-admin list can
+    never expose the site-to-site tunnel private key.
+    """
     result = await db.execute(
         select(VPNServer).where(VPNServer.instance_id == instance_id)
     )
@@ -130,7 +135,7 @@ async def list_servers(
     return [VPNServerResponse.model_validate(s) for s in servers]
 
 
-@router.post("/servers/{instance_id}", response_model=VPNServerResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/servers/{instance_id}", response_model=VPNServerAdminResponse, status_code=status.HTTP_201_CREATED)
 async def create_server(
     instance_id: int,
     data: VPNServerCreate,
@@ -190,7 +195,9 @@ async def create_server(
 
     await db.refresh(server)
 
-    return VPNServerResponse.model_validate(server)
+    # Admin-only shape: create is admin-gated, so the response may carry the
+    # private key; list/get answer the plain VPNServerResponse (no key).
+    return VPNServerAdminResponse.model_validate(server)
 
 
 @router.get("/servers/detail/{server_id}", response_model=VPNServerResponse)
@@ -199,7 +206,11 @@ async def get_server(
     user_id: int = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get VPN server details"""
+    """Get VPN server details.
+
+    The response model carries no ``private_key`` — a non-admin detail can
+    never expose the site-to-site tunnel private key.
+    """
     result = await db.execute(
         select(VPNServer).where(VPNServer.id == server_id)
     )
@@ -214,7 +225,7 @@ async def get_server(
     return VPNServerResponse.model_validate(server)
 
 
-@router.patch("/servers/{server_id}", response_model=VPNServerResponse)
+@router.patch("/servers/{server_id}", response_model=VPNServerAdminResponse)
 async def update_server(
     server_id: int,
     data: VPNServerUpdate,
@@ -243,7 +254,9 @@ async def update_server(
 
     await db.refresh(server)
 
-    return VPNServerResponse.model_validate(server)
+    # Admin-only shape: update is admin-gated and is the route that persists
+    # private_key — the admin response carries it back.
+    return VPNServerAdminResponse.model_validate(server)
 
 
 @router.delete("/servers/{server_id}", status_code=status.HTTP_204_NO_CONTENT)

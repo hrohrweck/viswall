@@ -1148,17 +1148,18 @@ class VPNServerBase(BaseModel):
     internet_redirect: bool = False
 
     # Outgoing tunnel (WireGuard client / site-to-site mode).
-    # SECURITY POSTURE: private_key is stored ONLY for client / site-to-site
-    # tunnels and is plaintext at rest in Postgres — the same posture as
-    # Instance.api_key today. NEVER commit real key material to the repo
-    # (use a clearly fake value in test fixtures; see .gitleaksignore).
     tunnel_type: Optional[Literal["server", "client", "site-to-site"]] = "server"
     endpoint: Optional[str] = None  # remote endpoint, e.g. base0.example:51820
     peer_public_key: Optional[str] = None  # remote peer's WireGuard public key
     allowed_ips: Optional[str] = None  # e.g. "10.80.0.0/16"
     persistent_keepalive: Optional[int] = Field(default=25, ge=0, le=65535)
     local_address: Optional[str] = None  # local tunnel address, e.g. 10.80.0.2/32
-    private_key: Optional[str] = None  # see at-rest-plaintext note above
+    # private_key is deliberately NOT on the base: the base is inherited by
+    # VPNServerResponse, which answers the require_auth routes list_servers /
+    # get_server — a key on the base meant any authenticated user could read
+    # the site-to-site tunnel private key (F2 REMAINING MAJOR). The key lives
+    # on VPNServerCreate / VPNServerUpdate (write path) and
+    # VPNServerAdminResponse (admin read path) only.
 
 
 class VPNServerCreate(VPNServerBase):
@@ -1168,6 +1169,12 @@ class VPNServerCreate(VPNServerBase):
     openvpn_config: Optional[OpenVPNConfig] = None
     l2tp_config: Optional[L2TPConfig] = None
     pptp_config: Optional[PPTPConfig] = None
+
+    # SECURITY POSTURE: private_key is stored ONLY for client / site-to-site
+    # tunnels and is plaintext at rest in Postgres — the same posture as
+    # Instance.api_key today. NEVER commit real key material to the repo
+    # (use a clearly fake value in test fixtures; see .gitleaksignore).
+    private_key: Optional[str] = None
 
     # F2 BLOCKER #3: every value that can land in a wg-quick client.conf is
     # validated at the schema boundary (shared by the VPN agent's own
@@ -1259,8 +1266,24 @@ class VPNServerResponse(VPNServerBase):
     created_at: datetime
     updated_at: datetime
 
+    # No private_key field: this is the shape the require_auth routes
+    # (list_servers / get_server) return, and it must never carry the
+    # site-to-site tunnel private key (F2 REMAINING MAJOR — the base used to
+    # provide private_key, so any logged-in user could read it).
+
     class Config:
         from_attributes = True
+
+
+class VPNServerAdminResponse(VPNServerResponse):
+    """Admin-only server shape: carries the site-to-site tunnel private key.
+
+    Mirrors VPNClientAdminResponse (F2 MAJOR #6): admin-gated routes
+    (create / update) answer this variant; the plain VPNServerResponse has no
+    private_key, so a non-admin list/detail can never expose the tunnel key.
+    """
+
+    private_key: Optional[str] = None
 
 
 class VPNServerStats(BaseModel):

@@ -391,7 +391,14 @@ class RoutingManager:
     # -- idempotent apply -------------------------------------------------
 
     async def apply_routing(self, routing_rules: Optional[Sequence[Any]]) -> bool:
-        """Reconcile live routing to ``routing_rules``; mutate only deltas."""
+        """Reconcile live routing to ``routing_rules``; mutate only deltas.
+
+        ``errors`` is a per-apply audit trail (surfaced by the agent after
+        every ``deploy_firewall_config``): reset it first so a previous
+        apply's errors never leak into this call's report (F2 REMAINING
+        MINOR #3).
+        """
+        self.errors = []
         desired_rules, desired_routes = self._desired(routing_rules)
         ok = True
         tables = {_table(r.table) for r in desired_rules} | {_table(r.table) for r in desired_routes}

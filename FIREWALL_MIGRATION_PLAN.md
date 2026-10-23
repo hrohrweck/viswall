@@ -321,6 +321,17 @@ Key properties:
   dump (`nft list table inet viswall > /etc/nftables.conf`) with
   `Before=network-pre.target` and `Conflicts=nftables.service`, so the filter is in
   place before the network is up. Never dump `nft list ruleset` into that file.
+- **`/block` is host-INPUT-only (F2 REMAINING MINOR #2, documented scope
+  decision).** The `/block` endpoint (todo-20 carryover) adds timed elements to
+  the `blacklist_v4`/`blacklist_v6` sets, which the renderer references at the
+  TOP of the input chain — immediately after the conntrack
+  established/related accept and before loopback/ICMP/meters/management
+  accepts — so a blocked source IP reaches no host INPUT service, including
+  previously open ports. The blacklist is deliberately NOT referenced in the
+  forward chain: forwarded / docker-published traffic from a blacklisted IP is
+  Docker's concern (Docker's own forward chains at priority 0 keep enforcing
+  per-bridge/per-port policy). This is a scope decision, not a gap — no
+  forward-chain blacklist change.
 
 ---
 

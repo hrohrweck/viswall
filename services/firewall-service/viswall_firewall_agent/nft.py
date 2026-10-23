@@ -440,6 +440,17 @@ class NFTablesManager:
                     "        ct state established,related accept",
                 ]
             )
+        # Blacklist drops FIRST (F2 REMAINING MINOR #1): /block adds timed
+        # elements to the declared blacklist_v4/blacklist_v6 sets. Sitting
+        # them before the loopback/icmp/meters/management accepts means a
+        # blocked source IP reaches NO host INPUT service — not even an
+        # already-open port (22/80/443/51820) or a user-rule accept.
+        # INPUT-only scope: forwarded/docker-published traffic from a
+        # blacklisted IP is Docker's concern (its own forward chains), never
+        # the viswall blacklist (F2 REMAINING MINOR #2).
+        lines.append("        # Blacklist (host INPUT only, pre-accept precedence)")
+        lines.append("        ip saddr @blacklist_v4 drop")
+        lines.append("        ip6 saddr @blacklist_v6 drop")
         lines.extend(
             [
                 "        # Loopback",
@@ -503,10 +514,6 @@ class NFTablesManager:
             # unqualified accepts; this explicit drop covers exactly the
             # live policy-DROP remainder.
             lines.append("        ct state invalid drop")
-        # Blacklist drops, referenced BEFORE the final log-drop: /block adds
-        # timed elements to the declared blacklist_v4/blacklist_v6 sets.
-        lines.append("        ip saddr @blacklist_v4 drop")
-        lines.append("        ip6 saddr @blacklist_v6 drop")
         if logging:
             lines.append('        log prefix "FIREWALL-DROP: " limit rate 5/minute drop')
         else:

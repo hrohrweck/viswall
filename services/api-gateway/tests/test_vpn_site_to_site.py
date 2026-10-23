@@ -563,6 +563,76 @@ class TestClientPrivateKeyExposure:
         assert VALID_WG_PRIV in base64.b64decode(created.json()["config_file"]).decode()
 
 
+class TestServerPrivateKeyExposure:
+    """F2 REMAINING MAJOR: VPNServerResponse inherited VPNServerBase, which
+    carried ``private_key`` (the site-to-site tunnel key). list_servers and
+    get_server are require_auth (not require_admin) — any logged-in user could
+    read the tunnel private key. The plain server shape must never carry it;
+    only the admin variant (VPNServerAdminResponse) on admin-gated routes may."""
+
+    async def _seed_server_with_key(self, instance_id: int) -> int:
+        async with TestSessionLocal() as session:
+            server = VPNServer(
+                instance_id=instance_id,
+                name="site-to-site-base0",
+                enabled=True,
+                protocol="wireguard",
+                tunnel_type="site-to-site",
+                endpoint="base0.example.com:51820",
+                peer_public_key=VALID_WG_PUB,
+                local_address="10.80.210.2/24",
+                network_cidr="10.200.0.0/24",
+                private_key=VALID_WG_PRIV,
+                status="stopped",
+            )
+            session.add(server)
+            await session.commit()
+            await session.refresh(server)
+            return server.id
+
+    async def test_non_admin_list_never_exposes_private_key(
+        self, client: AsyncClient, readonly_user, instance
+    ):
+        await self._seed_server_with_key(instance.id)
+
+        token = await _login(client, "vpnreader", "vpnreaderpass")
+        listed = await client.get(
+            f"/api/v1/vpn/servers/{instance.id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert listed.status_code == 200
+        assert all("private_key" not in item for item in listed.json())
+        assert VALID_WG_PRIV not in listed.text
+
+    async def test_non_admin_detail_never_exposes_private_key(
+        self, client: AsyncClient, readonly_user, instance
+    ):
+        server_id = await self._seed_server_with_key(instance.id)
+
+        token = await _login(client, "vpnreader", "vpnreaderpass")
+        fetched = await client.get(
+            f"/api/v1/vpn/servers/detail/{server_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert fetched.status_code == 200
+        assert "private_key" not in fetched.json()
+        assert VALID_WG_PRIV not in fetched.text
+
+    async def test_admin_update_response_still_returns_private_key(
+        self, client: AsyncClient, admin_user, instance
+    ):
+        server_id = await self._seed_server_with_key(instance.id)
+
+        token = await _login(client, "vpnadmin", "vpnadminpass")
+        updated = await client.patch(
+            f"/api/v1/vpn/servers/{server_id}",
+            json={"private_key": VALID_WG_PRIV},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert updated.status_code == 200
+        assert updated.json().get("private_key") == VALID_WG_PRIV
+
+
 class TestStartStopDispatch:
     async def _seed_server(self, instance_id: int) -> VPNServer:
         async with TestSessionLocal() as session:

@@ -263,3 +263,17 @@ class TestMalformedEntryErrors:
         assert ok is True
         assert any("routing rule 0" in e for e in routing.errors)
         assert routing.mutations == []
+
+    def test_errors_reset_on_each_apply(self, manager) -> None:
+        """F2 REMAINING MINOR #3: errors are a per-apply audit trail — a
+        second apply with a clean payload must not carry over the first
+        apply's stale errors (the agent surfaces ``routing.errors`` after
+        every ``deploy_firewall_config``)."""
+        routing, _state, _rt_tables = manager
+        assert asyncio.run(
+            routing.apply_routing([dict(PAYLOAD[0], priority="high")])
+        ) is True
+        assert any("routing rule 0" in e for e in routing.errors)
+
+        assert asyncio.run(routing.apply_routing(PAYLOAD)) is True
+        assert routing.errors == []

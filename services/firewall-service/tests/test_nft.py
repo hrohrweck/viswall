@@ -774,15 +774,29 @@ class TestBlacklistSets:
         assert "type ipv6_addr" in ruleset
         assert "flags timeout" in ruleset
 
-    def test_input_chain_references_sets_before_final_log_drop(self, monkeypatch) -> None:
+    def test_blacklist_drops_precede_every_input_accept(self, monkeypatch) -> None:
+        """F2 REMAINING MINOR #1: the blacklist drops used to sit immediately
+        before the final log-drop — AFTER the management accepts (22/80/443/
+        51820) and user rules, so a blacklisted IP could still reach an open
+        port. They must sit at the TOP of the input chain (right after the
+        conntrack established/related accept), before loopback/icmp/meters/
+        accepts, so /block blocks a source IP from ALL host INPUT."""
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
         ruleset = _render(NFTablesManager())
         input_chain = _chain_section(ruleset, "input")
         assert "ip saddr @blacklist_v4 drop" in input_chain
         assert "ip6 saddr @blacklist_v6 drop" in input_chain
+        established = input_chain.index("ct state established,related accept")
+        v4_pos = input_chain.index("ip saddr @blacklist_v4 drop")
+        v6_pos = input_chain.index("ip6 saddr @blacklist_v6 drop")
+        first_accept = input_chain.index('iif "lo" accept')
         final_drop = input_chain.index('log prefix "FIREWALL-DROP: ')
-        assert input_chain.index("ip saddr @blacklist_v4 drop") < final_drop
-        assert input_chain.index("ip6 saddr @blacklist_v6 drop") < final_drop
+        # New precedence: established/related accept -> blacklist drops ->
+        # everything else (loopback, icmp, meters, management accepts).
+        assert established < v4_pos < first_accept
+        assert established < v6_pos < first_accept
+        assert v4_pos < final_drop
+        assert v6_pos < final_drop
 
     def test_block_ip_after_apply_targets_the_declared_set(self, monkeypatch) -> None:
         """A blocked IP lands in a set that exists and is referenced."""
