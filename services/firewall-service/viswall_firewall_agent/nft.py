@@ -23,14 +23,20 @@ user-rule pass):
   only when no such row exists; never both.
 * loopback guard — ``chain="input"`` + ``action=DROP`` +
   ``destination="127.0.0.1"`` + ``protocol="tcp"`` + ``destination_port``:
-  grouped into one ``iifname != "lo"`` guarded dport set.
+  grouped into one ``iifname != "lo"`` guarded dport set, rendered in the
+  ``raw_prerouting`` chain (filter hook prerouting priority -300, PRE-DNAT).
 * container-IP anti-spoof — ``anti_spoof=True`` (or "anti-spoof" in
   ``name``/``comment``) + ``chain="forward"`` + ``destination``=container
   IP: rendered as ``iifname != "<bridge>" <family> daddr <ip> drop`` in the
-  forward chain. The bridge comes from ``interface_in`` when set; otherwise
-  it is parsed from the name's ``via <bridge>`` suffix (todo 34 importer
-  convention: "anti-spoof <ip> via <bridge>" — the FirewallRule schema has
-  no interface_in column, so the bridge rides in the row name).
+  ``raw_prerouting`` chain (same hook as the live raw PREROUTING table).
+  Both MUST run pre-DNAT: docker publishes container ports via DNAT, so a
+  post-DNAT placement (input/forward hook) sees the rewritten destination —
+  the loopback guard would miss the 127.0.0.1-published flows entirely, and
+  the anti-spoof drop would wrongly kill legitimate published-port flows
+  (todo 39b finding). The bridge comes from ``interface_in`` when set;
+  otherwise it is parsed from the name's ``via <bridge>`` suffix (todo 34
+  importer convention: "anti-spoof <ip> via <bridge>" — the FirewallRule
+  schema has no interface_in column, so the bridge rides in the row name).
 * internal-port protection — "internal-port" in ``name``/``comment`` +
   ``chain="forward"`` + ``protocol="tcp"`` + ``destination_port``: grouped
   into the DOCKER-USER replacement set (built-in boseman defaults used when
@@ -124,7 +130,6 @@ _MGMT_ACCEPTS: Tuple[Tuple[str, Union[int, Tuple[int, int]]], ...] = (
     ("tcp", 993),
     ("tcp", 995),
     ("tcp", (21114, 21119)),
-    ("udp", 25),
     ("udp", 53),
     ("udp", 21116),
 )
@@ -377,16 +382,13 @@ class NFTablesManager:
                 [
                     "        # Connection tracking",
                     "        ct state established,related accept",
-                    "        ct state invalid drop",
                 ]
             )
         lines.extend(
             [
                 "        # Loopback",
                 '        iif "lo" accept',
-                "        # Container bridges (docker coexistence) — live INPUT accepts docker0 only",
-                '        iifname "docker0" accept',
-                "        # ICMP / ICMPv6 rate limited",
+                "        # ICMP / ICMPv6 rate limited (deliberate addition — live drops all icmp; parity rows A05/A06)",
                 "        ip protocol icmp limit rate 5/second accept",
                 "        ip6 nexthdr icmpv6 limit rate 5/second accept",
             ]
@@ -417,22 +419,63 @@ class NFTablesManager:
                 f"        meta nfproto ipv4 udp dport {self._port_set(v4_udp)} accept",
                 f"        meta nfproto ipv6 tcp dport {self._port_set(v6_tcp)} accept",
                 f"        meta nfproto ipv6 udp dport {self._port_set(v6_udp)} accept",
-                "        # PostgreSQL never exposed",
-                "        tcp dport 5432 drop",
             ]
         )
-        loop = self._loopback_ports(rules)
-        if loop:
-            lines.append(
-                f'        iifname != "lo" ip daddr 127.0.0.1 tcp dport {self._port_set(loop)} drop'
-            )
+        # Docker bridge input accept — positioned AFTER the meters and the
+        # management accepts exactly like live line 96 (live hashlimits
+        # docker0-sourced ssh/http/https/wg too; an early accept would let
+        # docker0 traffic bypass the meters). Precedes the 5432 drop, like
+        # live (docker0 can reach the host's postgres socket).
+        lines.append("        # Container bridges (docker coexistence) — live INPUT accepts docker0 only")
+        lines.append('        iifname "docker0" accept')
+        lines.append("        # PostgreSQL never exposed")
+        lines.append("        tcp dport 5432 drop")
         # User rules: ALWAYS after the mandatory accepts above (a console rule
         # can never override SSH/WG/established/lo access).
         lines.extend(self._user_rules(rules, "input"))
+        if conntrack:
+            # Invalid-state drop sits AFTER every accept: live had no invalid
+            # rule at all, so invalids to open ports/lo/docker0 passed its
+            # unqualified accepts; this explicit drop covers exactly the
+            # live policy-DROP remainder.
+            lines.append("        ct state invalid drop")
         if logging:
             lines.append('        log prefix "FIREWALL-DROP: " limit rate 5/minute drop')
         else:
             lines.append("        drop")
+        lines.append("    }")
+        return "\n".join(lines)
+
+    def _render_prerouting(self, validation: bool, rules: List[FirewallRule]) -> str:
+        """Raw prerouting chain — the live raw-PREROUTING home of the
+        loopback guards and the container-IP anti-spoof drops.
+
+        Both rule families must run PRE-DNAT (filter hook prerouting priority
+        -300, before conntrack at -200 and docker's nat prerouting at -100):
+        docker publishes container ports via DNAT, so at the input/forward
+        hooks the destination is already rewritten. A post-DNAT guard misses
+        the 127.0.0.1-published flows, and a post-DNAT anti-spoof rule also
+        matches legitimate published-port flows (todo 39b: the forward-chain
+        placement rendered in todo 7b dropped every WAN-published port).
+        """
+        if validation:
+            return ""
+        lines: List[str] = [
+            "    chain raw_prerouting {",
+            "        type filter hook prerouting priority -300; policy accept;",
+        ]
+        loop = self._loopback_ports(rules)
+        anti_spoof = self._anti_spoof_lines(rules)
+        if not loop and not anti_spoof:
+            return ""
+        if loop:
+            lines.append("        # Loopback guards (live raw PREROUTING: -d 127.0.0.1/32 ! -i lo)")
+            lines.append(
+                f'        iifname != "lo" ip daddr 127.0.0.1 tcp dport {self._port_set(loop)} drop'
+            )
+        if anti_spoof:
+            lines.append("        # Container-IP anti-spoof drops (live raw PREROUTING)")
+            lines.extend(anti_spoof)
         lines.append("    }")
         return "\n".join(lines)
 
@@ -454,16 +497,15 @@ class NFTablesManager:
             return "\n".join(lines)
         if conntrack:
             lines.append("        ct state established,related accept")
-        lines.append("        # Container-IP anti-spoof drops")
-        lines.extend(self._anti_spoof_lines(rules))
         ports = self._internal_ports(rules)
         # DOCKER-USER replacement, rendered BEFORE the bridge accepts: live
         # jumps to DOCKER-USER before DOCKER-FORWARD — a bridge accept first
-        # would let WAN->published internal ports through.
+        # would let WAN->published internal ports through. ``meta l4proto
+        # tcp`` reproduces live's ``-p tcp`` scope (both families).
         lines.append("        # DOCKER-USER replacement: external access to internal ports")
         for wan in wan_ifaces or [DEFAULT_WAN]:
             lines.append(
-                f'        iifname "{wan}" ct direction original ct original proto-dst {self._port_set(ports)} drop'
+                f'        iifname "{wan}" meta l4proto tcp ct direction original ct original proto-dst {self._port_set(ports)} drop'
             )
         lines.extend(
             [
@@ -538,6 +580,7 @@ class NFTablesManager:
             self._render_header(),
             "table inet viswall {",
         ]
+        parts.append(self._render_prerouting(validation, firewall_rules))
         parts.append(self._render_input(validation, firewall_rules, enable_conntrack, enable_logging))
         parts.append(self._render_forward(validation, firewall_rules, wan_ifaces, enable_conntrack))
         parts.append(self._render_output(validation, enable_conntrack))

@@ -306,17 +306,28 @@ class TestDockerCoexistence:
         forward_chain = _chain_section(ruleset, "forward")
         established = forward_chain.index("ct state established,related accept")
         docker_user = forward_chain.index(
-            'iifname "enp0s31f6" ct direction original ct original proto-dst'
+            'iifname "enp0s31f6" meta l4proto tcp ct direction original'
         )
         bridge_accept = forward_chain.index('iifname "docker0" accept')
         assert established < docker_user < bridge_accept
+
+    def test_docker_user_replacement_is_tcp_scoped(self, monkeypatch) -> None:
+        """Todo 39 D18: live DOCKER-USER carries -p tcp; the replacement must
+        not drop non-tcp flows whose original dst port collides with the set."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        forward_chain = _chain_section(ruleset, "forward")
+        assert (
+            'iifname "enp0s31f6" meta l4proto tcp ct direction original ct original proto-dst {11434} drop'
+            in forward_chain
+        )
 
     def test_docker_user_port_set_with_db_rule(self, monkeypatch) -> None:
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
         ruleset = _render(NFTablesManager())
         forward_chain = _chain_section(ruleset, "forward")
         assert (
-            'iifname "enp0s31f6" ct direction original ct original proto-dst {11434} drop'
+            'iifname "enp0s31f6" meta l4proto tcp ct direction original ct original proto-dst {11434} drop'
             in forward_chain
         )
 
@@ -372,29 +383,38 @@ class TestDockerCoexistence:
 
 
 class TestChainPlacement:
-    def test_loopback_guards_render_in_input(self, monkeypatch) -> None:
+    def test_loopback_guards_render_in_raw_prerouting(self, monkeypatch) -> None:
+        """Todo 39 A32: the guards live in raw PREROUTING (pre-DNAT); the
+        input hook sees docker's 127.0.0.1-published flows already DNAT'd."""
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
         ruleset = _render(NFTablesManager())
-        input_chain = _chain_section(ruleset, "input")
+        prerouting = _chain_section(ruleset, "raw_prerouting")
         assert (
             'iifname != "lo" ip daddr 127.0.0.1 tcp dport {8000, 8001, 8080} drop'
-            in input_chain
+            in prerouting
         )
+        assert "type filter hook prerouting priority -300; policy accept;" in prerouting
 
-    def test_loopback_guards_never_in_forward(self, monkeypatch) -> None:
-        monkeypatch.delenv("VALIDATION_MODE", raising=False)
-        ruleset = _render(NFTablesManager())
-        forward_chain = _chain_section(ruleset, "forward")
-        assert "127.0.0.1" not in forward_chain
-
-    def test_anti_spoof_renders_in_forward_only(self, monkeypatch) -> None:
-        """Oracle #2: anti-spoof drops belong to FORWARD, never input."""
+    def test_loopback_guards_never_in_input_or_forward(self, monkeypatch) -> None:
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
         ruleset = _render(NFTablesManager())
         input_chain = _chain_section(ruleset, "input")
         forward_chain = _chain_section(ruleset, "forward")
-        assert 'iifname != "br-abc123" ip daddr 172.19.0.5 drop' in forward_chain
+        assert "127.0.0.1" not in input_chain
+        assert "127.0.0.1" not in forward_chain
+
+    def test_anti_spoof_renders_in_raw_prerouting_only(self, monkeypatch) -> None:
+        """Todo 39b: anti-spoof must run PRE-DNAT. In the forward chain it
+        also matches docker's DNAT'd published-port flows (post-DNAT daddr is
+        the container IP) and drops every WAN-published port."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        input_chain = _chain_section(ruleset, "input")
+        forward_chain = _chain_section(ruleset, "forward")
+        prerouting = _chain_section(ruleset, "raw_prerouting")
+        assert 'iifname != "br-abc123" ip daddr 172.19.0.5 drop' in prerouting
         assert "172.19.0.5" not in input_chain
+        assert "172.19.0.5" not in forward_chain
 
     def test_anti_spoof_bridge_parsed_from_name_convention(self, monkeypatch) -> None:
         """Todo 38/39 gap: rows carry the bridge in the name ("via <bridge>"),
@@ -417,12 +437,12 @@ class TestChainPlacement:
             ),
         ]
         ruleset = _render(NFTablesManager(), rules=rules)
-        forward_chain = _chain_section(ruleset, "forward")
+        prerouting = _chain_section(ruleset, "raw_prerouting")
         assert (
             'iifname != "br-d46e3a305cbd" ip daddr 172.18.0.3/32 drop'
-            in forward_chain
+            in prerouting
         )
-        assert 'iifname != "docker0" ip6 daddr fd00:42::2/128 drop' in forward_chain
+        assert 'iifname != "docker0" ip6 daddr fd00:42::2/128 drop' in prerouting
 
     def test_ipv6_scoping_matches_open_set(self, monkeypatch) -> None:
         """Oracle #8: v6 opens only 22/80/443/51820; mail ports stay v4-only."""
@@ -432,7 +452,7 @@ class TestChainPlacement:
             "meta nfproto ipv4 tcp dport {22, 25, 53, 80, 110, 143, 443, 993, 995, 21114-21119} accept"
             in ruleset
         )
-        assert "meta nfproto ipv4 udp dport {25, 53, 21116, 51820} accept" in ruleset
+        assert "meta nfproto ipv4 udp dport {53, 21116, 51820} accept" in ruleset
         assert "meta nfproto ipv6 tcp dport {22, 80, 443} accept" in ruleset
         assert "meta nfproto ipv6 udp dport {51820} accept" in ruleset
 
@@ -472,6 +492,55 @@ class TestChainPlacement:
         with_ct = _render(NFTablesManager())
         assert "ct state established,related accept" in with_ct
         assert "ct state invalid drop" in with_ct
+
+
+class TestTodo39bParity:
+    """Regressions for the todo-39b parity fixes (checklist A05/A06/A29/A32/D18
+    and the published-port divergence found in the 7b render)."""
+
+    def test_udp_25_not_opened(self, monkeypatch) -> None:
+        """Todo 39 A29: live opens tcp/25 only (v4:82); the renderer must not
+        open udp/25 (live drops it)."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        assert "meta nfproto ipv4 udp dport {53, 21116, 51820} accept" in ruleset
+        assert "meta nfproto ipv4 udp dport {25," not in ruleset
+
+    def test_docker0_accept_after_meters(self, monkeypatch) -> None:
+        """Live INPUT order (lines 80-96): the hashlimits precede the docker0
+        accept, so docker0-sourced ssh/http/https/wg IS rate-limited. An early
+        docker0 accept would let bridge traffic bypass the meters."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        input_chain = _chain_section(ruleset, "input")
+        meter = input_chain.index("meta nfproto ipv4 tcp dport 22 meter ssh_limit")
+        mgmt = input_chain.index("meta nfproto ipv4 tcp dport {22,")
+        docker0 = input_chain.index('iifname "docker0" accept')
+        pg = input_chain.index("tcp dport 5432 drop")
+        assert meter < mgmt < docker0 < pg
+
+    def test_invalid_drop_after_accepts(self, monkeypatch) -> None:
+        """Live has no invalid-state rule: invalids to open ports/lo/docker0
+        pass its unqualified accepts. The explicit invalid drop must therefore
+        sit AFTER the accepts and cover only the policy-DROP remainder."""
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager())
+        input_chain = _chain_section(ruleset, "input")
+        docker0 = input_chain.index('iifname "docker0" accept')
+        first_user = input_chain.index("user rule input")
+        invalid = input_chain.index("ct state invalid drop")
+        final = input_chain.index('log prefix "FIREWALL-DROP: " limit rate 5/minute drop')
+        assert docker0 < first_user < invalid < final
+
+    def test_raw_prerouting_skipped_in_validation_mode(self, monkeypatch) -> None:
+        monkeypatch.setenv("VALIDATION_MODE", "1")
+        ruleset = _render(NFTablesManager())
+        assert "raw_prerouting" not in ruleset
+
+    def test_raw_prerouting_omitted_without_rules(self, monkeypatch) -> None:
+        monkeypatch.delenv("VALIDATION_MODE", raising=False)
+        ruleset = _render(NFTablesManager(), rules=[])
+        assert "chain raw_prerouting" not in ruleset
 
 
 class TestValidationMode:
@@ -592,7 +661,7 @@ class TestUserRuleRendering:
         ruleset = _render(
             NFTablesManager(), interfaces=[{"name": "bad iface!", "type": "wan"}]
         )
-        assert 'iifname "enp0s31f6" ct direction original' in ruleset
+        assert 'iifname "enp0s31f6" meta l4proto tcp ct direction original' in ruleset
         assert 'iifname "bad iface!"' not in ruleset
 
 
