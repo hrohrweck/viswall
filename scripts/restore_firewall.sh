@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # restore_firewall.sh — host-native emergency restore of the pre-migration firewall.
 #
-# Usage: restore_firewall.sh [--dry-run] [--no-restart-docker] <snapshot-dir>
+# Usage: restore_firewall.sh [--dry-run] [--no-restart-docker] [<snapshot-dir>]
 #
 # The dead-man-switch revert path (deployed to /usr/local/sbin/restore_firewall.sh
 # in todo 44). Host-native on purpose: it must work even when the viswall
@@ -43,10 +43,12 @@ RESTART_DOCKER=1
 
 usage() {
     cat >&2 <<EOF
-usage: $0 [--dry-run] [--no-restart-docker] <snapshot-dir>
+usage: $0 [--dry-run] [--no-restart-docker] [<snapshot-dir>]
 
   --dry-run            print every command instead of executing it
   --no-restart-docker  skip the docker restart (rehearsals only)
+  <snapshot-dir>       (default: newest directory under $STATE_DIR/snapshots;
+                       the dead-man-switch trap invokes the script without it)
 EOF
     exit 2
 }
@@ -115,8 +117,19 @@ done
 
 SNAPSHOT_DIR="${1:-}"
 if [ -z "$SNAPSHOT_DIR" ]; then
-    echo "error: missing <snapshot-dir> argument" >&2
-    usage
+    # Emergency default (plan todo 40 dead-man switch): the watchdog arms the
+    # trap as `restore_firewall.sh $RESTORE_FLAGS` with NO positional argument,
+    # so the script must locate the newest agent snapshot itself. Snapshots
+    # live under $STATE_DIR/snapshots/<timestamp>/ (lexical sort == time
+    # order) and hold the pre-apply rules.v4/rules.v6 (+ netplan/ when
+    # present). No snapshot at all is a hard error: the trap must never exit 0
+    # pretending to have restored something.
+    SNAPSHOT_DIR="$(find "$STATE_DIR/snapshots" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -1 || true)"
+    if [ -z "$SNAPSHOT_DIR" ]; then
+        log "FATAL: no <snapshot-dir> argument and no snapshots under $STATE_DIR/snapshots"
+        usage
+    fi
+    log "no snapshot argument; using newest snapshot: $SNAPSHOT_DIR"
 fi
 if [ ! -d "$SNAPSHOT_DIR" ]; then
     log "FATAL: snapshot dir not found: $SNAPSHOT_DIR"
