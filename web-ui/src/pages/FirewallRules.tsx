@@ -10,6 +10,7 @@ import {
   useReorderFirewallRule,
   useDeployFirewall,
   useFirewallStats,
+  useFirewallStatus,
   useRollbackFirewall,
 } from '../hooks/useApi'
 import {
@@ -67,6 +68,7 @@ export function FirewallRules() {
   const reorderMutation = useReorderFirewallRule(selectedInstanceId!)
   const deployMutation = useDeployFirewall(selectedInstanceId!)
   const { data: stats, isLoading: statsLoading, isError: statsError } = useFirewallStats(selectedInstanceId!)
+  const { data: status } = useFirewallStatus(selectedInstanceId!)
   const rollbackMutation = useRollbackFirewall(selectedInstanceId!)
 
   const [showCreate, setShowCreate] = useState(false)
@@ -268,9 +270,9 @@ export function FirewallRules() {
         }
       />
 
-      {/* Agent status card — fed by GET /firewall/stats/{instanceId} (real at
-          HEAD). apply_error renders once the gateway /firewall/status
-          passthrough lands (REQUIRED follow-up, see task-29 evidence). */}
+      {/* Agent status card — liveness badge fed by GET /firewall/stats/{instanceId};
+          last_applied_at + validation_mode fed by GET /firewall/status/{instanceId}
+          (gateway passthrough to the agent's /firewall/status). */}
       <Card
         className="mt-6"
         title="Agent status"
@@ -308,6 +310,20 @@ export function FirewallRules() {
               <span className="ml-1 font-mono text-on-surface">
                 {new Date(stats.timestamp).toLocaleString()}
               </span>
+            </div>
+          )}
+          {status?.last_applied_at && (
+            <div className="text-sm text-on-surface-muted">
+              Last applied
+              <span className="ml-1 font-mono text-on-surface">
+                {new Date(status.last_applied_at).toLocaleString()}
+              </span>
+            </div>
+          )}
+          {status?.validation_mode && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-on-surface-muted">Validation mode</span>
+              <Badge variant="warning">ON</Badge>
             </div>
           )}
           {!statsLoading && stats?.apply_error && (

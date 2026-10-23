@@ -676,6 +676,170 @@ class TestFirewallRollbackPassthrough:
         }
 
 
+class TestFirewallMutationDispatch:
+    """Rule PATCH/DELETE/MOVE and NAT/routing create must push the desired
+    state to the firewall agent (POST /firewall/apply, service="firewall").
+
+    Unlike the create-rule test (which patches ``firewall_router.apply_firewall_config``),
+    these tests patch ``dispatch_mod.agent_request`` — the real chain through
+    ``apply_firewall_config`` — so the assertions cover the actual path,
+    service and the post-mutation payload shape, not a mock-of-a-mock.
+    """
+
+    @pytest.fixture
+    def captured_agent_request(self, monkeypatch):
+        captured: dict = {}
+
+        async def _recorder(db, instance_id, method, path, json_data=None, **kwargs):
+            captured.update(
+                instance_id=instance_id,
+                method=method,
+                path=path,
+                service=kwargs.get("service"),
+                json=json_data,
+            )
+            return {"applied": True}
+
+        monkeypatch.setattr(dispatch_mod, "agent_request", _recorder)
+        return captured
+
+    async def test_update_rule_dispatches_firewall_apply(
+        self, client: AsyncClient, admin_user, instance, captured_agent_request
+    ):
+        rule = await _seed_rule(instance.id, name="old-name", source_type="any", dest_type="any", service_protocol="tcp", service_ports="22", action="accept")
+
+        token = await _login(client)
+        response = await client.patch(
+            f"/api/v1/firewall/rules/{rule.id}",
+            json={"name": "renamed-rule", "action": "drop"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "renamed-rule"
+        assert response.json()["action"] == "drop"
+
+        captured = captured_agent_request
+        assert captured["method"] == "POST"
+        assert captured["path"] == "/firewall/apply"
+        assert captured["service"] == "firewall"
+        assert captured["instance_id"] == instance.id
+        rules = captured["json"]["rules"]
+        assert [r["name"] for r in rules] == ["renamed-rule"]
+        assert rules[0]["action"] == "drop"
+
+    async def test_delete_rule_dispatches_firewall_apply_without_deleted_rule(
+        self, client: AsyncClient, admin_user, instance, captured_agent_request
+    ):
+        keep = await _seed_rule(instance.id, name="keep-rule", source_type="any", dest_type="any", service_protocol="tcp", service_ports="443")
+        drop = await _seed_rule(instance.id, name="drop-rule", source_type="any", dest_type="any", service_protocol="tcp", service_ports="5432")
+
+        token = await _login(client)
+        response = await client.delete(
+            f"/api/v1/firewall/rules/{drop.id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 204
+
+        captured = captured_agent_request
+        assert captured["method"] == "POST"
+        assert captured["path"] == "/firewall/apply"
+        assert captured["service"] == "firewall"
+        # The dispatch payload must reflect the deletion, not a stale snapshot.
+        assert [r["name"] for r in captured["json"]["rules"]] == ["keep-rule"]
+
+        async with TestSessionLocal() as session:
+            remaining = (
+                await session.execute(select(FirewallRule).where(FirewallRule.id == keep.id))
+            ).scalar_one_or_none()
+        assert remaining is not None
+
+    async def test_move_rule_dispatches_firewall_apply_with_reordered_payload(
+        self, client: AsyncClient, admin_user, instance, captured_agent_request
+    ):
+        first = await _seed_rule(instance.id, name="first-rule", source_type="any", dest_type="any", service_protocol="tcp", order_index=10)
+        await _seed_rule(instance.id, name="second-rule", source_type="any", dest_type="any", service_protocol="tcp", order_index=20)
+
+        token = await _login(client)
+        response = await client.post(
+            f"/api/v1/firewall/rules/{first.id}/move?direction=down",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "moved", "direction": "down"}
+
+        captured = captured_agent_request
+        assert captured["method"] == "POST"
+        assert captured["path"] == "/firewall/apply"
+        assert captured["service"] == "firewall"
+        # The swap took effect: first-rule now sorts after second-rule.
+        assert [r["name"] for r in captured["json"]["rules"]] == [
+            "second-rule",
+            "first-rule",
+        ]
+
+    async def test_nat_create_dispatches_firewall_apply(
+        self, client: AsyncClient, admin_user, instance, captured_agent_request, monkeypatch
+    ):
+        # NAT create dispatches via BackgroundTasks → reload_firewall, which
+        # opens its own session from shared.database.AsyncSessionLocal.
+        monkeypatch.setattr(shared_database, "AsyncSessionLocal", TestSessionLocal)
+
+        token = await _login(client)
+        response = await client.post(
+            f"/api/v1/firewall/nat/{instance.id}",
+            json={
+                "name": "docker-snat",
+                "type": "masquerade",
+                "interface": "enp0s31f6",
+                "source_network": "172.17.0.0/16",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 201
+        assert response.json()["name"] == "docker-snat"
+
+        captured = captured_agent_request
+        assert captured["method"] == "POST"
+        assert captured["path"] == "/firewall/apply"
+        assert captured["service"] == "firewall"
+        assert captured["instance_id"] == instance.id
+        assert [n["name"] for n in captured["json"]["nat_rules"]] == ["docker-snat"]
+        assert captured["json"]["nat_rules"][0]["type"] == "masquerade"
+
+    async def test_routing_create_dispatches_firewall_apply(
+        self, client: AsyncClient, admin_user, instance, captured_agent_request, monkeypatch
+    ):
+        # Routing create dispatches via the same BackgroundTasks path as NAT.
+        monkeypatch.setattr(shared_database, "AsyncSessionLocal", TestSessionLocal)
+
+        token = await _login(client)
+        response = await client.post(
+            f"/api/v1/firewall/routing/{instance.id}",
+            json={
+                "name": "wg-policy",
+                "source_network": "10.80.0.0/16",
+                "gateway": "10.80.210.1",
+                "outbound_interface": "client",
+                "mark": 510,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 201
+        assert response.json()["name"] == "wg-policy"
+
+        captured = captured_agent_request
+        assert captured["method"] == "POST"
+        assert captured["path"] == "/firewall/apply"
+        assert captured["service"] == "firewall"
+        assert captured["instance_id"] == instance.id
+        assert [r["name"] for r in captured["json"]["routing_rules"]] == ["wg-policy"]
+
+
 class TestNatRuleSchemaInjectionGuard:
     """F2 MAJOR #4: NATRuleBase rejects ruleset-injection to_source/
     to_destination values (newline + ``flush chain input``)."""

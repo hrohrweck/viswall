@@ -105,6 +105,50 @@ describe('FirewallRules agent status card', () => {
   })
 })
 
+describe('FirewallRules status passthrough', () => {
+  it('fetches /firewall/status/:instanceId and renders last_applied_at + validation_mode', async () => {
+    let capturedPath = ''
+    const lastApplied = '2026-10-22T21:49:34Z'
+    server.use(
+      http.get('/api/v1/firewall/status/:instanceId', ({ request }) => {
+        capturedPath = new URL(request.url).pathname
+        return HttpResponse.json({
+          validation_mode: true,
+          table_present: true,
+          last_applied_at: lastApplied,
+        })
+      }),
+    )
+
+    const Wrapper = createWrapper()
+    render(<FirewallRules />, { wrapper: Wrapper })
+
+    await screen.findByText('online')
+    await waitFor(() => {
+      expect(capturedPath).toBe('/api/v1/firewall/status/1')
+    })
+
+    expect(screen.getByText('Validation mode')).toBeInTheDocument()
+    expect(screen.getByText('ON')).toBeInTheDocument()
+    expect(screen.getByText(new Date(lastApplied).toLocaleString())).toBeInTheDocument()
+  })
+
+  it('hides last-applied and validation-mode rows for the unreachable sentinel', async () => {
+    server.use(
+      http.get('/api/v1/firewall/status/:instanceId', () =>
+        HttpResponse.json({ status: 'unreachable' }),
+      ),
+    )
+
+    const Wrapper = createWrapper()
+    render(<FirewallRules />, { wrapper: Wrapper })
+
+    await screen.findByText('online')
+    expect(screen.queryByText('Validation mode')).not.toBeInTheDocument()
+    expect(screen.queryByText('Last applied')).not.toBeInTheDocument()
+  })
+})
+
 describe('FirewallRules rollback control', () => {
   it('posts to /firewall/rollback/1 only after dialog confirm', async () => {
     let capturedPath = ''

@@ -136,7 +136,8 @@ class TestLogin:
 class TestGetCurrentUser:
     async def test_me_without_token(self, client: AsyncClient):
         response = await client.get("/api/v1/auth/me")
-        assert response.status_code == 403
+        assert response.status_code == 401
+        assert response.headers.get("WWW-Authenticate") == "Bearer"
 
     async def test_me_with_invalid_token(self, client: AsyncClient):
         response = await client.get(

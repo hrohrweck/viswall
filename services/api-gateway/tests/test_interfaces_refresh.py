@@ -334,3 +334,135 @@ class TestInterfaceRefresh:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 403
+
+
+async def _seed_interface(instance, name: str = "enp0s31f6") -> NetworkInterface:
+    async with TestSessionLocal() as session:
+        iface = NetworkInterface(
+            instance_id=instance.id,
+            name=name,
+            type="other",
+            config_type="dhcp",
+            enabled=True,
+        )
+        session.add(iface)
+        await session.commit()
+        await session.refresh(iface)
+        return iface
+
+
+class TestInterfacePatchAndApply:
+    async def test_patch_persists_type(
+        self, client: AsyncClient, superadmin_user, instance
+    ):
+        iface = await _seed_interface(instance)
+
+        token = await _login(client, "netsuper", "netsuperpass")
+        response = await client.patch(
+            f"/api/v1/network/interfaces/detail/{iface.id}",
+            json={"type": "wan", "config_type": "static"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["type"] == "wan"
+        assert response.json()["config_type"] == "static"
+
+        async with TestSessionLocal() as session:
+            row = (
+                await session.execute(
+                    select(NetworkInterface).where(NetworkInterface.id == iface.id)
+                )
+            ).scalar_one()
+        assert row.type == "wan"
+        assert row.config_type == "static"
+
+    async def test_patch_then_apply_dispatches_patched_config(
+        self, client: AsyncClient, superadmin_user, instance, monkeypatch
+    ):
+        iface = await _seed_interface(instance)
+
+        captured: dict = {}
+
+        async def fake_agent_request(db, iid, method, path, json_data=None, **kwargs):
+            captured["method"] = method
+            captured["path"] = path
+            captured["service"] = kwargs.get("service")
+            captured["payload"] = json_data
+            return {
+                "success": True,
+                "changes": [],
+                "netplan_written": True,
+                "message": "applied",
+            }
+
+        token = await _login(client, "netsuper", "netsuperpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        patched = await client.patch(
+            f"/api/v1/network/interfaces/detail/{iface.id}",
+            json={"type": "wan", "config_type": "static"},
+            headers=headers,
+        )
+        assert patched.status_code == 200
+
+        monkeypatch.setattr(network_router, "agent_request", fake_agent_request)
+        applied = await client.post(
+            f"/api/v1/network/interfaces/{instance.id}/apply",
+            json={"force": False},
+            headers=headers,
+        )
+        assert applied.status_code == 200
+
+        assert captured["method"] == "POST"
+        assert captured["path"] == "/interfaces/apply"
+        assert captured["service"] == "node"
+        entry = captured["payload"]["interfaces"][0]
+        assert entry["name"] == "enp0s31f6"
+        assert entry["config_type"] == "static"
+
+    async def test_apply_returns_probe_netplan_passthrough(
+        self, client: AsyncClient, superadmin_user, instance, monkeypatch
+    ):
+        await _seed_interface(instance)
+
+        agent_result = {
+            "success": True,
+            "changes": [],
+            "default_route_interface": "enp0s31f6",
+            "netplan_file": "/etc/netplan/60-viswall.yaml",
+            "netplan_written": True,
+            "message": "netplan accepted",
+            "try_mode": True,
+            "probes": [
+                {"name": "ssh-22", "ok": True},
+                {"name": "gateway-127.0.0.1:8010", "ok": True},
+                {"name": "ping-46.4.63.193", "ok": True},
+            ],
+            "netplan_outcome": "accepted",
+            "snapshot_dir": "/var/lib/viswall-node/snapshots/20261022T120000Z",
+        }
+
+        async def fake_agent_request(db, iid, method, path, json_data=None, **kwargs):
+            return agent_result
+
+        monkeypatch.setattr(network_router, "agent_request", fake_agent_request)
+
+        token = await _login(client, "netsuper", "netsuperpass")
+        response = await client.post(
+            f"/api/v1/network/interfaces/{instance.id}/apply",
+            json={"force": False},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["try_mode"] is True
+        assert [p["name"] for p in body["probes"]] == [
+            "ssh-22",
+            "gateway-127.0.0.1:8010",
+            "ping-46.4.63.193",
+        ]
+        assert body["netplan_outcome"] == "accepted"
+        assert body["snapshot_dir"] == "/var/lib/viswall-node/snapshots/20261022T120000Z"

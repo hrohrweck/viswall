@@ -19,6 +19,7 @@ import type {
   FirewallRuleCreate,
   FirewallRuleUpdate,
   FirewallStats,
+  FirewallStatus,
   FirewallRollbackResponse,
   NetworkInterface,
   MailDomain,
@@ -113,6 +114,7 @@ const queryKeys = {
   user: (id: number) => ['users', id] as const,
   firewallRules: (instanceId: number) => ['firewall-rules', instanceId] as const,
   firewallStats: (instanceId: number) => ['firewall-stats', instanceId] as const,
+  firewallStatus: (instanceId: number) => ['firewall-status', instanceId] as const,
   networkInterfaces: (instanceId: number) => ['network-interfaces', instanceId] as const,
   networkInterfacesLive: (instanceId: number) => ['network-interfaces-live', instanceId] as const,
   mailDomains: (instanceId: number) => ['mail-domains', instanceId] as const,
@@ -486,6 +488,7 @@ export function useDeployFirewall(instanceId: number) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.firewallStats(instanceId) })
+      qc.invalidateQueries({ queryKey: queryKeys.firewallStatus(instanceId) })
     },
   })
 }
@@ -506,6 +509,22 @@ export function useFirewallStats(
   })
 }
 
+export function useFirewallStatus(
+  instanceId: number,
+  options?: Partial<UseQueryOptions<FirewallStatus>>,
+) {
+  return useQuery<FirewallStatus>({
+    queryKey: queryKeys.firewallStatus(instanceId),
+    queryFn: async () => {
+      const { data } = await api.get(`/firewall/status/${instanceId}`)
+      return data
+    },
+    enabled: !!instanceId,
+    refetchInterval: 30_000,
+    ...options,
+  })
+}
+
 export function useRollbackFirewall(instanceId: number) {
   const qc = useQueryClient()
   return useMutation({
@@ -515,6 +534,7 @@ export function useRollbackFirewall(instanceId: number) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.firewallStats(instanceId) })
+      qc.invalidateQueries({ queryKey: queryKeys.firewallStatus(instanceId) })
     },
   })
 }

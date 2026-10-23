@@ -43,6 +43,7 @@ export const handlers = [
 
   // --- Firewall / NAT / QoS / interfaces -----------------------------------
   http.get('/api/v1/firewall/rules/:instanceId', () => HttpResponse.json(f.firewallRules)),
+  http.get('/api/v1/firewall/status/:instanceId', () => HttpResponse.json(f.firewallStatus)),
   // Deploy write path (final-qa e2e): the success-toast assertion needs a
   // 2xx — bypassed requests fall through to the Vite dev server (404), and
   // page.route cannot intercept fetches the worker re-issues from the

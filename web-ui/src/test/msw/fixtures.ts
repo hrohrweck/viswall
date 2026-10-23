@@ -16,6 +16,7 @@ import {
   DHCPSubnetType,
   FirewallAction,
   FirewallRule,
+  FirewallStatus,
   Instance,
   InstanceStatus,
   LoginResponse,
@@ -296,6 +297,12 @@ export const firewallRules: FirewallRule[] = [
     updated_at: FIXED_NOW,
   },
 ]
+
+export const firewallStatus: FirewallStatus = {
+  validation_mode: false,
+  table_present: true,
+  last_applied_at: '2026-10-22T21:49:34Z',
+}
 
 export const networkInterfaces: NetworkInterface[] = [
   {

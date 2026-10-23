@@ -247,6 +247,19 @@ export interface FirewallRollbackResponse {
   status?: string
 }
 
+/**
+ * GET /firewall/status/{instanceId} passthrough: the gateway relays the
+ * agent's /firewall/status payload verbatim (validation_mode, table_present,
+ * last_applied_at). An unreachable agent yields {"status": "unreachable"}.
+ */
+export interface FirewallStatus {
+  validation_mode?: boolean
+  table_present?: boolean
+  last_applied_at?: string | null
+  apply_error?: string | null
+  status?: string
+}
+
 export interface NATRule {
   id: number
   instance_id: number
