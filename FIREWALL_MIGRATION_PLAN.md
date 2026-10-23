@@ -81,10 +81,12 @@ Ordering in the live INPUT chain, which the renderer must preserve:
 3. The four hashlimit DROP rules, each immediately before its matching ACCEPT.
 4. `-m limit --limit 5/min -j LOG --log-prefix "FIREWALL-DROP: "` (line 95).
 5. `-i docker0 -j ACCEPT` (line 96). Docker-owned, must survive the migration.
-   `docker0` is the **only** bridge accepted in INPUT: the live capture has no
-   `br-*` accept, so bridge-to-host traffic on every other bridge falls to the
-   INPUT policy `DROP` exactly like live. The renderer must not add `br-*` INPUT
-   accepts.
+   `docker0` is the **only** bridge with a broad INPUT accept: the live capture
+   has no `br-*` accept, so bridge-to-host traffic on every other bridge falls
+   to the INPUT policy `DROP` exactly like live. The renderer adds no broad
+   `br-*` input accept; its only `br-*` accepts are the port-scoped
+   agent-control accepts (8081/8083/8085, a viswall-only addition with no live
+   equivalent, parity row A35).
 6. `-p tcp --dport 5432 -j DROP` (line 97). Postgres is never reachable from the public NIC.
 7. RustDesk accepts, 21114-21119 tcp plus 21116 udp (lines 98-104).
 
@@ -190,8 +192,13 @@ network:
 ```
 
 The WAN address is a `/32` on-link route, so a bad netplan write can strand the
-host completely. Every apply goes through `netplan try` with health probes and a
-120 s auto-revert. Automated WAN address changes are out of scope (section 6).
+host completely. Netplan is owned by the **node-agent** (port 8085), not the
+firewall agent. Every apply goes through `netplan try --timeout 120` with health
+probes and the 120 s auto-revert. Before writing, the node-agent copies the
+previous file to `$STATE_DIR/backups/<utc-stamp>/` (`$STATE_DIR` defaults to
+`/var/lib/viswall-node`), never to a backup directory inside `/etc/netplan`,
+which netplan would parse as a second source. Automated WAN address changes are
+out of scope (section 6).
 
 ### 1.7 WireGuard client (site-to-site, split tunnel)
 
@@ -262,22 +269,25 @@ file-write path, with the tunnel verified up afterwards.
         |  wg-quick@client  (single lifecycle owner of the tunnel)     |
         +--------------+-----------------------------------------------+
                        |
-     loopback control plane (127.0.0.1 only, X-Instance-Key auth)
+     host-bridge control plane (bridge-scoped INPUT accepts, X-Instance-Key auth)
                        |
    +-------------------+--------------------+
    |                                        |
 viswall-firewall-service-1            viswall-vpn-service-1
 (network_mode host, privileged,       (network_mode host, privileged,
- pid host, 127.0.0.1:8081)             pid host, 127.0.0.1:8083)
+ pid host, :8081 AGENT_HOST=0.0.0.0)   pid host, :8083 AGENT_HOST=0.0.0.0)
  volumes:                              volumes:
   /var/lib/viswall-firewall             /var/lib/viswall-vpn
-  /etc/netplan (rw, backed up)          /etc/wireguard (rw, backed up)
+  (nft state only)                      /etc/wireguard (rw, backed up)
+
+viswall-node-agent-1 (network_mode host, :8085)
+ volumes: /etc/netplan (rw); state: $STATE_DIR/backups (netplan try backups)
                        |                                        |
                        +----------------+-----------------------+
                                         |
                           api-gateway 127.0.0.1:8010
                           utils/agent_client.py
-                          Instance.config.agent_endpoints[firewall|vpn]
+                          Instance.config.agent_endpoints[firewall|vpn|node]
                           header X-Instance-Key
                                         |
                           web-ui + Postgres  (console)
@@ -294,24 +304,44 @@ Key properties:
   policy runs first; Docker's chains still run afterwards for bridge traffic.
   NAT chains render at prerouting `-110` and postrouting `90`, but are empty in v1.
 - **Dispatch.** Console mutation → gateway composes full desired state → POST
-  `/firewall/apply` or `/vpn/apply` to the loopback agent with `X-Instance-Key`.
-  The agent snapshots, renders, validates (`nft -c -f`), then applies.
+  `/firewall/apply` or `/vpn/apply` to the host-net agent with `X-Instance-Key`
+  (the gateway runs in a bridge network, so instance-1 endpoints use
+  `http://host.docker.internal:8081/8083/8085`, not guest loopback). The agent
+  snapshots, renders, validates (`nft -c -f`), then applies.
   **Key-transit posture (F2 review #14, accepted as-is): the instance API key
-  and every agent payload travel in CLEARTEXT over loopback HTTP
-  (`http://127.0.0.1:<port>` / `http://host.docker.internal:<port>`) — no TLS
-  on the agent control plane. This is an accepted, documented posture: the
-  transport never leaves the host (loopback + host bridge), and the mitigations
-  are the bridge-scoped INPUT accepts for the agent ports only (parity row
-  A35), `X-Instance-Key` auth on every endpoint except `/health`, and no
-  published agent ports. Anyone already able to sniff the host's loopback is
-  root-equivalent anyway.**
+  and every agent payload travel in CLEARTEXT over HTTP
+  (`http://host.docker.internal:<port>`), with the agents bound to `0.0.0.0`
+  via `AGENT_HOST`, with no TLS on the agent control plane. This is an accepted,
+  documented posture: the transport never leaves the host (docker bridge to
+  host), and the mitigations are the port-scoped INPUT accepts for the agent
+  ports on `docker0`/`br-*` only (parity row A35), `X-Instance-Key` auth on
+  every endpoint except `/health`, and no published agent ports. Anyone already
+  able to sniff the host's bridge is root-equivalent anyway.**
 - **Heartbeat.** Each agent posts `{"api_key": ..., "status": "ok"}` to
   `POST http://127.0.0.1:8010/api/v1/instances/1/heartbeat` so the console shows
   liveness. Auth is on the request body for this route (section 10).
 - **Host equivalence is accepted risk.** The agents are privileged with host
-  networking because they must run `nft`, `netplan try`, `tc`, `ip` and `nsenter`.
-  Mitigations: loopback-only binds, instance-key auth on every endpoint except
-  `/health`, minimal images, and no published ports.
+  networking because they must run `nft`, `tc`, `ip`, `nsenter`, and (node-agent
+  only) `netplan try`. Mitigations: `X-Instance-Key` auth on every endpoint
+  except `/health`, minimal images, no published ports, and the port-scoped
+  bridge reads described in the renderer facts below.
+- **Renderer ordering facts (verified against `nft.py` and netns).**
+  - Blacklist drops sit at the TOP of the input chain, immediately after
+    `ct state established,related accept`, so a blocked source IP reaches no
+    host INPUT service, including ports that are otherwise open.
+  - The broad Docker INPUT accept is `docker0` only. The sole `br-*` INPUT
+    accepts are the port-scoped agent-control accepts for `8081/8083/8085`
+    (parity row A35); no broad `br-*` accept exists.
+  - Container-IP anti-spoof and loopback guards render in `raw_prerouting`
+    (priority -300, pre-DNAT), never in forward or input.
+  - Meters render as `limit rate over N/minute burst B packets`, preserving the
+    live `--hashlimit-above` drop side.
+  - The forward chain's final unconditional `accept` is a CONFIRMED NON-ISSUE.
+    A base-chain `accept` CONTINUES to the next base chain in the same hook, so
+    Docker's `ip filter FORWARD` at priority 0 (policy DROP) still runs and
+    still enforces per-bridge/per-port policy. Packet-level proof (task-40b:
+    an unpublished container port stays dropped while Docker's published-port
+    counter increments) is in `.omo/evidence/task-40b-forward-accept.md`.
 - **Single tunnel owner.** `wg-quick@client` remains the only lifecycle owner. The
   VPN agent writes `client.conf` atomically (0600, `.viswall-backup` copy) and
   restarts/enables/disables the unit through `nsenter`. It never runs `wg-quick up`
@@ -332,6 +362,29 @@ Key properties:
   Docker's concern (Docker's own forward chains at priority 0 keep enforcing
   per-bridge/per-port policy). This is a scope decision, not a gap — no
   forward-chain blacklist change.
+- **WireGuard and NAT inputs are parsed at the boundary.** Every value that can
+  reach `client.conf` (`allowed_ips`, `local_address`, `endpoint`,
+  `peer_public_key`, `private_key`) is validated (CIDR/interface/host:port/
+  44-char base64, newline, CR and `=` rejected) by `shared/schemas.py` before
+  it is stored or rendered, so a config field cannot inject a `PostUp` line.
+  NAT `to_source`/`to_destination` use the same strict `address[:port]` parse
+  and reject nft statement injection.
+- **VPN key material is admin-only.** `VPNClientResponse` carries no
+  `config_file`/`config_qr` and `VPNServerResponse` carries no `private_key`;
+  the fields exist only on `VPNClientAdminResponse` / `VPNServerAdminResponse`,
+  returned by `require_admin` routes. The Python SDK, TypeScript SDK, CLI and
+  web-ui mirror that split (plain list/detail shapes, admin create/update and
+  config-download shapes), so a non-admin cannot read a client or tunnel key.
+- **Apply and rollback keep a last-good firewall.** `apply_ruleset` copies the
+  current `/etc/nftables.conf` to `$STATE_DIR/nftables.conf.last-good` before
+  the swap, validates the new render with `nft -c -f` before deleting the
+  table, and re-applies the last-good file if `nft -f` fails. The agent's direct
+  rollback validates the snapshot first and re-applies last-good if a restore
+  fails midway, so the host is never left with neither firewall.
+- **The restore script's no-op guard runs first.** `restore_firewall.sh` exits
+  0 on `$STATE_DIR/COMMIT` or fresh `$STATE_DIR/ALIVE` BEFORE it disables the
+  persist unit or deletes the table. A scheduled fire can therefore never
+  mutate anything.
 
 ---
 
@@ -360,9 +413,10 @@ and `/opt/viswall` are out of bounds.
 ### Phase 1: Module hardening (todos 6-17)
 
 - `services/firewall-service/` becomes a package with `main.py`, `api.py`, `nft.py`,
-  `netplan.py`, `qos.py`, `routing.py`, `heartbeat.py`. Auth middleware requires
-  `X-Instance-Key` on everything except `/health`, compared with
-  `secrets.compare_digest`.
+  `snapshots.py`, `qos.py`, `routing.py`, `heartbeat.py`. Netplan management is not
+  here: the node-agent (`services/node-agent/`) owns interfaces and netplan.
+  Auth middleware requires `X-Instance-Key` on everything except `/health`,
+  compared with `secrets.compare_digest`.
 - `services/vpn-service/` becomes a WG client manager package (`wg_client.py`,
   `api.py`, `heartbeat.py`) with the ownership model from section 2.
 - Renderer invariants, all regression-tested:
@@ -373,12 +427,37 @@ and `/opt/viswall` are out of bounds.
     row exists.
   - Container anti-spoof in `raw_prerouting` (pre-DNAT), never in FORWARD or INPUT;
     loopback guards imported as INPUT rows and rendered in `raw_prerouting`.
-  - `docker0`-only INPUT accept (no `br-*` INPUT accept); bridge forwarding
-    accepts; DHCP/ICMP limits.
+  - Blacklist drops at the TOP of the input chain (after conntrack, before every
+    accept), so `/block` has precedence over open ports; blacklist is never
+    referenced in forward.
+  - Broad INPUT accept is `docker0` only. The only `br-*` INPUT accepts are the
+    port-scoped agent-control accepts `iifname "docker0"/"br-*" tcp dport
+    {8081, 8083, 8085} accept` (parity A35), because the bridge-net gateway
+    dispatches via `host.docker.internal`. Bridge forwarding accepts;
+    ICMP/ICMPv6 are rate-capped at 5/second (no DHCP rule is rendered).
   - Meters render with `limit rate over N/minute burst B packets` (the `over`
     keyword keeps the drop on the over-limit side).
   - IPv6 accepts scoped with `meta nfproto ipv6` exactly as `rules.v6.live`.
   - No masquerade generated by viswall.
+  - Forward chain ends in `accept`; that is safe because a base-chain `accept`
+    continues to Docker's priority-0 forward chain (packet-level proof in
+    `.omo/evidence/task-40b-forward-accept.md`).
+- Security posture, all regression-tested (F2 review, converged):
+  - WireGuard fields (`allowed_ips`, `local_address`, `endpoint`,
+    `peer_public_key`, `private_key`) are validated at the schema boundary
+    (newline/CR/`=` injection rejected); NAT `to_source`/`to_destination` are
+    parsed as strict `address[:port]`.
+  - Client config (`config_file`/`config_qr`) and server/tunnel `private_key`
+    are admin-only (`VPNClientAdminResponse`/`VPNServerAdminResponse`); the
+    SDKs, CLI and web-ui mirror the plain/admin response split.
+  - `apply_ruleset` saves `$STATE_DIR/nftables.conf.last-good` before the swap
+    and re-applies it when `nft -f` fails; direct rollback re-applies last-good
+    if a snapshot restore fails midway.
+  - `restore_firewall.sh` exits 0 on `COMMIT` or fresh `ALIVE` before any
+    destructive step.
+- Dead-man-switch harness: the prober is authored in
+  `scripts/ssh_watchdog.sh` with `deployments/docker/viswall-ssh-watchdog.service`
+  (installed at cutover; not self-installing), implementing section 4.
 - `VALIDATION_MODE=1` renders a pass-through table (all policies accept, no
   drop/limit/meter rules, `VW-VALIDATION` log prefix, log rate 10/minute) and
   `/firewall/status` reports `validation_mode: true`. The repo default stays 1 and
@@ -438,10 +517,12 @@ Verification at capture: `iptables-restore --test` rc=0 for v4 and v6,
    the acceptance gate for cutover.
 
    **Parity gate (authoritative, todo 39b):** `docs/firewall-parity-checklist.md`
-   is the gate, not this summary. Its converged state is **137 PASS / 2 intentional
-   DIFF** (139 rows): A05 icmp and A06 icmpv6, the rate-capped (5/second) accepts
-   the plan's todo-7 design deliberately adds; both carry a written reason. Any
-   other DIFF, or any un-reasoned row, blocks cutover.
+   is the gate, not this summary. Its converged state is **137 PASS / 4 intentional
+   DIFF** (141 rows). The four DIFFs, each with a written reason:
+   A05 icmp and A06 icmpv6 (rate-capped 5/second accepts per the todo-7 design),
+   A35 agent-control INPUT accepts on `docker0`/`br-*` (8081/8083/8085), and
+   A36 the declared+referenced blacklist sets. Any other DIFF, or any un-reasoned
+   row, blocks cutover.
 3. **Pass-through on the host (40):** watchdog armed first, `VALIDATION_MODE=1`
    table live, full connection matrix before and after (ssh 22, 443, mail
    25/465/587/993/995, dns 53 tcp+udp, rustdesk 21114-21119, wg handshake, one
@@ -523,7 +604,10 @@ the legacy files and do not remove `wg-quick@client`.
 ## 4. Watchdog and revert trap (dead-man switch)
 
 Quoted from `.omo/plans/firewall-migration.md` todo 40 (punctuation normalized to
-this document's style; thresholds, unit names and command lines unchanged).
+this document's style; thresholds, unit names and command lines unchanged). The
+prober is authored in `scripts/ssh_watchdog.sh`; its systemd unit is
+`deployments/docker/viswall-ssh-watchdog.service`. Both exist in the repo and are
+installed to the host at cutover (the unit is not self-installing).
 
 > **(a) TRUE SLIDING WINDOW.** The prober loop (every 30 s) first evaluates ALL
 > checks in (c) and (d). ONLY if every check passes does it run
@@ -592,7 +676,8 @@ Operational rules that must not be softened:
 `restore_firewall.sh` contract:
 
 1. Exit 0 immediately if `/var/lib/viswall-firewall/COMMIT` exists or ALIVE is
-   younger than 120 s.
+   younger than 120 s. This guard runs BEFORE any destructive operation, so a
+   scheduled no-op fire mutates nothing.
 2. Disable `viswall-firewall-persist`, delete `table inet viswall` (never a flush).
 3. `iptables-restore -w 30` and `ip6tables-restore -w 30` from the snapshot, after
    copying the files back to `/etc/iptables/` and enabling `netfilter-persistent`,
@@ -655,11 +740,11 @@ WAN-IP limitation.
 5. **IPv6 is deliberately narrower.** `rules.v6.live` opens only 22/80/443/51820.
    The migration preserves that; it does not "upgrade" IPv6 to the IPv4 port set.
 6. **Additional accepted risks:** the agents are privileged with host networking
-   (mitigated by loopback binds and instance-key auth); the Docker-restart branch of
-   `restore_firewall.sh` is not exercised live until a real incident (only
-   `--no-restart-docker` is rehearsed); the Jenkins controller at
-   `10.80.2.251:8081` was never contacted and remains an unknown for rule generation
-   (section 9).
+   (mitigated by port-scoped bridge INPUT accepts and instance-key auth); the
+   Docker-restart branch of `restore_firewall.sh` is not exercised live until a
+   real incident (only `--no-restart-docker` is rehearsed); the Jenkins
+   controller at `10.80.2.251:8081` was never contacted and remains an unknown
+   for rule generation (section 9).
 
 ---
 
@@ -683,7 +768,8 @@ boot-time protection behind.
 
 Sequence inside the script, in this order:
 
-1. Exit 0 if COMMIT exists or ALIVE is younger than 120 s.
+1. Exit 0 if COMMIT exists or ALIVE is younger than 120 s, before any destructive
+   step.
 2. `systemctl disable --now viswall-firewall-persist` and
    `nft delete table inet viswall`.
 3. Copy the snapshot's `rules.v4`/`rules.v6` back to `/etc/iptables/`, enable
@@ -816,7 +902,7 @@ host.
 
 ---
 
-## 10. Instance-1 baseline (task-5 evidence)
+## 10. Instance-1 baseline (task-5 + task-31b evidence)
 
 Read-only snapshot of the console, 2026-10-22 ~20:19 UTC. Exactly one instance row:
 
@@ -828,10 +914,17 @@ Read-only snapshot of the console, 2026-10-22 ~20:19 UTC. Exactly one instance r
 
 - `capabilities` already contains `firewall` and `vpn`. No capability update is
   needed for this migration.
-- `config.agent_endpoints` currently has **only** `dns`; there is no `firewall` and
-  no `vpn` key. Todo 26 must add e.g. `"firewall": "http://127.0.0.1:8081"` and
-  `"vpn": "http://127.0.0.1:8083"`, preserving every other config key (especially
-  `version`, which the heartbeat response reads).
+- At the capture `config.agent_endpoints` had **only** `dns`. The pre-cutover
+  update (`scripts/update_instance_1.py`, todo 26/36) writes
+  `"firewall": "http://host.docker.internal:8081"`,
+  `"vpn": "http://host.docker.internal:8083"` and
+  `"node": "http://host.docker.internal:8085"` (node-agent), leaving `dns`
+  unchanged and preserving every other config key (especially `version`, which
+  the heartbeat response reads). `host.docker.internal` is required because the
+  gateway runs in a bridge network, where `127.0.0.1` is the gateway's own
+  loopback, not the host where the host-net agents bind. Task-33 evidence still
+  showed the dns-only config because the deploy was blocked; the endpoint write
+  is a pre-cutover action, not an executed post-cutover fact.
 - Heartbeat route: `POST /api/v1/instances/{id}/heartbeat`, implemented in
   `services/api-gateway/routers/instances.py`. Auth is on the **request body**
   `api_key` field, not the `X-Instance-Key` header.
@@ -857,9 +950,9 @@ Read-only snapshot of the console, 2026-10-22 ~20:19 UTC. Exactly one instance r
 ## Appendix B: cutover acceptance checklist (anchor for todo 39)
 
 The authoritative gate is `docs/firewall-parity-checklist.md` (todo 39b): 137 PASS /
-2 intentional DIFF (A05/A06 icmp rate-capped accepts, per the todo-7 design) out of
-139 rows. Every row in that checklist must resolve to PASS, with a reason string for
-each intentional DIFF:
+4 intentional DIFF (A05/A06 icmp rate-capped accepts, A35 agent-control port
+accepts, A36 blacklist sets) out of 141 rows. Every row in that checklist must
+resolve to PASS, with a reason string for each intentional DIFF:
 
 - [ ] 22/tcp accept plus `ssh_limit` 10/min burst 5, before any user rule
 - [ ] 25/tcp, 110/tcp, 143/tcp, 993/tcp, 995/tcp accepts
@@ -869,10 +962,13 @@ each intentional DIFF:
 - [ ] 21114-21119 tcp, 21116 udp
 - [ ] 5432/tcp drop
 - [ ] FIREWALL-DROP log with 5/min limit
-- [ ] docker0 INPUT accept preserved (docker0 only, no `br-*` INPUT accept)
+- [ ] docker0 INPUT accept preserved (broad bridge accept is docker0 only;
+      the sole `br-*` accepts are the port-scoped 8081/8083/8085 agent accepts)
+- [ ] blacklist drops at the TOP of the input chain, before every accept
 - [ ] all 63 container-IP anti-spoof rules (48 v4 + 15 v6) present in `raw_prerouting`
 - [ ] all 12 loopback guards present (INPUT rows, rendered in `raw_prerouting`)
 - [ ] the 17 DOCKER-USER ports present in the viswall forward rule
+- [ ] forward chain's final `accept` continues to Docker's priority-0 chain
 - [ ] IPv6 column: 22/80/443/51820 only, same limits
 - [ ] Docker chains survive: `DOCKER`, `DOCKER-USER`, `DOCKER-FORWARD`,
       `DOCKER-ISOLATION-*` intact after every apply

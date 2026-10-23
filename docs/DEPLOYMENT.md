@@ -59,18 +59,31 @@ They are therefore NOT covered by the usual container-network isolation:
 - **Topology**: the agents share the host's network and PID namespaces. They
   reach the gateway at `GATEWAY_URL=http://127.0.0.1:8010` (the compose
   service name is unreachable from a host-net container); the gateway reaches
-  them via the loopback endpoints in instance 1's `config.agent_endpoints`
-  (`firewall` → `http://127.0.0.1:8081`, `vpn` → `http://127.0.0.1:8083`).
-- **Control ports**: 8081 (firewall) / 8083 (vpn) have **no `ports:` mapping**
-  (compose forbids it under `network_mode: host` anyway) — they are bound by
-  the agent process itself, NOT published by compose, and must never be
-  reachable from the internet. **Known pre-cutover gap**: the agent entrypoints
-  currently bind the IPv6 wildcard `::` (hardcoded `host` default in both
-  `main.py` files, no env override), and 8081/8083 are NOT in the preserved
-  DOCKER-USER internal-port blocklist — until the bind is restricted to
-  loopback (or the ports are added to the blocklist), the control APIs are
-  reachable on every host interface with instance-key auth as the only gate.
-  Fix before the todo-33 deploy.
+  them via the endpoints in instance 1's `config.agent_endpoints`
+  (`firewall` → `http://host.docker.internal:8081`, `vpn` →
+  `http://host.docker.internal:8083`, `node` → `http://host.docker.internal:8085`).
+  `host.docker.internal` is required because the gateway runs in a bridge
+  network, where `127.0.0.1` is the gateway container's own loopback, not the
+  host where the agents bind.
+- **Control ports**: 8081 (firewall), 8083 (vpn) and 8085 (node-agent) have
+  **no `ports:` mapping** (compose forbids it under `network_mode: host`
+  anyway) and are never published. The firewall/vpn agents bind `0.0.0.0`
+  (`AGENT_HOST`, a deployment choice so the bridge-net gateway can dispatch);
+  node-agent binds `0.0.0.0` by default. Reachability is constrained by the
+  renderer, not by the bind: `table inet viswall` INPUT is policy `DROP` with
+  port-scoped accepts for `8081/8083/8085` only on `docker0` and `br-*`
+  (parity row A35), so the control APIs are reachable from the host's Docker
+  bridges, not from the public interface. `X-Instance-Key` auth remains
+  required on every endpoint except `/health`.
+- **Firewall ownership**: the host firewall lives in `table inet viswall`,
+  managed only by firewall-service. Docker keeps its own `ip`/`ip6` filter,
+  raw and nat tables (DNAT, MASQUERADE, `DOCKER-USER`, `DOCKER-FORWARD`); the
+  agent swaps only `table inet viswall` and never contains `flush ruleset`.
+  Base-chain `accept` in the viswall forward hook continues to Docker's
+  priority-0 chain (packet-level proof in
+  `.omo/evidence/task-40b-forward-accept.md`), so Docker still enforces
+  per-bridge/per-port policy. The blacklist (`/block`) is host-INPUT-only and
+  sits at the top of the input chain, before every accept.
 - **Auth**: every endpoint except `/health` requires the `X-Instance-Key`
   header to match `INSTANCE_API_KEY` (passed through from the host `.env`;
   empty value makes the agent refuse to start). The same key must equal the
@@ -83,8 +96,12 @@ They are therefore NOT covered by the usual container-network isolation:
   flips the host `.env` to `0` (todo 44); the repo default stays `1`.
 - **State dirs**: `${FW_STATE_DIR:-/var/lib/viswall-firewall}` and
   `${VPN_STATE_DIR:-/var/lib/viswall-vpn}` bind-mount the agent state
-  (snapshots, takeover marker) so it survives image upgrades. `/etc/netplan`
-  is **not** mounted here — the node-agent owns netplan.
+  (snapshots, takeover marker) so it survives image upgrades. The firewall
+  agent also keeps `nftables.conf.last-good` there and re-applies it when an
+  apply or a direct rollback fails midway. `/etc/netplan` is **not** mounted
+  here: the node-agent owns netplan; its `netplan try` backup goes to
+  `${STATE_DIR:-/var/lib/viswall-node}/backups/<utc-stamp>/`, never inside
+  `/etc/netplan`.
 - **Risk — rw `/etc/wireguard` bind-mount**: vpn-service mounts the host
   `/etc/wireguard` read-write. The agent only renders `client.conf` (atomic
   tmp+rename, keeping a `.viswall-backup` before each write) and only
@@ -93,6 +110,19 @@ They are therefore NOT covered by the usual container-network isolation:
   site-to-site tunnel that carries management traffic. Treat any change to
   the vpn-service image as a network-affecting change and rehearse it with
   the watchdog armed.
+- **VPN key/config exposure**: the plain `VPNClientResponse` has no
+  `config_file`/`config_qr` and `VPNServerResponse` has no `private_key`.
+  Those fields exist only on `VPNClientAdminResponse` / `VPNServerAdminResponse`,
+  returned by `require_admin` routes; the Python SDK, TypeScript SDK, CLI and
+  web-ui mirror the split. WireGuard config fields and NAT `to_source`/
+  `to_destination` are validated at the schema boundary (newline/CR/`=`
+  injection rejected), so a stored value cannot inject a ruleset or
+  `client.conf` line.
+- **Restore safety**: `restore_firewall.sh` exits 0 on `COMMIT` or fresh
+  `ALIVE` before any destructive step; the agent's rollback restores
+  `nftables.conf.last-good` if a restore fails midway, and the watchdog
+  (`scripts/ssh_watchdog.sh` + `viswall-ssh-watchdog.service`, installed at
+  cutover) re-arms the revert trap only while proof-of-life checks pass.
 
 Third-party images (postgres, redis, prometheus, grafana, ollama) are pulled directly by compose. Data lives in named volumes and survives every deploy.
 
