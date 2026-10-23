@@ -19,6 +19,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { VPNServers } from './pages/VPN/VPNServers'
 import { VPNCreate } from './pages/VPN/VPNCreate'
 import { VPNServerDetail } from './pages/VPN/VPNServerDetail'
+import { VPNSiteToSite } from './pages/VPN/VPNSiteToSite'
 import { MailDomains } from './pages/Mail/MailDomains'
 import { MailDomainCreate } from './pages/Mail/MailDomainCreate'
 import { MailDomainDetail } from './pages/Mail/MailDomainDetail'
@@ -94,6 +95,10 @@ export const router = createBrowserRouter([
       {
         path: 'vpn/servers/:id',
         element: <VPNServerDetail />,
+      },
+      {
+        path: 'vpn/site-to-site',
+        element: <VPNSiteToSite />,
       },
       {
         path: 'mail',

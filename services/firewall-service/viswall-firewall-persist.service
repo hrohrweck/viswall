@@ -1,0 +1,42 @@
+# viswall-firewall-persist.service — load the persisted viswall firewall table at boot.
+#
+# Loads the TABLE-SCOPED dump at /etc/nftables.conf (written by the agent as
+# `nft list table inet viswall > /etc/nftables.conf` — NEVER `nft list ruleset`,
+# which would embed docker's iptables-nft compat tables and break/duplicate them
+# at boot). The table has no docker or network dependency, so it is loaded EARLY
+# (exactly like nftables.service/netfilter-persistent today): any wait on docker
+# or the network would expose an unfiltered host for the duration of docker
+# startup.
+#
+# Installed to /etc/systemd/system/ by the todo-44 cutover step.
+
+[Unit]
+Description=Viswall firewall: load table inet viswall before the network is up
+Documentation=https://github.com/hrohrweck/viswall
+DefaultDependencies=no
+# No After=network*/docker ordering on purpose — load as early as possible.
+Wants=network-pre.target systemd-modules-load.service local-fs.target
+Before=network-pre.target shutdown.target
+After=systemd-modules-load.service local-fs.target
+Conflicts=nftables.service shutdown.target
+# Failure alert: netfilter-persistent exists on every Ubuntu host and is the
+# legacy loader. On failure systemd starts it, which loads /etc/iptables/
+# rules.v4|v6 — a fail-safe fallback so a failed viswall load at boot leaves
+# the host filtered by the legacy firewall instead of unfiltered. Journald
+# records both the viswall-persist failure (with nft's stderr) and the
+# fallback start.
+OnFailure=netfilter-persistent.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Pre-check first: a corrupted /etc/nftables.conf fails the unit BEFORE any
+# partial load; nft prints the exact parse error to stderr, which journald
+# records next to the unit failure (the clear failure message).
+ExecStartPre=/usr/sbin/nft -c -f /etc/nftables.conf
+ExecStart=/usr/sbin/nft -f /etc/nftables.conf
+# Stopping the unit removes the viswall layer again (never a flush ruleset).
+ExecStop=/usr/sbin/nft delete table inet viswall
+
+[Install]
+WantedBy=multi-user.target

@@ -43,6 +43,7 @@ export const handlers = [
 
   // --- Firewall / NAT / QoS / interfaces -----------------------------------
   http.get('/api/v1/firewall/rules/:instanceId', () => HttpResponse.json(f.firewallRules)),
+  http.get('/api/v1/firewall/status/:instanceId', () => HttpResponse.json(f.firewallStatus)),
   // Deploy write path (final-qa e2e): the success-toast assertion needs a
   // 2xx — bypassed requests fall through to the Vite dev server (404), and
   // page.route cannot intercept fetches the worker re-issues from the
@@ -94,7 +95,33 @@ export const handlers = [
       ? HttpResponse.json(server)
       : HttpResponse.json({ detail: 'VPN server not found' }, { status: 404 })
   }),
-  http.get('/api/v1/vpn/servers/:serverId/clients', () => HttpResponse.json(f.vpnClients)),
+  http.get('/api/v1/vpn/servers/:serverId/clients', ({ params }) => {
+    const serverId = Number(params.serverId)
+    return HttpResponse.json(f.vpnClients.filter((c) => c.server_id === serverId))
+  }),
+  http.get('/api/v1/vpn/site-to-site/status', () => HttpResponse.json(f.vpnSiteToSite)),
+  http.post('/api/v1/vpn/site-to-site/initialize', () =>
+    HttpResponse.json({
+      status: 'success',
+      server_id: 3,
+      agent: { applied: true },
+      message: 'Site-to-site tunnel initialized and pushed to the VPN agent.',
+    }),
+  ),
+  http.post('/api/v1/vpn/clients/:clientId/regenerate', () =>
+    HttpResponse.json({
+      status: 'success',
+      message: 'Client credentials regenerated',
+      public_key: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb=',
+    }),
+  ),
+  http.post('/api/v1/vpn/servers/:serverId/start', () =>
+    HttpResponse.json({ success: true, action: 'start' }),
+  ),
+  http.post('/api/v1/vpn/servers/:serverId/stop', () =>
+    HttpResponse.json({ success: true, action: 'stop' }),
+  ),
+  http.patch('/api/v1/vpn/servers/:serverId', () => HttpResponse.json(f.vpnServers[0])),
 
   // --- DNS ---------------------------------------------------------------------
   http.get('/api/v1/dns/servers/:instanceId', () => HttpResponse.json(f.dnsServers)),

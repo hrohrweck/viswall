@@ -93,6 +93,7 @@ class FirewallRule(Base):
 
     action = Column(String(10), default="accept")  # accept, drop, reject
     log_enabled = Column(Boolean, default=False)
+    limit = Column(String(255))  # rate limit, e.g. "10/minute burst 5 packets"
     order_index = Column(Integer, default=0)
 
     created_by = Column(Integer, ForeignKey("users.id"))
@@ -140,6 +141,10 @@ class NetworkInterface(Base):
     netmask = Column(String(45))
     gateway = Column(String(45))
     mtu = Column(Integer)
+    ipv6_address = Column(String(45))
+    ipv6_gateway = Column(String(45))
+    dns_servers = Column(JSON)  # list of nameserver strings
+    routes = Column(JSON)  # list of {"to": CIDR, "via": gw|null, "on_link": bool}
 
     # Traffic shaping
     bandwidth_in = Column(Integer)  # kbps
@@ -336,6 +341,21 @@ class VPNServer(Base):
     internet_redirect = Column(
         Boolean, default=False
     )  # Redirect all traffic through VPN
+
+    # Outgoing tunnel (WireGuard client / site-to-site mode).
+    # tunnel_type: "server" (default, legacy server mode), "client",
+    # "site-to-site" (this instance dials a remote peer).
+    # SECURITY POSTURE: private_key is stored ONLY for client / site-to-site
+    # tunnels and is plaintext at rest in Postgres — the same posture as
+    # Instance.api_key today. NEVER commit real key material to the repo
+    # (use a clearly fake value in test fixtures; see .gitleaksignore).
+    tunnel_type = Column(String(20), default="server")  # server|client|site-to-site
+    endpoint = Column(String(255))  # remote endpoint, e.g. base0.example:51820
+    peer_public_key = Column(String(255))  # remote peer's WireGuard public key
+    allowed_ips = Column(String(500))  # e.g. "10.80.0.0/16"
+    persistent_keepalive = Column(Integer, default=25)
+    local_address = Column(String(45))  # local tunnel address, e.g. 10.80.0.2/32
+    private_key = Column(String(255))  # see at-rest-plaintext note above
 
     # Protocol-specific configuration stored as JSON
     config = Column(JSON, default=dict)

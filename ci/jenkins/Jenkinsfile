@@ -132,6 +132,35 @@ pipeline {
             viswall-ci-python:3.12 \
             bash /repo/ci/jenkins/scripts/backend_tests.sh
         '''
+        // Agent test suites (todo 32): firewall-service + vpn-service.
+        // Both suites are subprocess-mocked (nft/ip/tc/systemctl fakes) —
+        // no root, no netns, no sidecars. Same base image as the gateway
+        // suite above: it already carries pytest, pytest-asyncio, httpx and
+        // fastapi/uvicorn/pydantic (via services/api-gateway/requirements.txt
+        // plus the explicit pip layer in ci/jenkins/Dockerfile.ci-python).
+        sh '''
+          docker run --rm \
+            -v "$PWD":/repo -w /repo \
+            viswall-ci-python:3.12 \
+            bash -c "set -e; cd /repo/services/firewall-service && python3 -m pytest tests/ -v"
+        '''
+        sh '''
+          docker run --rm \
+            -v "$PWD":/repo -w /repo \
+            viswall-ci-python:3.12 \
+            bash -c "set -e; cd /repo/services/vpn-service && python3 -m pytest tests/ -v"
+        '''
+        // Legacy importer suite (scripts/tests, todo 37). Socket/subprocess-mocked,
+        // fixture-driven — no root, no netns, no sidecars. PyYAML (module-level
+        // import in migrate_legacy_interfaces.py) comes transitively from
+        // uvicorn[standard]==0.27.0 in services/api-gateway/requirements.txt,
+        // so the same base image needs no extra pip layer.
+        sh '''
+          docker run --rm \
+            -v "$PWD":/repo -w /repo \
+            viswall-ci-python:3.12 \
+            bash -c "set -e; cd /repo/scripts && python3 -m pytest tests/ -v"
+        '''
       }
       post {
         always {

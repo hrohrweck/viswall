@@ -18,3 +18,7 @@ services:
     image: ghcr.io/hrohrweck/viswall/sogo:${VISWALL_TAG:-main}
   dns-service:
     image: ghcr.io/hrohrweck/viswall/dns-service:${VISWALL_TAG:-main}
+  firewall-service:
+    image: ghcr.io/hrohrweck/viswall/firewall-service:${VISWALL_TAG:-main}
+  vpn-service:
+    image: ghcr.io/hrohrweck/viswall/vpn-service:${VISWALL_TAG:-main}

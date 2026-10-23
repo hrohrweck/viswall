@@ -16,6 +16,7 @@ import {
   DHCPSubnetType,
   FirewallAction,
   FirewallRule,
+  FirewallStatus,
   Instance,
   InstanceStatus,
   LoginResponse,
@@ -32,6 +33,7 @@ import {
   VPNProtocol,
   VPNProtocolRecommendation,
   VPNServer,
+  VPNSiteToSiteStatus,
   VPNStatus,
 } from '../../types'
 import type {
@@ -296,6 +298,12 @@ export const firewallRules: FirewallRule[] = [
   },
 ]
 
+export const firewallStatus: FirewallStatus = {
+  validation_mode: false,
+  table_present: true,
+  last_applied_at: '2026-10-22T21:49:34Z',
+}
+
 export const networkInterfaces: NetworkInterface[] = [
   {
     id: 1,
@@ -501,6 +509,52 @@ export const vpnClients: VPNClient[] = [
     config_file: null,
     created_at: FIXED_NOW,
     updated_at: FIXED_NOW,
+  },
+  {
+    id: 3,
+    server_id: 3,
+    user_id: null,
+    name: 'boseman-local-peer',
+    description: 'Local identity of the site-to-site tunnel',
+    enabled: true,
+    client_type: VPNClientType.SITE,
+    auth_type: VPNAuthType.PUBLIC_KEY,
+    assigned_ip: '10.200.0.2',
+    allowed_ips: ['10.200.0.2/32'],
+    push_routes_override: [],
+    last_connected: FIXED_NOW,
+    last_ip: '10.200.0.2',
+    connection_count: 3,
+    bytes_received: 0,
+    bytes_sent: 0,
+    public_key: 'mock-public-key-boseman-local-peer',
+    config_qr: null,
+    config_file: null,
+    created_at: FIXED_NOW,
+    updated_at: FIXED_NOW,
+  },
+]
+
+export const vpnSiteToSite: VPNSiteToSiteStatus[] = [
+  {
+    server_id: 3,
+    name: 'site-to-site-base0.webmasters.co.at-51820',
+    status: 'running',
+    protocol: 'wireguard',
+    remote_endpoint: 'base0.webmasters.co.at:51820',
+    allowed_ips: '10.80.0.0/16',
+    persistent_keepalive: 25,
+    local_address: '10.200.0.2/24',
+    agent: 'online',
+    live: {
+      up: true,
+      interface: 'client',
+      address: '10.200.0.2/24',
+      endpoint: '188.45.201.39:51820',
+      latest_handshake_sec: 12,
+      transfer_rx: 1_048_576,
+      transfer_tx: 2_097_152,
+    },
   },
 ]
 

@@ -33,7 +33,7 @@ echo "$GH_TOKEN" | docker login ghcr.io -u hrohrweck --password-stdin \
 PULL_OK=0
 for pull_attempt in 1 2 3; do
   PULL_OK=1
-  for img in api-gateway web-ui sogo dns-service; do
+  for img in api-gateway web-ui sogo dns-service firewall-service vpn-service; do
     docker pull "ghcr.io/hrohrweck/viswall/$img:$IMAGE_TAG" || PULL_OK=0
   done
   [ "$PULL_OK" = "1" ] && break

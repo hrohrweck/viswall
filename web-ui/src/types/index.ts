@@ -220,6 +220,46 @@ export interface FirewallRuleUpdate {
   log_enabled?: boolean;
 }
 
+/**
+ * GET /firewall/stats/{instanceId} passthrough: agent payload when reachable
+ * (nftables/connections{tracked,max}/timestamp), zeroed fallback otherwise.
+ * `apply_error` lives only on the agent /firewall/status (no gateway route at
+ * HEAD) — optional so it renders once the passthrough follow-up lands.
+ */
+export interface FirewallStats {
+  nftables?: Record<string, unknown>
+  connections?: { tracked: number; max: number } | number
+  timestamp?: string
+  instance_id?: number
+  packets_accepted?: number
+  packets_dropped?: number
+  blacklist_size?: number
+  top_blocked_ips?: unknown[]
+  apply_error?: string | null
+}
+
+/** Mirrors agent /firewall/rollback; gateway route is a REQUIRED follow-up. */
+export interface FirewallRollbackResponse {
+  restored?: boolean
+  mechanism?: string
+  restored_from?: string
+  restored_artifacts?: string[]
+  status?: string
+}
+
+/**
+ * GET /firewall/status/{instanceId} passthrough: the gateway relays the
+ * agent's /firewall/status payload verbatim (validation_mode, table_present,
+ * last_applied_at). An unreachable agent yields {"status": "unreachable"}.
+ */
+export interface FirewallStatus {
+  validation_mode?: boolean
+  table_present?: boolean
+  last_applied_at?: string | null
+  apply_error?: string | null
+  status?: string
+}
+
 export interface NATRule {
   id: number
   instance_id: number
@@ -254,6 +294,12 @@ export interface NATRuleCreate {
   service_ports?: string
 }
 
+export interface InterfaceRoute {
+  to: string;
+  via?: string | null;
+  on_link?: boolean;
+}
+
 export interface NetworkInterface {
   id: number;
   instance_id: number;
@@ -264,6 +310,10 @@ export interface NetworkInterface {
   netmask: string | null;
   gateway: string | null;
   mtu: number | null;
+  ipv6_address?: string | null;
+  ipv6_gateway?: string | null;
+  dns_servers?: string[] | null;
+  routes?: InterfaceRoute[] | null;
   bandwidth_in: number | null;
   bandwidth_out: number | null;
   description: string | null;
@@ -279,6 +329,10 @@ export interface NetworkInterfaceCreate {
   netmask?: string | null;
   gateway?: string | null;
   mtu?: number | null;
+  ipv6_address?: string | null;
+  ipv6_gateway?: string | null;
+  dns_servers?: string[] | null;
+  routes?: InterfaceRoute[] | null;
   bandwidth_in?: number | null;
   bandwidth_out?: number | null;
   description?: string | null;
@@ -293,6 +347,10 @@ export interface NetworkInterfaceUpdate {
   netmask?: string | null;
   gateway?: string | null;
   mtu?: number | null;
+  ipv6_address?: string | null;
+  ipv6_gateway?: string | null;
+  dns_servers?: string[] | null;
+  routes?: InterfaceRoute[] | null;
   bandwidth_in?: number | null;
   bandwidth_out?: number | null;
   description?: string | null;
@@ -315,6 +373,12 @@ export interface InterfaceLiveStateResponse {
   default_gateway: string | null;
 }
 
+export interface InterfaceApplyProbe {
+  name: string;
+  ok: boolean;
+  detail?: string;
+}
+
 export interface InterfaceApplyResult {
   success: boolean;
   changes: Array<{ interface: string; action: string; detail: string; ok: boolean }>;
@@ -322,6 +386,16 @@ export interface InterfaceApplyResult {
   netplan_file: string | null;
   netplan_written: boolean;
   message: string;
+  try_mode?: boolean;
+  probes?: InterfaceApplyProbe[];
+  netplan_outcome?: 'accepted' | 'reverted' | 'error' | null;
+  snapshot_dir?: string | null;
+}
+
+export interface InterfaceRefreshResult {
+  created: number;
+  updated: number;
+  interfaces: string[];
 }
 
 export interface InstanceApiKey {
@@ -466,6 +540,8 @@ export interface MailMessage {
   received_at: string;
 }
 
+export type VPNTunnelType = 'server' | 'client' | 'site-to-site'
+
 export interface VPNServer {
   id: number;
   instance_id: number;
@@ -488,6 +564,18 @@ export interface VPNServer {
   created_by: number | null;
   created_at: string;
   updated_at: string;
+  // Outgoing tunnel fields (client / site-to-site mode, todo 23)
+  tunnel_type?: VPNTunnelType | null;
+  endpoint?: string | null;
+  peer_public_key?: string | null;
+  allowed_ips?: string | null;
+  persistent_keepalive?: number | null;
+  local_address?: string | null;
+}
+
+/** Admin-only create/update shape — the only variant that carries the site-to-site tunnel private_key. */
+export interface VPNServerAdmin extends VPNServer {
+  private_key?: string | null;
 }
 
 export interface VPNServerCreate {
@@ -521,6 +609,12 @@ export interface VPNServerUpdate {
   push_routes?: string[];
   internet_redirect?: boolean;
   config?: Record<string, unknown>;
+  tunnel_type?: VPNTunnelType;
+  endpoint?: string | null;
+  peer_public_key?: string | null;
+  allowed_ips?: string | null;
+  persistent_keepalive?: number | null;
+  local_address?: string | null;
 }
 
 export interface WireGuardConfig {
@@ -602,10 +696,28 @@ export interface VPNClient {
   bytes_received: number;
   bytes_sent: number;
   public_key: string | null;
-  config_qr: string | null;
-  config_file: string | null;
+  // Admin-only (create/regenerate responses) — list/detail never include these;
+  // they embed the raw WireGuard private key, so non-admin data must not carry them.
+  config_qr?: string | null;
+  config_file?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Admin-only create response shape — the only variant that carries the generated config. */
+export interface VPNClientAdmin extends VPNClient {
+  config_qr: string | null;
+  config_file: string | null;
+}
+
+/** Client configuration payload returned by the admin-only download endpoint. */
+export interface VPNClientConfig {
+  client_id: number;
+  server_name: string;
+  protocol: VPNProtocol;
+  config_format: string;
+  config_data: string; // Base64 encoded
+  filename: string;
 }
 
 export interface VPNClientCreate {
@@ -652,6 +764,50 @@ export interface VPNProtocolRecommendation {
   compatibility_score: number;
   description: string;
   use_cases: string[];
+}
+
+export interface VPNSiteToSiteLive {
+  up: boolean | null;
+  interface: string | null;
+  address: string | null;
+  endpoint: string | null;
+  latest_handshake_sec: number | null;
+  transfer_rx: number | null;
+  transfer_tx: number | null;
+}
+
+export interface VPNSiteToSiteStatus {
+  server_id: number;
+  name: string;
+  status: string;
+  protocol: string;
+  remote_endpoint: string | null;
+  allowed_ips: string | null;
+  persistent_keepalive: number | null;
+  local_address: string | null;
+  agent: 'online' | 'offline';
+  live: VPNSiteToSiteLive | null;
+}
+
+export interface VPNSiteToSiteInitialize {
+  endpoint: string;
+  peer_public_key: string;
+  allowed_ips?: string;
+  local_address?: string;
+  persistent_keepalive?: number;
+}
+
+export interface VPNSiteToSiteInitializeResponse {
+  status: string;
+  server_id: number;
+  agent?: unknown;
+  message: string;
+}
+
+export interface VPNRegenerateResponse {
+  status: string;
+  message: string;
+  public_key: string;
 }
 
 export interface DNSServer {

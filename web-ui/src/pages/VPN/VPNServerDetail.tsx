@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Users, Activity, Clock, ArrowLeft, RotateCcw, Square, Plus, Trash2, Copy } from 'lucide-react'
+import { Users, Activity, Clock, ArrowLeft, RotateCcw, Square, Plus, Trash2, Copy, Download } from 'lucide-react'
 import { useInstanceStore } from '../../stores/instance'
 import {
   useVPNServer,
@@ -9,6 +9,7 @@ import {
   useVPNServerAction,
   useCreateVPNClient,
   useDeleteVPNClient,
+  useVPNClientConfig,
 } from '../../hooks/useApi'
 import {
   StatusBadge,
@@ -73,6 +74,7 @@ export function VPNServerDetail() {
   const actionMutation = useVPNServerAction(selectedInstanceId!)
   const createClientMutation = useCreateVPNClient(selectedInstanceId!, serverId)
   const deleteClientMutation = useDeleteVPNClient(selectedInstanceId!, serverId)
+  const downloadConfigMutation = useVPNClientConfig()
 
   const [showDeleteServer, setShowDeleteServer] = useState(false)
   const [showStopServer, setShowStopServer] = useState(false)
@@ -186,6 +188,29 @@ export function VPNServerDetail() {
       setDeleteClientTarget(null)
     } catch (e) {
       toast.error(getErrMsg(e))
+    }
+  }
+
+  const handleDownloadConfig = async (client: VPNClient) => {
+    try {
+      const config = await downloadConfigMutation.mutateAsync(client.id)
+      const blob = new Blob([atob(config.config_data)], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = config.filename || `${client.name}.conf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      toast.success(`Config for "${client.name}" downloaded`)
+    } catch (e) {
+      const status = (e as { response?: { status?: number } })?.response?.status
+      toast.error(
+        status === 403
+          ? 'Only administrators can download client configurations.'
+          : getErrMsg(e),
+      )
     }
   }
 
@@ -394,6 +419,13 @@ export function VPNServerDetail() {
               <DropdownMenu>
                 <DropdownMenuTrigger />
                 <DropdownMenuContent>
+                  <DropdownMenuItem
+                    onClick={() => void handleDownloadConfig(client)}
+                    disabled={downloadConfigMutation.isPending}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download config
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setDeleteClientTarget(client)}>
                     Revoke
                   </DropdownMenuItem>

@@ -38,6 +38,7 @@ from shared.schemas import (
 from shared.security import require_auth, require_admin
 from shared.audit_logger import log_audit
 from utils.agent_client import agent_request, AgentClientError, log_agent_dispatch
+from utils.firewall_dispatch import apply_firewall_config
 
 router = APIRouter()
 
@@ -68,7 +69,6 @@ async def list_firewall_rules(
 async def create_firewall_rule(
     instance_id: int,
     data: FirewallRuleCreate,
-    background_tasks: BackgroundTasks,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -102,12 +102,15 @@ async def create_firewall_rule(
     db.add(rule)
     await db.commit()
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="create", resource_type="firewall_rule", resource_id=rule.id, instance_id=rule.instance_id)
+    await log_audit(db=db, user_id=admin_id, action="create", resource_type="firewall_rule", resource_id=rule.id, instance_id=rule.instance_id)
 
     await db.refresh(rule)
 
-    # Trigger firewall reload
-    background_tasks.add_task(reload_firewall, instance_id)
+    # Synchronous dispatch: agent failure → 502, DB write kept (desired-state).
+    try:
+        await apply_firewall_config(db, instance_id, user_id=admin_id)
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
     return FirewallRuleResponse.model_validate(rule)
 
@@ -132,7 +135,6 @@ async def get_firewall_rule(
 async def update_firewall_rule(
     rule_id: int,
     data: FirewallRuleUpdate,
-    background_tasks: BackgroundTasks,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -152,11 +154,14 @@ async def update_firewall_rule(
 
     await db.commit()
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="update", resource_type="firewall_rule", resource_id=rule.id, instance_id=rule.instance_id)
+    await log_audit(db=db, user_id=admin_id, action="update", resource_type="firewall_rule", resource_id=rule.id, instance_id=rule.instance_id)
 
     await db.refresh(rule)
 
-    background_tasks.add_task(reload_firewall, rule.instance_id)
+    try:
+        await apply_firewall_config(db, rule.instance_id, user_id=admin_id)
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
     return FirewallRuleResponse.model_validate(rule)
 
@@ -164,7 +169,6 @@ async def update_firewall_rule(
 @router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_firewall_rule(
     rule_id: int,
-    background_tasks: BackgroundTasks,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -179,10 +183,12 @@ async def delete_firewall_rule(
     await db.delete(rule)
     await db.commit()
     # Audit log
-    await log_audit(db=db, user_id=user_id, action="delete", resource_type="firewall_rule", resource_id=rule_id, instance_id=instance_id)
+    await log_audit(db=db, user_id=admin_id, action="delete", resource_type="firewall_rule", resource_id=rule_id, instance_id=instance_id)
 
-
-    background_tasks.add_task(reload_firewall, instance_id)
+    try:
+        await apply_firewall_config(db, instance_id, user_id=admin_id)
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
     return None
 
@@ -235,6 +241,11 @@ async def move_rule(
             rule.order_index, below.order_index = below.order_index, rule.order_index
 
     await db.commit()
+
+    try:
+        await apply_firewall_config(db, rule.instance_id, user_id=admin_id)
+    except AgentClientError as e:
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
 
     return {"status": "moved", "direction": direction}
 
@@ -765,17 +776,33 @@ def _default_htb_classes(download_kbps: int, upload_kbps: int) -> List[QoSClassC
 
 async def apply_qos_policy(instance_id: int, policy_id: int):
     from shared.database import AsyncSessionLocal
-    from shared.models import QoSPolicy
-    from sqlalchemy import select
 
     async with AsyncSessionLocal() as db:
         try:
             result = await db.execute(
-                select(QoSPolicy).where(QoSPolicy.id == policy_id)
+                select(QoSPolicy)
+                .where(QoSPolicy.id == policy_id)
+                .options(selectinload(QoSPolicy.classes))
             )
             policy = result.scalar_one_or_none()
             if not policy:
                 return
+
+            # Field names mirror utils.firewall_dispatch._qos_class_payload so
+            # /qos/apply and /firewall/apply emit the same class shape.
+            classes = [
+                {
+                    "id": cls_.id,
+                    "name": cls_.name,
+                    "priority": cls_.priority,
+                    "min_rate_kbps": cls_.min_rate_kbps,
+                    "max_rate_kbps": cls_.max_rate_kbps,
+                    "match_ports": cls_.match_ports,
+                    "match_dscp": cls_.match_dscp,
+                    "match_protocol": cls_.match_protocol,
+                }
+                for cls_ in sorted(policy.classes, key=lambda c: c.priority)
+            ]
 
             await agent_request(
                 db=db,
@@ -787,7 +814,7 @@ async def apply_qos_policy(instance_id: int, policy_id: int):
                     "algorithm": policy.algorithm,
                     "download_kbps": policy.download_kbps,
                     "upload_kbps": policy.upload_kbps,
-                    "classes": [],
+                    "classes": classes,
                 },
             )
         except AgentClientError as e:
@@ -815,6 +842,16 @@ async def clear_qos_on_interface(instance_id: int, interface_name: str):
 
 
 async def fetch_qos_stats_from_agent(instance_id: int, interface_name: str) -> dict:
+    """Fetch QoS stats from the agent and normalize them to the gateway schema.
+
+    The agent returns {"interface": ..., "stats": {"queues": [{"name",
+    "bytes", "packets", "dropped", "rate"}, ...], "raw": "<tc -s output>"}}.
+    Each queue entry maps onto QoSQueueStats fields (qdisc=name,
+    sent_bytes=bytes, sent_pkts=packets, dropped_pkts=dropped); the raw tc
+    text is wrapped in a dict because QoSStatsResponse.raw is typed
+    Optional[Dict]. An unreachable agent yields empty stats (endpoint stays
+    200 with zeroed data, matching the pre-existing behavior).
+    """
     from shared.database import AsyncSessionLocal
 
     async with AsyncSessionLocal() as db:
@@ -825,9 +862,29 @@ async def fetch_qos_stats_from_agent(instance_id: int, interface_name: str) -> d
                 method="GET",
                 path=f"/qos/stats/{interface_name}",
             )
-            return result.get("stats", {"queues": [], "raw": None})
         except AgentClientError:
             return {"queues": [], "raw": None}
+
+    stats = result.get("stats", {}) if isinstance(result, dict) else {}
+    queues = [
+        {
+            "qdisc": entry.get("name", ""),
+            "sent_bytes": int(entry.get("bytes") or 0),
+            "sent_pkts": int(entry.get("packets") or 0),
+            "dropped_pkts": int(entry.get("dropped") or 0),
+            "overlimits": 0,
+            "backlog_bytes": 0,
+            "backlog_pkts": 0,
+        }
+        for entry in stats.get("queues", [])
+        if isinstance(entry, dict)
+    ]
+    raw = stats.get("raw")
+    if isinstance(raw, str):
+        raw = {"output": raw}
+    elif not isinstance(raw, dict):
+        raw = None
+    return {"queues": queues, "raw": raw}
 
 
 # ============================================================================
@@ -851,7 +908,7 @@ async def block_ip(
             instance_id=instance_id,
             method="POST",
             path="/block",
-            json_data={"ip": ip, "reason": reason},
+            json_data={"ip": ip, "reason": reason, "timeout": duration or "1h"},
         )
         await log_agent_dispatch(
             db, instance_id=instance_id, resource_type="firewall_agent",
@@ -921,8 +978,86 @@ async def get_firewall_stats(instance_id: int, user_id: int = Depends(require_au
         }
 
 
+# ============================================================================
+# AGENT STATUS / ROLLBACK ENDPOINTS
+# ============================================================================
+
+
+@router.get("/status/{instance_id}")
+async def get_firewall_agent_status(
+    instance_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pass through the agent's live firewall status.
+
+    Covers validation mode, table presence, last apply timestamp and any
+    apply error. An unreachable agent is a normal answer here (the UI renders
+    the instance as offline), so it returns a sentinel body instead of 502.
+    """
+    try:
+        result = await agent_request(
+            db=db,
+            instance_id=instance_id,
+            method="GET",
+            path="/firewall/status",
+            service="firewall",
+        )
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="read", path="/firewall/status", ok=True,
+            detail="Read agent firewall status", user_id=user_id,
+        )
+        return result
+    except AgentClientError as e:
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="read", path="/firewall/status", ok=False,
+            detail=f"Read firewall status failed: {e}", user_id=user_id,
+        )
+        return {"status": "unreachable"}
+
+
+@router.post("/rollback/{instance_id}")
+async def rollback_firewall(
+    instance_id: int,
+    admin_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Restore the newest pre-apply snapshot on the firewall agent."""
+    try:
+        result = await agent_request(
+            db=db,
+            instance_id=instance_id,
+            method="POST",
+            path="/firewall/rollback",
+            json_data={},
+            service="firewall",
+        )
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="deploy", path="/firewall/rollback", ok=True,
+            detail="Rolled back last firewall apply", user_id=admin_id,
+        )
+        return result
+    except AgentClientError as e:
+        await log_agent_dispatch(
+            db, instance_id=instance_id, resource_type="firewall_agent",
+            action="deploy", path="/firewall/rollback", ok=False,
+            detail=f"Firewall rollback failed: {e}", user_id=admin_id,
+        )
+        raise HTTPException(status_code=502, detail=f"Agent error: {e}")
+
+
 async def reload_firewall(instance_id: int):
-    """Reload firewall configuration on an instance"""
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"Firewall reload requested for instance {instance_id} (agent endpoint not yet implemented)")
+    """Push the desired firewall state of an instance to its agent.
+
+    Background-task entry point (``background_tasks.add_task``): opens its
+    own session after the response is sent, following the ``apply_qos_policy``
+    fresh-session pattern. Failures are audit-logged by
+    ``apply_firewall_config``; the DB keeps the desired state.
+    """
+    from shared.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        await apply_firewall_config(db, instance_id)

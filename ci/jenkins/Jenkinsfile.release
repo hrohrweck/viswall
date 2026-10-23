@@ -1,11 +1,12 @@
-// Viswall release — build & push the 4 GHCR images.
+// Viswall release — build & push the custom GHCR images.
 // Parity with the retired .github/workflows/deploy.yml 'images' job.
 // Differences (deliberate):
 //   * Build cache: type=registry (:buildcache per image) instead of GHA cache.
 //
-// Builds the four custom images the default compose profile runs:
-// api-gateway, web-ui, sogo, dns-service, node-agent. nginx ("disabled" profile) and
-// mail-service ("mail" profile) keep building locally on the server.
+// Builds the custom images the default compose profile runs:
+// api-gateway, web-ui, sogo, dns-service, node-agent, firewall-service,
+// vpn-service. nginx ("disabled" profile) and mail-service ("mail" profile)
+// keep building locally on the server.
 //
 // Triggered automatically by viswall-ci on a green main build (same head
 // SHA = the old workflow_run CI gate), or manually with parameters.
@@ -155,6 +156,42 @@ pipeline {
             --cache-to type=registry,ref=$CACHE_REF,mode=max \
             -f services/node-agent/Dockerfile . \
             -t $GHCR/viswall/node-agent:$TAG -t $GHCR/viswall/node-agent:main
+        '''
+      }
+    }
+    stage('firewall-service image') {
+      agent { label 'build' }
+      steps {
+        sh '''
+          CACHE_REF="$GHCR/viswall/firewall-service:buildcache"
+          CACHE_ARGS=""
+          # First-ever build: the buildcache tag does not exist yet and a
+          # registry cache-from would abort the build — only pass it when present.
+          if docker buildx imagetools inspect "$CACHE_REF" >/dev/null 2>&1; then
+            CACHE_ARGS="--cache-from type=registry,ref=$CACHE_REF"
+          fi
+          docker buildx build --push $CACHE_ARGS \
+            --cache-to type=registry,ref=$CACHE_REF,mode=max \
+            -f services/firewall-service/Dockerfile . \
+            -t $GHCR/viswall/firewall-service:$TAG -t $GHCR/viswall/firewall-service:main
+        '''
+      }
+    }
+    stage('vpn-service image') {
+      agent { label 'build' }
+      steps {
+        sh '''
+          CACHE_REF="$GHCR/viswall/vpn-service:buildcache"
+          CACHE_ARGS=""
+          # First-ever build: the buildcache tag does not exist yet and a
+          # registry cache-from would abort the build — only pass it when present.
+          if docker buildx imagetools inspect "$CACHE_REF" >/dev/null 2>&1; then
+            CACHE_ARGS="--cache-from type=registry,ref=$CACHE_REF"
+          fi
+          docker buildx build --push $CACHE_ARGS \
+            --cache-to type=registry,ref=$CACHE_REF,mode=max \
+            -f services/vpn-service/Dockerfile . \
+            -t $GHCR/viswall/vpn-service:$TAG -t $GHCR/viswall/vpn-service:main
         '''
       }
     }

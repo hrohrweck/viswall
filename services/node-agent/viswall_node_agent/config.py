@@ -26,6 +26,24 @@ class AgentConfig:
     netplan_dir: str
     netplan_file: str
     ip_binary: str
+    # Container-local state dir: pre-apply netplan snapshots live at
+    # $STATE_DIR/snapshots/<ts> (newest 10 kept).
+    state_dir: str
+    # Try-mode execution surface (executed inside the host's namespaces).
+    nsenter_binary: str
+    netplan_binary: str
+    dbus_system_bus_address: str
+    netplan_try_timeout: int
+    try_settle_seconds: float
+    # Pre-confirm health probes for try-mode applies.
+    probe_ssh_port: int
+    probe_gateway_url: str
+    probe_ping_target: str
+    curl_binary: str
+    ping_binary: str
+    ss_binary: str
+    # WAN address excluded from automation (never removable, with prefix).
+    wan_ip: str
 
     @property
     def heartbeat_enabled(self) -> bool:
@@ -56,4 +74,21 @@ def load_config() -> AgentConfig:
         netplan_dir=os.getenv("NETPLAN_DIR", "/etc/netplan"),
         netplan_file=os.getenv("NETPLAN_FILE", "60-viswall.yaml"),
         ip_binary=os.getenv("IP_BINARY", "ip"),
+        state_dir=os.getenv("STATE_DIR", "/var/lib/viswall-node"),
+        nsenter_binary=os.getenv("NSENTER_BINARY", "nsenter"),
+        netplan_binary=os.getenv("NETPLAN_BINARY", "netplan"),
+        dbus_system_bus_address=os.getenv(
+            "DBUS_SYSTEM_BUS_ADDRESS", "/run/dbus/system_bus_socket"
+        ),
+        netplan_try_timeout=int(os.getenv("NETPLAN_TRY_TIMEOUT", "120")),
+        try_settle_seconds=float(os.getenv("NETPLAN_TRY_SETTLE_SECONDS", "3.0")),
+        probe_ssh_port=int(os.getenv("PROBE_SSH_PORT", "22")),
+        probe_gateway_url=os.getenv(
+            "PROBE_GATEWAY_URL", "http://127.0.0.1:8010/health"
+        ),
+        probe_ping_target=os.getenv("PROBE_PING_TARGET", "46.4.63.193"),
+        curl_binary=os.getenv("CURL_BINARY", "curl"),
+        ping_binary=os.getenv("PING_BINARY", "ping"),
+        ss_binary=os.getenv("SS_BINARY", "ss"),
+        wan_ip=os.getenv("WAN_IP", "46.4.63.216/32"),
     )
