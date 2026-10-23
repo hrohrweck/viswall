@@ -1,0 +1,24 @@
+[Unit]
+Description=Viswall SSH-safety dead-man watchdog (proof-gated sliding-window revert trap)
+
+[Service]
+# Repo source: deployments/docker/viswall-ssh-watchdog.service.
+# Installed to /etc/systemd/system at cutover time (plan todo 44) together
+# with /usr/local/sbin/ssh_watchdog.sh; this unit is NOT self-installing.
+# SSH_KEY (the prober's deploy-time login identity) must be provided via a
+# drop-in (e.g. /etc/systemd/system/viswall-ssh-watchdog.service.d/env.conf)
+# or an EnvironmentFile=; the prober fails closed (no re-arm) without it.
+Type=simple
+ExecStart=/usr/local/sbin/ssh_watchdog.sh
+Restart=always
+RestartSec=5
+# RESTORE_FLAGS during todos 40-43: --no-restart-docker (rehearsal-safe restore).
+# CUTOVER (todo 44) OVERRIDES RESTORE_FLAGS to EMPTY for a FULL restore
+# (including the docker restart), e.g. via a drop-in:
+#   systemctl edit viswall-ssh-watchdog.service
+#   [Service]
+#   Environment=RESTORE_FLAGS=
+Environment=RESTORE_FLAGS=--no-restart-docker
+
+[Install]
+WantedBy=multi-user.target
