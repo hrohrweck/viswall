@@ -294,16 +294,23 @@ services:
       dockerfile: services/node-agent/Dockerfile
     restart: unless-stopped
     network_mode: host
-    cap_add:
-      - NET_ADMIN
+    # Try-mode runs `nsenter -t 1 -m -u -i -n -- netplan try` against the HOST:
+    # pid: host makes PID 1 the host's systemd, and nsenter needs
+    # CAP_SYS_ADMIN (not in Docker's default capability set), hence privileged.
+    # The agent still only exposes the instance-key-guarded API on :8085 and
+    # the host's /etc/netplan (bind-mounted) is its only write surface.
+    pid: host
+    privileged: true
     environment:
       # A host-network container cannot resolve compose service names.
       GATEWAY_URL: ${NODE_GATEWAY_URL:-http://127.0.0.1:8010}
-      INSTANCE_ID: ${NODE_INSTANCE_ID:-}
+      INSTANCE_ID: ${NODE_INSTANCE_ID:-1}
       INSTANCE_API_KEY: ${NODE_API_KEY:-}
       NETPLAN_DIR: ${NETPLAN_DIR:-/etc/netplan}
+      STATE_DIR: /var/lib/viswall-node
     volumes:
       - /etc/netplan:/etc/netplan
+      - ${NODE_STATE_DIR:-/var/lib/viswall-node}:/var/lib/viswall-node
     depends_on:
       - api-gateway
 
