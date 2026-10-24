@@ -15,13 +15,13 @@
 > - Evidence: `.omo/evidence/task-44-firewall-migration.md`, `task-45-firewall-migration.md`.
 > - Remaining: t+24 h battery, reboot rehearsal, external internal-port probe, one test mail.
 
-Status: **PLANNED, NOT EXECUTED**. Skeleton written 2026-10-22. This document is the
-migration's source of truth and is followed verbatim during todos 38-48 of
-`.omo/plans/firewall-migration.md`, then corrected wherever reality diverges.
+Status: **EXECUTED — CUTOVER COMPLETE 2026-10-24 13:58 CEST.** Skeleton written 2026-10-22;
+followed during todos 38-48 and corrected wherever reality diverged (see the deviations register
+and the cutover record above). Remaining: t+24 h verification, reboot rehearsal, soak, decommission.
 
 Host: `boseman` / `46.4.63.216` (Hetzner KVM, single NIC `enp0s31f6`).
 Console: `https://viswall.webmasters.co.at`.
-Repo branch: `feat/firewall-production` in `/data/docker/persistent/viswall/viswall-fwdev`.
+Repo: `main` (the feature branch merged as PR #73); dev clone `/data/docker/persistent/viswall/viswall-fwdev`.
 Model: `DNS_MIGRATION_PLAN.md` (structure and cutover-record style).
 
 The goal: the viswall console becomes the single management surface for firewall
