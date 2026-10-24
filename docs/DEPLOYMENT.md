@@ -45,7 +45,9 @@ the approving review (the "Protect main" ruleset requires 1 approval).
 | `ghcr.io/hrohrweck/viswall/firewall-service` | `services/firewall-service/Dockerfile` | host firewall agent (nftables table `inet viswall`) — see below |
 | `ghcr.io/hrohrweck/viswall/vpn-service` | `services/vpn-service/Dockerfile` | WireGuard site-to-site client manager — see below |
 
-`nginx` (profile `disabled`) is intentionally **not** prebuilt — TLS is terminated by the existing host nginx. `mail-service` (profile `mail`) **is enabled in production** (Exim/Dovecot carry live mail) and builds locally on the server during each deploy; its DKIM keys live in `/opt/viswall/dkim` (untracked, preserved across deploys). `node-agent` also builds locally on the server (no prod-override entry) — it is host-network privileged and tiny.
+`nginx` (profile `disabled`) is intentionally **not** prebuilt; TLS is terminated by the existing host nginx. `mail-service` (profile `mail`) **is enabled in production** (Exim/Dovecot carry live mail) and builds locally on the server during each deploy; its DKIM keys live in `/opt/viswall/dkim` (untracked, preserved across deploys). `firewall-service` and `vpn-service` are **enabled in production** on `boseman` (the cutover completed 2026-10-24); they are not optional dev-only blocks. `node-agent` also builds locally on the server (no prod-override entry); it is host-network privileged and tiny.
+
+The node-agent additionally requires `pid: host` (PID 1 must be the host's systemd for `nsenter`) and `NODE_INSTANCE_ID` / `NODE_API_KEY` credentials. Without the host namespace, `CAP_SYS_ADMIN` and matching credentials, `GET /interfaces` returns 503 and `netplan try` try-mode is broken (fix merged as PR #79).
 
 Third-party images (postgres, redis, prometheus, grafana, ollama) are pulled directly by compose. Data lives in named volumes and survives every deploy.
 
@@ -76,14 +78,16 @@ They are therefore NOT covered by the usual container-network isolation:
   bridges, not from the public interface. `X-Instance-Key` auth remains
   required on every endpoint except `/health`.
 - **Firewall ownership**: the host firewall lives in `table inet viswall`,
-  managed only by firewall-service. Docker keeps its own `ip`/`ip6` filter,
-  raw and nat tables (DNAT, MASQUERADE, `DOCKER-USER`, `DOCKER-FORWARD`); the
-  agent swaps only `table inet viswall` and never contains `flush ruleset`.
-  Base-chain `accept` in the viswall forward hook continues to Docker's
-  priority-0 chain (packet-level proof in
-  `.omo/evidence/task-40b-forward-accept.md`), so Docker still enforces
-  per-bridge/per-port policy. The blacklist (`/block`) is host-INPUT-only and
-  sits at the top of the input chain, before every accept.
+  managed only by firewall-service. **At the 2026-10-24 cutover the legacy
+  operator iptables rules were stripped to the Docker-only baseline** (v4 and
+  v6); `netfilter-persistent` is disabled and `viswall-firewall-persist.service`
+  is enabled. Docker keeps its own `ip`/`ip6` filter, raw and nat tables (DNAT,
+  MASQUERADE, `DOCKER-USER`, `DOCKER-FORWARD`); the agent swaps only
+  `table inet viswall` and never contains `flush ruleset`. Base-chain `accept`
+  in the viswall forward hook continues to Docker's priority-0 chain
+  (packet-level proof in `.omo/evidence/task-40b-forward-accept.md`), so Docker
+  still enforces per-bridge/per-port policy. The blacklist (`/block`) is
+  host-INPUT-only and sits at the top of the input chain, before every accept.
 - **Auth**: every endpoint except `/health` requires the `X-Instance-Key`
   header to match `INSTANCE_API_KEY` (passed through from the host `.env`;
   empty value makes the agent refuse to start). The same key must equal the
@@ -92,8 +96,9 @@ They are therefore NOT covered by the usual container-network isolation:
   the **host `.env`** (`/opt/viswall/deployments/docker/.env`), never
   hardcoded in the repo. Default `1` renders the pass-through ruleset (log
   prefix `VW-VALIDATION`, policy accept, zero drops) — the agent can be
-  deployed and imported into without changing any live traffic. The cutover
-  flips the host `.env` to `0` (todo 44); the repo default stays `1`.
+  deployed and imported into without changing any live traffic. The 2026-10-24
+  cutover set the host `.env` to `0` (executed); the repo default stays `1`, so
+  every later deploy must keep the host override.
 - **State dirs**: `${FW_STATE_DIR:-/var/lib/viswall-firewall}` and
   `${VPN_STATE_DIR:-/var/lib/viswall-vpn}` bind-mount the agent state
   (snapshots, takeover marker) so it survives image upgrades. The firewall
@@ -119,10 +124,20 @@ They are therefore NOT covered by the usual container-network isolation:
   injection rejected), so a stored value cannot inject a ruleset or
   `client.conf` line.
 - **Restore safety**: `restore_firewall.sh` exits 0 on `COMMIT` or fresh
-  `ALIVE` before any destructive step; the agent's rollback restores
-  `nftables.conf.last-good` if a restore fails midway, and the watchdog
-  (`scripts/ssh_watchdog.sh` + `viswall-ssh-watchdog.service`, installed at
-  cutover) re-arms the revert trap only while proof-of-life checks pass.
+  `ALIVE` before any destructive step; the snapshot argument is optional and
+  defaults to the newest `$STATE_DIR/snapshots/<ts>` (the trap invokes it
+  argument-free). The agent's rollback restores `nftables.conf.last-good` if a
+  restore fails midway, and the watchdog (`scripts/ssh_watchdog.sh` +
+  `viswall-ssh-watchdog.service`, installed at cutover) re-arms the revert trap
+  only while proof-of-life checks pass.
+- **Post-cutover rollback**: after `COMMIT` was written, the console rollback
+  returns **409** (PR #85) because the newest snapshots are pre-apply captures of
+  the *stripped* iptables. The preserved pre-cutover baseline is
+  `/var/lib/viswall-firewall/cutover-baseline/`; use it with
+  `restore_firewall.sh --no-restart-docker` after removing `COMMIT`.
+- **Anti-spoof churn**: container-IP anti-spoof rows are runtime-generated from
+  container lifecycle, not Ansible. Reconcile bidirectionally against the current
+  live ruleset (the importer only adds; stale rows need a console DELETE).
 
 Third-party images (postgres, redis, prometheus, grafana, ollama) are pulled directly by compose. Data lives in named volumes and survives every deploy.
 

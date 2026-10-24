@@ -1,12 +1,13 @@
 # Firewall Migration Plan: boseman iptables legacy stack → Viswall firewall module
 
-Status: **PLANNED, NOT EXECUTED**. Skeleton written 2026-10-22. This document is the
-migration's source of truth and is followed verbatim during todos 38-48 of
-`.omo/plans/firewall-migration.md`, then corrected wherever reality diverges.
+Status: **EXECUTED: CUTOVER COMPLETE 2026-10-24 13:58 CEST.** Skeleton written 2026-10-22,
+followed during todos 38-48 and reconciled with the executed reality in todo 47. Remaining:
+t+24 h verification, reboot rehearsal, soak and decommission.
 
 Host: `boseman` / `46.4.63.216` (Hetzner KVM, single NIC `enp0s31f6`).
 Console: `https://viswall.webmasters.co.at`.
-Repo branch: `feat/firewall-production` in `/data/docker/persistent/viswall/viswall-fwdev`.
+Repo: `main` (the feature branch merged as PR #73); dev clone
+`/data/docker/persistent/viswall/viswall-fwdev`.
 Model: `DNS_MIGRATION_PLAN.md` (structure and cutover-record style).
 
 The goal: the viswall console becomes the single management surface for firewall
@@ -22,7 +23,8 @@ own tables and chains.
 - No `flush ruleset` anywhere, at any time, by any script or agent.
 - No changes to mail, DNS, or any hosted workload's runtime config.
 - No edits under `/opt/viswall` (CD-owned checkout).
-- No push to `main`; one PR from `feat/firewall-production`.
+- No direct push to `main`; changes reach it only through a reviewed PR (the migration
+  branch merged as PR #73).
 - Every risky step runs behind the watchdog and revert trap described in section 4.
 - The legacy rules stay archived and restorable for at least 6 months.
 
@@ -128,10 +130,14 @@ exact list taken from the live capture (never a hardcoded list in code).
 ### 1.4 Raw anti-spoof and loopback guards (60 v4 rules)
 
 `*raw` PREROUTING contains 60 drop rules on IPv4 (plus the 15 IPv6 container-IP
-drops noted in 1.2):
+drops noted in 1.2). The numbers below are the cold-capture state; container churn
+later raised the cutover set to **65 container-IP drops (49 IPv4 + 16 IPv6)** and
+the console was reconciled to 109 rows before the window (section 3, Phase 5).
 
-- **63 container-IP anti-spoof rules (48 IPv4 + 15 IPv6)**, one per live
-  container address across 13 bridges: `-A PREROUTING -d <container-ip>/32 ! -i <bridge> -j DROP`.
+- **63 container-IP anti-spoof rules (48 IPv4 + 15 IPv6)** in the cold capture,
+  one per live container address across 13 bridges:
+  `-A PREROUTING -d <container-ip>/32 ! -i <bridge> -j DROP`.
+  The set is runtime-generated from container lifecycle, not Ansible (Phase 5).
   Example: `-d 172.19.0.2/32 ! -i br-dcbbead2b63e -j DROP`. These render in the
   viswall **`raw_prerouting` chain (filter hook prerouting priority -300, pre-DNAT)**
   as `iifname != "<bridge>" ip daddr <container-ip> drop`, generated from the live
@@ -199,6 +205,15 @@ previous file to `$STATE_DIR/backups/<utc-stamp>/` (`$STATE_DIR` defaults to
 `/var/lib/viswall-node`), never to a backup directory inside `/etc/netplan`,
 which netplan would parse as a second source. Automated WAN address changes are
 out of scope (section 6).
+
+Inside the nsenter context `netplan try` logs "Failed to connect to system bus …
+falling back to a hard restart of systemd-networkd" even though the host dbus is
+active; accept/revert behaviour is correct and was proven in the todo-41 drills.
+
+The console's `InterfaceApplyRequest` currently exposes only `force`;
+`try_mode` is read with `getattr(..., False)`, so the console cannot request the
+SSH-safe `netplan try` path. The drills called the node-agent directly. Exposing
+`try_mode` on the schema is an open follow-up, not a claimed feature.
 
 ### 1.7 WireGuard client (site-to-site, split tunnel)
 
@@ -280,8 +295,9 @@ viswall-firewall-service-1            viswall-vpn-service-1
   /var/lib/viswall-firewall             /var/lib/viswall-vpn
   (nft state only)                      /etc/wireguard (rw, backed up)
 
-viswall-node-agent-1 (network_mode host, :8085)
+viswall-node-agent-1 (network_mode host, pid host, privileged, :8085)
  volumes: /etc/netplan (rw); state: $STATE_DIR/backups (netplan try backups)
+ credentials: NODE_INSTANCE_ID / NODE_API_KEY
                        |                                        |
                        +----------------+-----------------------+
                                         |
@@ -307,7 +323,8 @@ Key properties:
   `/firewall/apply` or `/vpn/apply` to the host-net agent with `X-Instance-Key`
   (the gateway runs in a bridge network, so instance-1 endpoints use
   `http://host.docker.internal:8081/8083/8085`, not guest loopback). The agent
-  snapshots, renders, validates (`nft -c -f`), then applies.
+  snapshots, renders, validates in a throwaway network namespace
+  (`unshare -n nft -c -f`), then applies.
   **Key-transit posture (F2 review #14, accepted as-is): the instance API key
   and every agent payload travel in CLEARTEXT over HTTP
   (`http://host.docker.internal:<port>`), with the agents bound to `0.0.0.0`
@@ -325,6 +342,13 @@ Key properties:
   only) `netplan try`. Mitigations: `X-Instance-Key` auth on every endpoint
   except `/health`, minimal images, no published ports, and the port-scoped
   bridge reads described in the renderer facts below.
+- **Node-agent deployment requirements.** The node-agent needs
+  `network_mode: host`, `pid: host` (so PID 1 is the host's systemd) and
+  `privileged: true` (CAP_SYS_ADMIN for `nsenter / netplan try`), plus
+  `NODE_INSTANCE_ID` / `NODE_API_KEY` credentials matching the DB row. Without
+  them `GET /interfaces` returns 503 and try-mode is broken; the fix landed as
+  PR #79. The repo compose and the production host now agree, so a CD
+  `git reset --hard` no longer reverts the fix.
 - **Renderer ordering facts (verified against `nft.py` and netns).**
   - Blacklist drops sit at the TOP of the input chain, immediately after
     `ct state established,related accept`, so a blocked source IP reaches no
@@ -351,6 +375,11 @@ Key properties:
   dump (`nft list table inet viswall > /etc/nftables.conf`) with
   `Before=network-pre.target` and `Conflicts=nftables.service`, so the filter is in
   place before the network is up. Never dump `nft list ruleset` into that file.
+  The strip script never writes `/etc/iptables/rules.v4`, so the unit's
+  `OnFailure=netfilter-persistent.service` fallback still loads the operator-era
+  ruleset (today's Docker chains included), which is the intended fail-safe. It
+  also re-adds the legacy raw anti-spoof rows, duplicating the viswall drops if
+  the viswall load failed; harmless, and it keeps the fallback meaningful.
 - **`/block` is host-INPUT-only (F2 REMAINING MINOR #2, documented scope
   decision).** The `/block` endpoint (todo-20 carryover) adds timed elements to
   the `blacklist_v4`/`blacklist_v6` sets, which the renderer references at the
@@ -377,10 +406,15 @@ Key properties:
   config-download shapes), so a non-admin cannot read a client or tunnel key.
 - **Apply and rollback keep a last-good firewall.** `apply_ruleset` copies the
   current `/etc/nftables.conf` to `$STATE_DIR/nftables.conf.last-good` before
-  the swap, validates the new render with `nft -c -f` before deleting the
-  table, and re-applies the last-good file if `nft -f` fails. The agent's direct
-  rollback validates the snapshot first and re-applies last-good if a restore
-  fails midway, so the host is never left with neither firewall.
+  the swap and re-applies it if `nft -f` fails. Validation runs in a throwaway
+  network namespace (`unshare -n nft -c -f`, with a capability probe); a direct
+  `nft -c -f` against the live table collides with named meter sets once the
+  real ruleset is loaded, so the pre-check must not run in the host namespace
+  (post-cutover fix, PR #82). The agent's direct rollback validates the snapshot
+  first and re-applies last-good if a restore fails midway, so the host is never
+  left with neither firewall. With `COMMIT` present the agent's rollback returns
+  **409** and points at the preserved baseline instead of restoring a post-cutover
+  (stripped) snapshot (section 7.0, PR #85).
 - **The restore script's no-op guard runs first.** `restore_firewall.sh` exits
   0 on `$STATE_DIR/COMMIT` or fresh `$STATE_DIR/ALIVE` BEFORE it disables the
   persist unit or deletes the table. A scheduled fire can therefore never
@@ -492,9 +526,10 @@ Verification at capture: `iptables-restore --test` rc=0 for v4 and v6,
   live capture.
 - Mapping: INPUT accepts → `FirewallRule` rows; hashlimit lines → `limit` field
   (`ssh_limit`, `http_limit`, `https_limit`, `wireguard_limit`); the 5432 drop → a
-  drop row; input policy drop stays the agent default, not a row; 63 raw
-  container-IP drops (48 v4 + 15 v6) → rows with negated `interface_in`, rendered
-  in `raw_prerouting` (pre-DNAT); 12 loopback guards → INPUT rows (hoisted to
+  drop row; input policy drop stays the agent default, not a row; the cold
+  capture's 63 raw container-IP drops (48 v4 + 15 v6) → rows with negated
+  `interface_in`, rendered in `raw_prerouting` (pre-DNAT), later reconciled to
+  65 rows after container churn (109 rows total); 12 loopback guards → INPUT rows (hoisted to
   `raw_prerouting` by the renderer); the 17 DOCKER-USER ports → one named rule
   `docker-internal-port-protection`; Docker NAT → skipped with a report; the 48
   duplicate MASQUERADE lines → detected, counted, reported, not imported.
@@ -505,6 +540,10 @@ Verification at capture: `iptables-restore --test` rc=0 for v4 and v6,
 - Both scripts are dry-run by default, support `--apply`, `--rollback` and an import
   manifest, and are idempotent by name per instance.
 - `--apply` runs only after validation mode is confirmed true (todo 36 step 0).
+- Plan-ordering gap: the instance-1 `agent_endpoints` write
+  (`scripts/update_instance_1.py`, firewall/vpn/node on
+  `host.docker.internal:8081/8083/8085`) was owned by no scheduled todo. It was
+  executed during todo 36 to unblock the import and is now live.
 
 ### Phase 4: Parallel validation (todos 38-43)
 
@@ -523,6 +562,13 @@ Verification at capture: `iptables-restore --test` rc=0 for v4 and v6,
    A35 agent-control INPUT accepts on `docker0`/`br-*` (8081/8083/8085), and
    A36 the declared+referenced blacklist sets. Any other DIFF, or any un-reasoned
    row, blocks cutover.
+
+   The mechanical gate is `scripts/firewall_parity_gate.py` (PR #81), with
+   adversarial unit tests. It consumes the live `nft list table inet viswall`
+   and fails closed on policy, guards, internal ports, meters and drops. The
+   in-window run exposed a parser gap: live nft prints named hook priorities
+   (`priority raw`, `priority mangle`); the gate was fixed to accept them
+   (PR #83), after which it returned ALL PASS on the real table.
 3. **Pass-through on the host (40):** watchdog armed first, `VALIDATION_MODE=1`
    table live, full connection matrix before and after (ssh 22, 443, mail
    25/465/587/993/995, dns 53 tcp+udp, rustdesk 21114-21119, wg handshake, one
@@ -533,7 +579,8 @@ Verification at capture: `iptables-restore --test` rc=0 for v4 and v6,
    add/remove roundtrip, forced-fail netplan auto-revert, full restore rehearsal
    with `--no-restart-docker`.
 5. **VPN validation (42):** takeover marker, status before/after stop/start,
-   handshake restored, `ping 10.80.0.1` through the tunnel, no-op AllowedIPs edit,
+   handshake restored, `ping 10.80.2.251` through the tunnel (10.80.0.1 does
+   not answer ICMP), no-op AllowedIPs edit,
    trap disarmed and COMMIT absent. Stop drill only from a session on the public IP
    and with the prober's `--ignore-wg` flag, otherwise the trap auto-restores.
 6. **Gate (43):** evidence pack, second independent WAN SSH session, Hetzner console
@@ -548,29 +595,44 @@ ready, rollback runbook in hand.
 1. Confirm the second SSH session and Hetzner console access.
 2. Take a **fresh** snapshot with the agent snapshot routine and arm the sliding
    window watchdog plus revert trap. `RESTORE_FLAGS` is the FULL restore for this
-   window.
+   window. The trap invokes `restore_firewall.sh` with **no positional argument**;
+   the script defaults to the newest `$STATE_DIR/snapshots/<ts>` (PR #78).
 3. Set `VALIDATION_MODE=0` in the host `.env` (documented exception to the
    `/opt/viswall` no-edit rule), run `docker compose up -d firewall-service`,
    confirm `/firewall/status` reports `validation_mode: false`. Apply the real
-   ruleset via the console. Confirm the normalized drift reference mtime is newer
-   than the apply timestamp. Prove a fresh SSH login before continuing.
+   ruleset via the console. **Refresh the normalized drift reference manually**
+   (`$STATE_DIR/ref-normalized.hash`; the agent does not write it) with the
+   prober's exact pipeline, and confirm its mtime is newer than the apply
+   timestamp. Prove a fresh SSH login before continuing.
 4. Probe battery: ssh 22 fresh login, 80/443, 25/465/587/993/995, 53 tcp+udp, wg
    handshake, internal port accepted from inside and dropped from `enp0s31f6`.
+   Local probes to the host's own public IP traverse `lo` and hit the loopback
+   accept, so they cannot prove the internal-port drop; the packet-level proof is
+   the todo-38 netns test and the external confirmation comes from the operator
+   workstation (`nc -vz 46.4.63.216 8089` → timeout).
 5. Surgical iptables strip with the rehearsed `strip_to_docker_baseline.sh` against
    the fresh snapshot of this window, never `iptables -F`/`-X`. Run
    `iptables-restore -w 30 --test` first, then restore. Same for ip6tables. HARD
-   GATE: the INPUT parity diff against the viswall table must be 100 percent PASS.
+   GATE: run `scripts/firewall_parity_gate.py --rules-v4 <live> --rules-v6 <live>
+   --nft-table <(nft list table inet viswall)`; the INPUT parity diff must be 100
+   percent PASS. The gate accepts live named hook priorities after the in-window
+   parser fix (PR #83). Any DIFF blocks the strip.
 6. Re-run the probe battery including a fresh SSH login.
 7. `systemctl disable --now netfilter-persistent` (files stay on disk). Write
    `nft list table inet viswall > /etc/nftables.conf` and enable
-   `viswall-firewall-persist.service`.
+   `viswall-firewall-persist.service`. In-place `nft -c -f` fails while the table
+   is live ("meter … overlaps an existing set"); validate the dump in a clean
+   namespace instead (boot simulation `nft -c -f` + `nft -f` both exit 0).
 8. Re-run the probe battery and fresh SSH login.
 9. Write `/var/lib/viswall-firewall/COMMIT` and explicitly stop
    `vw-revert.timer` and `vw-revert.service`.
-10. Disarm the legacy generator trigger per section 9. On this host there is
-    nothing local to disable; the operator pauses the off-host Ansible control
-    node and records the re-enable command.
-11. Audit-log the cutover.
+10. Confirm the legacy generator stays dormant per section 9. There is nothing
+    local to disable; the operator keeps the off-host Ansible control node paused
+    and records the re-enable command. This is *not* the anti-spoof source: those
+    rows are runtime-generated from container lifecycle, so the real window rule
+    is **freeze container churn** (no deploys or restarts of unmodified services).
+11. Audit-log the cutover (the executed run recorded `deploy firewall_agent` at
+    the real apply).
 
 Any probe failure before step 9: let the trap restore, diagnose, fix, and re-enter
 from step 2. Never improvise inside the window.
@@ -595,8 +657,11 @@ anti-spoof rows are keyed on live container IPs. Between the cold capture (2026-
 api-gateway container was recreated and two rows appeared (`anti-spoof 172.17.0.7 via docker0`
 and `anti-spoof 2001:db8:1::7 via docker0`). The console had been imported from the cold capture,
 so the rendered table would have silently dropped those two protections at the strip. They have
-been imported (console now holds 109 rows, matching the newest snapshot), but the window MUST
-repeat the reconciliation against its own fresh snapshot.
+been imported (console held 109 rows before the window), and the window reconciles
+**bidirectionally against the current live `iptables-save`, not against a fresh
+snapshot**. No intermediate-apply snapshot may be used as the expected side: every
+apply captures the *pre-apply* state. In the window the dry-run and console both
+held 109 rows with 0 missing / 0 stale after a 25 h churn-free interval.
 
 **Who generates them:** the todo-1 investigation found the off-host Ansible generator *dormant*
 (last activity 2025-10-26, no local trigger), and a 2026-10-23 correlation is conclusive: **all 46
@@ -625,40 +690,50 @@ container runtime on every start/stop, not by Ansible — it will keep drifting 
    apply changes anything. Use the post-freeze live capture. Verified end-to-end 2026-10-23:
    console payload (109 rules) -> real-mode render -> `nft -c` rc 0 -> ALL PASS vs live.
 
-**Status: PENDING — OPERATOR ITEMS (do not start the window):**
+**Status: CLOSED: the window ran 2026-10-24 13:48:14 to 13:58:26 CEST (10m 12s).**
+Evidence: `.omo/evidence/task-44-firewall-migration.md`. The pre-window requirements
+recorded here (a future run must satisfy them again) were:
 
-- [ ] Container churn is frozen for the window and no off-host automation will write the rules
-      during it (the todo-1 generator is dormant; record the re-enable command if anything is paused).
-- [ ] An independent second SSH session from the operator workstation to the public IP, open for
-      the whole window (a host-originated connection proves the path but cannot survive a
-      host-level failure).
-- [ ] Hetzner KVM/rescue console reachability verified (inside the window).
-- [ ] Maintenance window announced/confirmed, target under 30 minutes.
-- [ ] Rollback runbook (section 7) visible in the second session.
-- [ ] Explicit GO for the cutover.
-
-Mark this section **READY, reviewed** only when all six are checked.
+- container churn frozen for the window and no off-host automation writing rules during it;
+- an independent second SSH session from the operator workstation to the public IP, open for
+  the whole window (a host-originated connection proves the path but cannot survive a
+  host-level failure);
+- Hetzner KVM/rescue console reachability verified inside the window;
+- maintenance window announced/confirmed, target under 30 minutes;
+- rollback runbook (section 7) visible in the second session;
+- explicit GO for the cutover.
 
 ### Phase 6: Verification (todo 45)
 
 Full probe battery at t0 and t+24h, Docker publish spot checks (nextcloud,
 rustdesk 21115-21119, vidForge, openspeedtest, mattermost, n8n), mail smoke, DNS
-dig, WG handshake. Day-2 operability: add a throwaway accept for an unused port via
-the console, see it in `nft list table inet viswall` within 10 s, delete it, see it
-gone. Reboot rehearsal in the same week: after boot the table is present and Docker
-chains coexist; the persist unit ran before the NIC carrier. After every later CD
-deploy, confirm `validation_mode: false`.
+dig, WG handshake. **t0 battery: GREEN 2026-10-24** (all critical ports open, WAN
+SSH OK, DNS answers, wg handshake/tunnel 0% loss, container-to-gateway health 200);
+t+24 h is due 2026-10-25 ~14:00.
+
+Day-2 operability: add a throwaway accept for an unused port via the console, see
+it in `nft list table inet viswall`, delete it, see it gone. The first attempt
+found a real bug: the direct `nft -c -f` pre-validation collided with the live
+named meters and every console change returned 502. Validating in a throwaway
+netns fixed it (PR #82); create/delete then propagated in ~1 s. Reboot rehearsal
+in the same week: after boot the table is present and Docker chains coexist; the
+persist unit ran before the NIC carrier. After every later CD deploy, confirm
+`validation_mode: false`.
 
 ### Phase 7: Rollback
 
-See section 7. Audited in todo 46, never executed live after cutover.
+See section 7. Audited in todo 46 and never executed live after cutover. The
+console rollback now returns **409** while `COMMIT` exists; the preserved baseline
+(§7.0) is the only safe rollback source, and the netns rehearsal restored it
+byte-identically.
 
 ### Phase 8: Decommission (todos 48-49)
 
 14 day soak with daily evidence, one mid-soak console edit, one Docker restart
 coexistence test with a MASQUERADE re-count against the live baseline, borg coverage
 for `/etc/iptables`, `/etc/netplan`, `/etc/wireguard`, `/etc/nftables.conf`. After
-soak: archive the backup plus newest snapshots off-host for at least 6 months, move
+soak: archive the backup, the preserved `/var/lib/viswall-firewall/cutover-baseline`
+and the newest snapshots off-host for at least 6 months, move
 `rules.v4`/`rules.v6` to `/etc/iptables/backups/` with a README pointing at
 `restore_firewall.sh`, harden `client.conf` to 0600, update the docs. Do not delete
 the legacy files and do not remove `wg-quick@client`.
@@ -702,19 +777,27 @@ installed to the host at cutover (the unit is not self-installing).
 > **(d) WAN-path drift check with a STABLE normalized reference.** Raw `nft list`
 > output cannot be hashed against the ruleset file because nft normalizes formatting
 > AND meter sets/counters churn on every login, including the cutover's own
-> mandatory WAN SSH logins. The agent refreshes the normalized reference
-> (`nft -j list table inet viswall` with `elem`, `counter`, `bytes`, `packets`,
-> `expires`, `handle` stripped, then hashed) after EVERY successful
-> `/firewall/apply`, UNCONDITIONALLY, no "trap armed" detection needed (refreshing
-> while unarmed is harmless, and misdetecting the trap state as disarmed would skip
-> the refresh and self-trigger a restore on a legitimate apply). The prober compares
-> each live normalized sample against that reference; meter-element churn from
-> logins is thereby excluded by design, and a legitimate console apply updates the
-> reference instead of reading as drift. Any drift while the trap is armed = failed
-> proof. In todo 40 the first reference is captured right AFTER the pass-through
-> apply, and todo 44 step 3 includes a "verify reference mtime is post-apply"
-> sub-step. Additionally the runbook instructs the second operator session (todo 43)
-> to attempt a WAN SSH login after every apply step.
+> mandatory WAN SSH logins.
+>
+> **The agent does NOT write the reference** (`$STATE_DIR/ref-normalized.hash`).
+> The original plan claimed it refreshed after every apply; that implementation
+> never landed (deviation 2 in `.omo/evidence/f1-deviations-register.md`). The
+> operator/executor must refresh it manually after every successful
+> `/firewall/apply` and before re-arming the trap, using the prober's exact
+> pipeline: `nft -j list table inet viswall` with `elem`, `counter`, `bytes`,
+> `packets`, `expires`, `handle` stripped, printed as JSON with a trailing
+> newline, then `sha256sum`. A hash produced by any other route (for example
+> hashing the string in Python) differs by one byte and reads as permanent drift.
+> The prober **fails closed** when the reference is missing or stale.
+>
+> The prober compares each live normalized sample against that reference;
+> meter-element churn from logins is thereby excluded by design, and a manual
+> refresh after a legitimate console apply prevents a false drift. Any drift while
+> the trap is armed = failed proof. In todo 40 the first reference is captured
+> right AFTER the pass-through apply; in the cutover it was refreshed at 13:54:47
+> after the 13:53:28 real apply and the prober re-armed at 13:55:21. Additionally
+> the runbook instructs the second operator session (todo 43) to attempt a WAN SSH
+> login after every apply step.
 
 Resulting state machine (the whole point of the design):
 
@@ -749,6 +832,10 @@ Operational rules that must not be softened:
 4. Restart Docker (rebuilds its chains) unless `--no-restart-docker` was passed.
 5. Restart `wg-quick@client`. Restore netplan files and `netplan apply`.
 6. Log every action to `/var/log/viswall-restore.log`. Safe to run repeatedly.
+7. The snapshot argument is **optional**: with no positional argument the script
+   defaults to the newest `$STATE_DIR/snapshots/<ts>` (PR #78). The dead-man trap
+   invokes it argument-free, so a required argument made every fire exit 2 and
+   restore nothing (fail-open).
 
 ---
 
@@ -778,6 +865,11 @@ ip6tables-restore < /mnt/data/docker/persistent/backup/firewall-20261022-221901/
 cp /mnt/data/docker/persistent/backup/firewall-20261022-221901/netplan/01-netcfg.yaml /mnt/etc/netplan/01-netcfg.yaml
 ```
 
+The host-native restore script is a bash script (`#!/usr/bin/env bash`); invoke
+it with `bash /usr/local/sbin/restore_firewall.sh …` (or directly), not via `sh`.
+The rescue environment has no viswall agent state to rely on, so the manual
+`iptables-restore` path above is the fallback.
+
 If the viswall table is the problem, remove it from the mounted root's persisted
 file (`/mnt/etc/nftables.conf`) or delete the table after boot with
 `nft delete table inet viswall`. Rescue is the only path that works when the WAN
@@ -805,10 +897,29 @@ WAN-IP limitation.
    The migration preserves that; it does not "upgrade" IPv6 to the IPv4 port set.
 6. **Additional accepted risks:** the agents are privileged with host networking
    (mitigated by port-scoped bridge INPUT accepts and instance-key auth); the
-   Docker-restart branch of `restore_firewall.sh` is not exercised live until a
-   real incident (only `--no-restart-docker` is rehearsed); the Jenkins
-   controller at `10.80.2.251:8081` was never contacted and remains an unknown
-   for rule generation (section 9).
+   node-agent additionally needs `pid: host` and credentials for try-mode
+   (PR #79). The Docker-restart branch of `restore_firewall.sh` is not exercised
+   live until a real incident (only `--no-restart-docker` is rehearsed). Jenkins
+   at `10.80.2.251:8081` is reachable but anonymous GET is 403; CD did not fire
+   during the cutover, and the firewall/vpn agent images are local-only until
+   `viswall-release` pushes them (GHCR daemon auth was broken). The cutover-era
+   deploy was manual (backup → pin → local build → up) because Jenkins was
+   unresponsive at merge time; `.last-good-tag=sha-fcd8089`.
+7. **Console interface apply is fail-closed with the imported inventory.**
+   `check_wan_guardrails` guardrail 4 refuses any desired interface absent from
+   the host netplan files. The console sends all 65 imported rows (`client`,
+   `docker0`, `br-*`, `veth*`), of which only `enp0s31f6` is in netplan, so the
+   whole plan is refused with 400. Safe, but the UI path is unusable until the
+   payload is filtered to manageable interfaces or base netplan entries exist.
+8. **`try_mode` is not exposed on the console schema.** `InterfaceApplyRequest`
+   has only `force`; the gateway reads `getattr(data, "try_mode", False)`. The
+   console cannot request the SSH-safe `netplan try` path; the drills called the
+   node-agent directly.
+9. **Interface discovery is explicit, with no stale flag.** The importer upserts
+   by name and never deletes; `NetworkInterface` has no `stale` column, so
+   Docker-owned rows (`veth*`, `br-*`) persist. There is no periodic or polling
+   refresh: discovery runs only on the UI Refresh / API call, and the node-agent
+   heartbeat carries only `{api_key}`. "Mark stale" was never implemented.
 
 ---
 
@@ -816,18 +927,52 @@ WAN-IP limitation.
 
 Two forms: the host-native script (preferred) and manual commands (when the script
 itself is suspect). Both must restore the previous world exactly and must leave
-boot-time protection behind.
+boot-time protection behind. After the 2026-10-24 cutover the **only** safe
+rollback source is the preserved pre-cutover baseline (§7.0), not the newest
+agent snapshot.
+
+### 7.0 Post-cutover (COMMIT present): the only safe rollback path
+
+> **The newest agent snapshots are pre-apply captures of the STRIPPED iptables**
+> (`-P INPUT ACCEPT`, Docker rules only). Restoring one and deleting the viswall
+> table would leave the host **unfiltered**. The console Rollback button now
+> returns **409** for this reason (agent `/firewall/rollback`; preserved-baseline
+> message included).
+>
+> The pre-cutover baseline is preserved outside the pruned snapshots dir at
+> `/var/lib/viswall-firewall/cutover-baseline/` (copied from the window snapshot
+> `20261024-114823-012744`; `iptables-restore --test` + `ip6tables-restore --test`
+> both green, 27 operator INPUT rules).
+>
+> Deliberate migration rollback:
+>
+> 1. `rm /var/lib/viswall-firewall/COMMIT`
+> 2. `/usr/local/sbin/restore_firewall.sh --no-restart-docker /var/lib/viswall-firewall/cutover-baseline`
+>    (omit `--no-restart-docker` for a full restore including `systemctl restart docker`)
+> 3. Re-enable the off-host Ansible generator on its control node (nothing local to
+>    re-enable; todo-1 found it dormant and the operator owns the control node).
+>
+> Rehearsed 2026-10-24 in a throwaway netns: stripped live ruleset → the baseline
+> restores **byte-identical** (v4 and v6), with `INPUT DROP` and the FIREWALL-DROP
+> log rule back. Dry-run of the script prints the full sequence (disable the persist
+> unit, delete the table, validate+restore both families, re-enable
+> netfilter-persistent, restart wg-quick).
 
 ### 7.1 Script
 
 ```bash
-# syntax: restore_firewall.sh [--no-restart-docker] [--dry-run] <snapshot-dir>
-# 1. Take a snapshot dir from the agent ($STATE_DIR/snapshots/<ts>) or the cold backup.
+# syntax: restore_firewall.sh [--no-restart-docker] [--dry-run] [<snapshot-dir>]
+# The snapshot arg is OPTIONAL; with no arg it defaults to the newest
+# $STATE_DIR/snapshots/<ts> (that is how the dead-man trap invokes it).
 /usr/local/sbin/restore_firewall.sh \
   /var/lib/viswall-firewall/snapshots/20261022-230000
 
+# typical trap/rollback invocation (newest snapshot), or the preserved baseline:
+/usr/local/sbin/restore_firewall.sh
+/usr/local/sbin/restore_firewall.sh /var/lib/viswall-firewall/cutover-baseline
+
 # rehearsals only:
-/usr/local/sbin/restore_firewall.sh --no-restart-docker --dry-run <snapshot-dir>
+/usr/local/sbin/restore_firewall.sh --no-restart-docker --dry-run
 ```
 
 Sequence inside the script, in this order:
@@ -1029,7 +1174,9 @@ resolve to PASS, with a reason string for each intentional DIFF:
 - [ ] docker0 INPUT accept preserved (broad bridge accept is docker0 only;
       the sole `br-*` accepts are the port-scoped 8081/8083/8085 agent accepts)
 - [ ] blacklist drops at the TOP of the input chain, before every accept
-- [ ] all 63 container-IP anti-spoof rules (48 v4 + 15 v6) present in `raw_prerouting`
+- [ ] all container-IP anti-spoof rules present in `raw_prerouting` (the cold
+      capture held 63: 48 v4 + 15 v6; the cutover set was 65: 49 v4 + 16 v6 after
+      container churn)
 - [ ] all 12 loopback guards present (INPUT rows, rendered in `raw_prerouting`)
 - [ ] the 17 DOCKER-USER ports present in the viswall forward rule
 - [ ] forward chain's final `accept` continues to Docker's priority-0 chain
