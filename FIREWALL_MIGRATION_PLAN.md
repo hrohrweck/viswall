@@ -1,5 +1,20 @@
 # Firewall Migration Plan: boseman iptables legacy stack → Viswall firewall module
 
+> ## CUTOVER COMPLETE — 2026-10-24 13:48–13:58 CEST (10m 12s)
+>
+> - Real `table inet viswall` applied from the console (**81 drop rules**), validation mode off.
+> - Legacy iptables stripped to the docker-only baseline (v4+v6); `netfilter-persistent` disabled.
+> - `/etc/nftables.conf` = table-scoped dump; `viswall-firewall-persist.service` enabled and
+>   verified loadable in a clean namespace.
+> - `COMMIT` written 13:57:48; dead-man trap stopped. WAN SSH + all critical ports green at every
+>   step (fresh public-IP login recorded after the apply, the strip and the persist step).
+> - Drift reference refreshed after the apply; prober re-armed with the FULL restore window.
+> - Post-cutover: the day-2 operability proof found and fixed a console re-apply bug (direct
+>   `nft -c` collided with the live named meters → 502); now validated in a throwaway netns
+>   (PR #82). Rule create/delete roundtrip propagates in ~1 s.
+> - Evidence: `.omo/evidence/task-44-firewall-migration.md`, `task-45-firewall-migration.md`.
+> - Remaining: t+24 h battery, reboot rehearsal, external internal-port probe, one test mail.
+
 Status: **PLANNED, NOT EXECUTED**. Skeleton written 2026-10-22. This document is the
 migration's source of truth and is followed verbatim during todos 38-48 of
 `.omo/plans/firewall-migration.md`, then corrected wherever reality diverges.
