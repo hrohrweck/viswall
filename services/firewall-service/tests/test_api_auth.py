@@ -198,6 +198,22 @@ def test_firewall_rollback_500_without_snapshot(
     assert "no snapshot available" in response.json()["detail"]
 
 
+def test_firewall_rollback_409_when_cutover_committed(
+    client: TestClient, auth_headers: dict, api_state_dir: Path
+) -> None:
+    """Post-cutover the newest snapshots carry the STRIPPED iptables; restoring
+    one would leave the host unfiltered. COMMIT must disable the console path."""
+    api_state_dir.mkdir(parents=True, exist_ok=True)
+    (api_state_dir / "COMMIT").write_text("committed\n")
+
+    response = client.post("/firewall/rollback", headers=auth_headers)
+
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert "cutover is committed" in detail
+    assert "cutover-baseline" in detail
+
+
 def test_firewall_rollback_validates_before_deleting_table(
     client: TestClient,
     auth_headers: dict,

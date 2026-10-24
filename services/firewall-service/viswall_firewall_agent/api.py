@@ -657,6 +657,24 @@ if FASTAPI_AVAILABLE:
 
     @app.post("/firewall/rollback")
     async def api_firewall_rollback():
+        # Post-cutover safety: every snapshot taken after the cutover carries the
+        # STRIPPED (docker-only) iptables, so restoring the newest one would leave
+        # the host unfiltered once the viswall table is deleted. Once COMMIT
+        # exists, a migration rollback is a deliberate operation with the
+        # preserved pre-cutover baseline, not a console button.
+        commit_marker = Path(STATE_DIR) / "COMMIT"
+        if commit_marker.exists():
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "cutover is committed: console rollback is disabled because the "
+                    "newest snapshots contain the post-cutover (stripped) iptables and "
+                    "restoring one would leave the host unfiltered. For a deliberate "
+                    "migration rollback: remove "
+                    f"{commit_marker} and run scripts/restore_firewall.sh with the "
+                    f"preserved baseline {Path(STATE_DIR) / 'cutover-baseline'}."
+                ),
+            )
         snapshot = _newest_snapshot_dir()
         if snapshot is None:
             raise HTTPException(status_code=500, detail="no snapshot available to roll back to")
