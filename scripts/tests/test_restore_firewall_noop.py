@@ -188,6 +188,27 @@ class TestDefaultSnapshotSelection:
         assert "20261023-120000-000000" in log
         assert "iptables-restore" in _recorded(calls)
 
+    def test_no_arg_prefers_preserved_cutover_baseline(self, harness):
+        """Post-cutover the newest snapshots hold the STRIPPED iptables; a no-arg
+        restore must use the preserved pre-cutover baseline instead."""
+        bindir, state_dir, _snapshot, log_file, calls = harness
+        baseline = state_dir / "cutover-baseline"
+        baseline.mkdir()
+        (baseline / "rules.v4").write_text("*filter\nBASELINE\nCOMMIT\n")
+        (baseline / "rules.v6").write_text("*filter\nCOMMIT\n")
+        newest = state_dir / "snapshots" / "20991231-235959-999999"
+        newest.mkdir(parents=True)
+        (newest / "rules.v4").write_text("*filter\nSTRIPPED\nCOMMIT\n")
+        (newest / "rules.v6").write_text("*filter\nCOMMIT\n")
+
+        result = self._run_no_arg(bindir, state_dir, log_file)
+
+        assert result.returncode == 0, result.stderr
+        log = log_file.read_text()
+        assert "preserved cutover baseline" in log
+        assert "cutover-baseline" in log
+        assert "newest snapshot" not in log
+
     def test_no_arg_and_no_snapshots_fails_closed(self, harness):
         bindir, state_dir, _snapshot, log_file, calls = harness
 
