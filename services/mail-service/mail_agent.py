@@ -6,12 +6,31 @@ so this agent only exposes control/health endpoints. LLM email classification is
 follow-up enhancement wired via the api-gateway (see migration plan B3).
 """
 import os
+import secrets
 import subprocess
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
+from pydantic import BaseModel
 
 app = FastAPI(title="Viswall Mail Agent", version="2.0.0")
 
 EXIM_CONF = "/etc/exim4/exim4.conf"
+DKIM_STAGING_DIR = "/opt/viswall/dkim-staging"
+EXIM_DKIM_DIR = "/etc/exim4/dkim"
+
+INSTANCE_API_KEY = os.getenv("INSTANCE_API_KEY") or None
+
+
+def _require_instance_key(
+    x_instance_key: str | None = Header(default=None, alias="X-Instance-Key"),
+) -> None:
+    if INSTANCE_API_KEY is None:
+        raise HTTPException(
+            status_code=503,
+            detail="INSTANCE_API_KEY not configured on agent; refusing mutations",
+        )
+    provided = x_instance_key or ""
+    if not secrets.compare_digest(provided, INSTANCE_API_KEY):
+        raise HTTPException(status_code=401, detail="invalid instance key")
 
 
 def _run(cmd, timeout=30):
@@ -59,6 +78,27 @@ def reload():
 def classify():
     # LLM classification is provided via the api-gateway integration (follow-up, plan B3).
     return {"enabled": False, "detail": "LLM classification not configured in this build"}
+
+
+class DkimInstallRequest(BaseModel):
+    domain: str
+    selector: str
+    private_key_pem: str
+
+
+@app.post("/dkim/install")
+def dkim_install(req: DkimInstallRequest, _: None = Depends(_require_instance_key)):
+    paths = []
+    for directory in (DKIM_STAGING_DIR, EXIM_DKIM_DIR):
+        os.makedirs(directory, exist_ok=True)
+        key_path = os.path.join(directory, f"{req.selector}.private")
+        with open(key_path, "w") as f:
+            f.write(req.private_key_pem)
+        os.chmod(key_path, 0o400)
+        _run(["chown", "Debian-exim:Debian-exim", key_path])  # best-effort
+        paths.append(key_path)
+    _run(["pkill", "-HUP", "-x", "exim4"])
+    return {"status": "ok", "path": paths[0], "exim_path": paths[1], "reloaded": True}
 
 
 def main():

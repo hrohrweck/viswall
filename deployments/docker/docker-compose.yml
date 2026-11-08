@@ -199,6 +199,7 @@ services:
       DB_USER: viswall
       DB_PASS: ${DB_PASSWORD:?DB_PASSWORD is required}
       EXIM_HOSTNAME: ${MAIL_HOSTNAME:?MAIL_HOSTNAME is required}
+      INSTANCE_API_KEY: ${INSTANCE_API_KEY:-dev-key}
     ports:
       - "25:25"
       - "465:465"
@@ -210,7 +211,7 @@ services:
     volumes:
       - ${LETSENCRYPT_LIVE:?LETSENCRYPT_LIVE is required}/fullchain.pem:/viswall/certs/server.crt:ro
       - ${LETSENCRYPT_LIVE:?LETSENCRYPT_LIVE is required}/privkey.pem:/viswall/certs/server.key:ro
-      - ../../dkim:/opt/viswall/dkim-staging:ro
+      - ../../dkim:/opt/viswall/dkim-staging
       - mail_data:/var/mail
       - exim_spool:/var/spool/exim4
     depends_on:
