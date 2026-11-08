@@ -552,6 +552,37 @@ class MailDomainResponse(MailDomainBase):
         from_attributes = True
 
 
+class MailDnsRecordSpec(BaseModel):
+    key: str
+    type: str
+    name: str
+    value: Optional[str] = None
+    note: Optional[str] = None
+
+
+class MailDnsRecordsResponse(BaseModel):
+    domain: str
+    records: List[MailDnsRecordSpec]
+
+
+MailDnsCheckStatus = Literal["correct", "incorrect", "missing", "error"]
+
+
+class MailDnsCheckItem(BaseModel):
+    key: str
+    type: str
+    name: str
+    expected_value: Optional[str] = None
+    found_values: List[str] = Field(default_factory=list)
+    status: MailDnsCheckStatus
+    detail: Optional[str] = None
+
+
+class MailDnsCheckResponse(BaseModel):
+    checked_at: datetime
+    results: List[MailDnsCheckItem]
+
+
 # Mail User Schemas
 class MailUserBase(BaseModel):
     username: str = Field(..., max_length=100)

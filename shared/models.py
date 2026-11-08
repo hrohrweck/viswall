@@ -185,6 +185,11 @@ class MailDomain(Base):
     mta_forward_host = Column(String(255), nullable=True)
     mta_forward_port = Column(Integer, default=25, server_default="25", nullable=False)
 
+    # DKIM signing key material (selector published in DNS; keys stored PEM)
+    dkim_selector = Column(String(63), nullable=False, default="viswall", server_default="viswall")
+    dkim_public_key = Column(Text, nullable=True)
+    dkim_private_key = Column(Text, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
