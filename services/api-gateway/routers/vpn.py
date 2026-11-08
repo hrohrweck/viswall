@@ -1188,14 +1188,14 @@ def _validate_remote_endpoint(endpoint: str) -> None:
     candidate = (endpoint or "").strip()
     if not candidate:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="remote_endpoint must not be empty",
         )
     if candidate.startswith("["):
         match = re.match(r"^\[[0-9a-fA-F:.]+\](?::(\d+))?$", candidate)
         if not match:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Invalid remote_endpoint: {endpoint!r}",
             )
         port = match.group(1)
@@ -1203,13 +1203,13 @@ def _validate_remote_endpoint(endpoint: str) -> None:
         parts = candidate.split(":")
         if len(parts) > 2:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Invalid remote_endpoint: {endpoint!r}",
             )
         host = parts[0]
         if not re.fullmatch(r"[A-Za-z0-9.\-]+", host):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Invalid remote_endpoint host: {endpoint!r}",
             )
         port = parts[1] if len(parts) == 2 else None
@@ -1219,7 +1219,7 @@ def _validate_remote_endpoint(endpoint: str) -> None:
                 raise ValueError
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Invalid remote_endpoint port: {endpoint!r}",
             )
 
@@ -1228,7 +1228,7 @@ def _validate_wg_public_key(key: str) -> None:
     """Reject malformed WireGuard public keys with 422 (never a 500)."""
     if not key or not _WG_KEY_RE.fullmatch(key):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="remote_public_key must be a 44-character base64 WireGuard key",
         )
 
@@ -1245,7 +1245,7 @@ def _validate_allowed_ips(allowed_ips: Optional[str]) -> None:
         validate_wg_cidr_list(allowed_ips)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
 
@@ -1256,7 +1256,7 @@ def _validate_local_address(local_address: Optional[str]) -> None:
         validate_wg_local_address(local_address)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
 

@@ -135,9 +135,10 @@ class TestLogin:
 
 class TestGetCurrentUser:
     async def test_me_without_token(self, client: AsyncClient):
+        # No token -> FastAPI HTTPBearer auto_error: 403 "Not authenticated"
+        # (no WWW-Authenticate header on this path with fastapi 0.109).
         response = await client.get("/api/v1/auth/me")
-        assert response.status_code == 401
-        assert response.headers.get("WWW-Authenticate") == "Bearer"
+        assert response.status_code == 403
 
     async def test_me_with_invalid_token(self, client: AsyncClient):
         response = await client.get(
