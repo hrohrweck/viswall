@@ -9,7 +9,7 @@ import os
 import secrets
 import subprocess
 from fastapi import Depends, FastAPI, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI(title="Viswall Mail Agent", version="2.0.0")
 
@@ -28,8 +28,8 @@ def _require_instance_key(
             status_code=503,
             detail="INSTANCE_API_KEY not configured on agent; refusing mutations",
         )
-    provided = x_instance_key or ""
-    if not secrets.compare_digest(provided, INSTANCE_API_KEY):
+    provided = (x_instance_key or "").encode("utf-8")
+    if not secrets.compare_digest(provided, INSTANCE_API_KEY.encode("utf-8")):
         raise HTTPException(status_code=401, detail="invalid instance key")
 
 
@@ -82,19 +82,21 @@ def classify():
 
 class DkimInstallRequest(BaseModel):
     domain: str
-    selector: str
+    selector: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$")
     private_key_pem: str
 
 
 @app.post("/dkim/install")
 def dkim_install(req: DkimInstallRequest, _: None = Depends(_require_instance_key)):
+    if os.path.basename(req.selector) != req.selector or req.selector in (".", ".."):
+        raise HTTPException(status_code=400, detail="invalid dkim selector")
     paths = []
     for directory in (DKIM_STAGING_DIR, EXIM_DKIM_DIR):
         os.makedirs(directory, exist_ok=True)
         key_path = os.path.join(directory, f"{req.selector}.private")
-        with open(key_path, "w") as f:
+        fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o400)
+        with os.fdopen(fd, "w") as f:
             f.write(req.private_key_pem)
-        os.chmod(key_path, 0o400)
         _run(["chown", "Debian-exim:Debian-exim", key_path])  # best-effort
         paths.append(key_path)
     _run(["pkill", "-HUP", "-x", "exim4"])
