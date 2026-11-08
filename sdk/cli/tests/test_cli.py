@@ -720,3 +720,137 @@ class TestVPNSiteToSite:
         )
         assert result.exit_code == 1
         assert "Invalid remote_endpoint" in result.output
+
+
+class TestMailDns:
+    def test_dns_records(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/1/dns-records",
+            json={
+                "domain": "example.com",
+                "records": [
+                    {
+                        "key": "A",
+                        "type": "A",
+                        "name": "mail.example.com",
+                        "value": "203.0.113.10",
+                        "note": None,
+                    },
+                    {
+                        "key": "MX",
+                        "type": "MX",
+                        "name": "example.com",
+                        "value": "10 mail.example.com",
+                        "note": None,
+                    },
+                    {
+                        "key": "DKIM",
+                        "type": "TXT",
+                        "name": "dkim._domainkey.example.com",
+                        "value": "v=DKIM1; k=rsa; p=MIGf...",
+                        "note": None,
+                    },
+                ],
+            },
+        )
+
+        result = runner.invoke(app, ["mail", "dns-records", "--domain-id", "1"])
+        assert result.exit_code == 0
+        assert "mail.example.com" in result.output
+        assert "DKIM" in result.output
+
+    def test_dns_records_api_error(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/1/dns-records",
+            status_code=404,
+            json={"detail": "Mail domain not found"},
+        )
+
+        result = runner.invoke(app, ["mail", "dns-records", "--domain-id", "1"])
+        assert result.exit_code == 1
+        assert "Mail domain not found" in result.output
+
+    def test_dns_check(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/1/dns-check",
+            method="POST",
+            json={
+                "checked_at": "2026-11-08T12:00:00Z",
+                "results": [
+                    {
+                        "key": "MX",
+                        "type": "MX",
+                        "name": "example.com",
+                        "expected_value": "10 mail.example.com",
+                        "found_values": ["10 mail.example.com"],
+                        "status": "correct",
+                        "detail": None,
+                    },
+                    {
+                        "key": "DKIM",
+                        "type": "TXT",
+                        "name": "dkim._domainkey.example.com",
+                        "expected_value": "v=DKIM1; k=rsa; p=MIGf...",
+                        "found_values": [],
+                        "status": "missing",
+                        "detail": "No TXT record found",
+                    },
+                ],
+            },
+        )
+
+        result = runner.invoke(app, ["mail", "dns-check", "--domain-id", "1"])
+        assert result.exit_code == 0
+        assert "missing" in result.output
+        assert "DKIM" in result.output
+
+    def test_dns_check_all_correct(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/1/dns-check",
+            method="POST",
+            json={
+                "checked_at": "2026-11-08T12:00:00Z",
+                "results": [
+                    {
+                        "key": "MX",
+                        "type": "MX",
+                        "name": "example.com",
+                        "expected_value": "10 mail.example.com",
+                        "found_values": ["10 mail.example.com"],
+                        "status": "correct",
+                        "detail": None,
+                    }
+                ],
+            },
+        )
+
+        result = runner.invoke(app, ["mail", "dns-check", "--domain-id", "1"])
+        assert result.exit_code == 0
+        assert "All DNS records verified" in result.output
+
+    def test_dns_check_api_error(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/domains/1/dns-check",
+            method="POST",
+            status_code=503,
+            json={"detail": "DNS check unavailable"},
+        )
+
+        result = runner.invoke(app, ["mail", "dns-check", "--domain-id", "1"])
+        assert result.exit_code == 1
+        assert "DNS check unavailable" in result.output

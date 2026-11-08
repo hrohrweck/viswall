@@ -114,6 +114,53 @@ def update_domain(
         raise typer.Exit(1)
 
 
+@app.command("dns-records")
+def list_dns_records(
+    domain_id: int = typer.Option(..., "--domain-id", "-d", help="Domain ID"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+    format: str = typer.Option("table", "--format", "-f"),
+) -> None:
+    """List expected DNS records for a mail domain."""
+    client = get_client(url=url, token=token)
+    try:
+        response = client.mail.get_dns_records(domain_id)
+        print_result(
+            response.get("records", []),
+            format=format,
+            columns=["key", "type", "name", "value", "note"],
+        )
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
+@app.command("dns-check")
+def run_dns_check(
+    domain_id: int = typer.Option(..., "--domain-id", "-d", help="Domain ID"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+    format: str = typer.Option("table", "--format", "-f"),
+) -> None:
+    """Run a live DNS verification for a mail domain."""
+    client = get_client(url=url, token=token)
+    try:
+        response = client.mail.check_dns(domain_id)
+        results = response.get("results", [])
+        print_result(
+            results,
+            format=format,
+            columns=["key", "type", "name", "status", "expected_value", "found_values", "detail"],
+        )
+        if all(r.get("status") == "correct" for r in results):
+            print_success("All DNS records verified")
+        else:
+            print_error("Some DNS records failed verification")
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
 @app.command("users")
 def list_users(
     domain_id: int = typer.Option(..., "--domain-id", "-d", help="Domain ID"),
