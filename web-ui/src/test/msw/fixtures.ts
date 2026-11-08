@@ -16,6 +16,7 @@ import {
   DHCPSubnetType,
   FirewallAction,
   FirewallRule,
+  FirewallStats,
   FirewallStatus,
   Instance,
   InstanceStatus,
@@ -302,6 +303,16 @@ export const firewallStatus: FirewallStatus = {
   validation_mode: false,
   table_present: true,
   last_applied_at: '2026-10-22T21:49:34Z',
+}
+
+// Agent-reachable shape (timestamp + nftables object). Every /firewall/*
+// request the pages make must have a handler: unhandled ones bypass MSW,
+// fail against the real network (ECONNREFUSED), and re-render the page at
+// a random moment — racing user-event clicks mid-render.
+export const firewallStats: FirewallStats = {
+  nftables: { nftables: [{ metainfo: { version: '1.0.9' } }] },
+  connections: { tracked: 42, max: 262144 },
+  timestamp: '2026-10-22T21:48:57.197326+00:00',
 }
 
 export const networkInterfaces: NetworkInterface[] = [
