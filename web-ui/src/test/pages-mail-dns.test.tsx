@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 
 import { MailDomainDetail } from '../pages/Mail/MailDomainDetail'
+import { toast } from 'sonner'
 import { useInstanceStore } from '../stores/instance'
 import { server } from './msw/node'
 
@@ -187,6 +188,31 @@ describe('DNS Settings live check', () => {
     await waitFor(() => {
       expect(screen.getByText(/Last checked:/)).toBeInTheDocument()
     })
+  })
+
+  it('shows an error toast, keeps rows intact and no Last checked when the check POST fails', async () => {
+    await openDnsTab()
+
+    server.use(
+      http.post('*/mail/domains/:domainId/dns-check', () =>
+        HttpResponse.json({ detail: 'Internal Server Error' }, { status: 500 }),
+      ),
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: /check dns/i }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledTimes(1)
+    })
+    expect(toast.error).toHaveBeenCalledWith('Internal Server Error')
+
+    // Record rows are still rendered after the failed check
+    expect(screen.getByText('10 mail.example.test.')).toBeInTheDocument()
+    expect(screen.getByText('mail._domainkey.example.test')).toBeInTheDocument()
+    expect(screen.getAllByText('Not checked')).toHaveLength(4)
+
+    // lastCheck stays unset on failure, so "Last checked" never appears
+    expect(screen.queryByText(/Last checked/i)).not.toBeInTheDocument()
   })
 
   it('stays neutral and fires no POST when the tab is only viewed', async () => {
