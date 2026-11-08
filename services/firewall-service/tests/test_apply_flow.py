@@ -17,7 +17,18 @@ import pytest
 from fastapi.testclient import TestClient
 
 from viswall_firewall_agent import api as api_module
+from viswall_firewall_agent import nft as nft_module
 from viswall_firewall_agent.nft import NFTablesManager
+
+
+@pytest.fixture(autouse=True)
+def _pin_unshare(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make apply_ruleset's namespace probe deterministic across hosts/CI."""
+    monkeypatch.setattr(
+        nft_module.shutil,
+        "which",
+        lambda name: "/usr/bin/unshare" if name == "unshare" else None,
+    )
 
 
 @pytest.fixture
@@ -49,19 +60,22 @@ class TestApplyRulesetUnit:
     ) -> None:
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
         subprocess_fake.on(
-            lambda c: c[0] == "nft" and c[1] == "-c", rc=1, err=b"line 5: syntax error"
+            lambda c: "-c" in c, rc=1, err=b"line 5: syntax error"
         )
 
         ok = asyncio.run(NFTablesManager().apply_ruleset(_ruleset()))
 
         assert ok is False
-        assert subprocess_fake.commands == [["nft", "-c", "-f", _conf_path(fake_etc)]]
+        assert subprocess_fake.commands == [
+            ["/usr/bin/unshare", "-n", "true"],
+            ["/usr/bin/unshare", "-n", "nft", "-c", "-f", _conf_path(fake_etc)],
+        ]
 
     def test_success_swaps_table_in_order(
         self, subprocess_fake, fake_etc: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
-        subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-c", rc=0)
+        subprocess_fake.on(lambda c: "-c" in c, rc=0)
         subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "delete", rc=0)
         subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-f", rc=0)
         ruleset = _ruleset()
@@ -71,7 +85,8 @@ class TestApplyRulesetUnit:
         assert ok is True
         conf = _conf_path(fake_etc)
         assert subprocess_fake.commands == [
-            ["nft", "-c", "-f", conf],
+            ["/usr/bin/unshare", "-n", "true"],
+            ["/usr/bin/unshare", "-n", "nft", "-c", "-f", conf],
             ["nft", "delete", "table", "inet", "viswall"],
             ["nft", "-f", conf],
         ]
@@ -85,7 +100,7 @@ class TestApplyRulesetUnit:
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
         monkeypatch.setenv("STATE_DIR", str(tmp_path))
         (fake_etc / "nftables.conf").write_text("OLD RULESET\n")
-        subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-c", rc=0)
+        subprocess_fake.on(lambda c: "-c" in c, rc=0)
         subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "delete", rc=0)
         subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-f", rc=0)
         ruleset = _ruleset()
@@ -105,7 +120,7 @@ class TestApplyRulesetUnit:
         monkeypatch.delenv("VALIDATION_MODE", raising=False)
         monkeypatch.setenv("STATE_DIR", str(tmp_path))
         (fake_etc / "nftables.conf").write_text("OLD RULESET\n")
-        subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-c", rc=0)
+        subprocess_fake.on(lambda c: "-c" in c, rc=0)
         subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "delete", rc=0)
         state = {"loads": 0}
 
@@ -148,7 +163,7 @@ class TestApplyFlowHttp:
     ) -> None:
         self._mock_snapshot(monkeypatch)
         subprocess_fake.on(
-            lambda c: c[0] == "nft" and c[1] == "-c", rc=1, err=b"line 5: syntax error"
+            lambda c: "-c" in c, rc=1, err=b"line 5: syntax error"
         )
 
         response = client.post(
@@ -159,9 +174,15 @@ class TestApplyFlowHttp:
 
         assert response.status_code == 500
         assert response.json()["detail"] == "nftables validation failed: line 5: syntax error"
-        # Validate-before-apply proof: only the two `-c` checks ran.
-        assert all(c[1] == "-c" for c in subprocess_fake.calls("nft"))
-        assert not any("delete" in c or c[1] == "-f" for c in subprocess_fake.commands)
+        # Validate-before-apply proof: only the namespace probe + one `-c` check ran.
+        # apply_ruleset validates in the netns (redirected /etc); the API
+        # re-checks the class-level CONFIG_PATH for the error detail — both go
+        # through the isolated form.
+        assert [c for c in subprocess_fake.commands if "-c" in c] == [
+            ["/usr/bin/unshare", "-n", "nft", "-c", "-f", _conf_path(fake_etc)],
+            ["/usr/bin/unshare", "-n", "nft", "-c", "-f", "/etc/nftables.conf"],
+        ]
+        assert not any("delete" in c or (c[0] == "nft" and c[1] == "-f") for c in subprocess_fake.commands)
         assert not (api_state_dir / "last_applied_at").exists()
 
     def test_apply_500_when_payload_conversion_fails(

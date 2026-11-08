@@ -123,7 +123,7 @@ def test_firewall_apply_200(
     monkeypatch.setattr(
         api_module, "snapshot_state", lambda state_dir: str(Path(state_dir) / "snapshots" / "fake")
     )
-    subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-c", rc=0)
+    subprocess_fake.on(lambda c: "-c" in c, rc=0)
     subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "delete", rc=0)
     subprocess_fake.on(lambda c: c[0] == "nft" and c[1] == "-f", rc=0)
     subprocess_fake.on(lambda c: c[0] == "ip", rc=0, out=b"[]")
@@ -196,6 +196,22 @@ def test_firewall_rollback_500_without_snapshot(
     response = client.post("/firewall/rollback", headers=auth_headers)
     assert response.status_code == 500
     assert "no snapshot available" in response.json()["detail"]
+
+
+def test_firewall_rollback_409_when_cutover_committed(
+    client: TestClient, auth_headers: dict, api_state_dir: Path
+) -> None:
+    """Post-cutover the newest snapshots carry the STRIPPED iptables; restoring
+    one would leave the host unfiltered. COMMIT must disable the console path."""
+    api_state_dir.mkdir(parents=True, exist_ok=True)
+    (api_state_dir / "COMMIT").write_text("committed\n")
+
+    response = client.post("/firewall/rollback", headers=auth_headers)
+
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert "cutover is committed" in detail
+    assert "cutover-baseline" in detail
 
 
 def test_firewall_rollback_validates_before_deleting_table(

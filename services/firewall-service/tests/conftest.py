@@ -130,6 +130,10 @@ def no_real_subprocess(monkeypatch: pytest.MonkeyPatch) -> None:
 def subprocess_fake(monkeypatch: pytest.MonkeyPatch) -> SubprocessFake:
     """Install a scriptable subprocess recorder (replaces the guard)."""
     fake = SubprocessFake()
+    # apply_ruleset probes `unshare -n true` to decide whether it can validate
+    # in a throwaway netns (a direct `nft -c -f` collides with the live table's
+    # named meter sets). Answer it deterministically here.
+    fake.on(lambda command: command[0].endswith("unshare") and command[1:] == ["-n", "true"], rc=0)
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake)
     monkeypatch.setattr(asyncio, "create_subprocess_shell", fake)
     return fake
