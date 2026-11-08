@@ -227,7 +227,7 @@ class Actual:
             if line == "}" or line.startswith("},"):
                 chain = None
                 continue
-            match = re.search(r"type filter hook \w+ priority -?\d+; policy (\w+);", line)
+            match = re.search(r"type filter hook \w+ priority (?:-?\d+|\w+); policy (\w+);", line)
             if match and chain:
                 self.policies[chain] = match.group(1)
                 continue
