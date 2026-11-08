@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import datetime
@@ -15,6 +15,7 @@ from shared.schemas import (
     MailMessageCreate, MailMessageResponse,
     MailClassificationResult,
     MailMessageListParams, MailMessageActionRequest,
+    MailDnsRecordSpec, MailDnsRecordsResponse,
     LLMConfig
 )
 from shared.security import require_auth, require_admin, get_password_hash
@@ -306,57 +307,81 @@ async def regenerate_dkim(
         "dns_value": f"v=DKIM1; k=rsa; p={public_key_b64}",
     }
 
-@router.get("/domains/{domain_id}/dns-records")
+@router.get("/domains/{domain_id}/dns-records", response_model=MailDnsRecordsResponse)
 async def get_dns_records(
     domain_id: int,
-    admin_id: int = Depends(require_admin),
+    user_id: int = Depends(require_auth),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get DNS records needed for mail domain (SPF, DKIM, DMARC)"""
+    """Get the DNS records a mail domain needs published (MX, SPF, DKIM, DMARC)."""
     result = await db.execute(
         select(MailDomain).where(MailDomain.id == domain_id)
     )
     domain = result.scalar_one_or_none()
-    
+
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
-    
-    records = {
-        "mx": {
-            "type": "MX",
-            "name": domain.domain,
-            "value": f"10 mail.{domain.domain}.",
-            "priority": 10
-        },
-        "spf": None,
-        "dkim": None,
-        "dmarc": None
-    }
-    
+
+    records: List[MailDnsRecordSpec] = [
+        MailDnsRecordSpec(
+            key="mx",
+            type="MX",
+            name=domain.domain,
+            value=f"10 mail.{domain.domain}.",
+            note=f"Also create an A/AAAA record for mail.{domain.domain} pointing at this appliance.",
+        )
+    ]
+
     if domain.spf_enabled:
-        records["spf"] = {
-            "type": "TXT",
-            "name": domain.domain,
-            "value": f'"v=spf1 mx a:mail.{domain.domain} ~all"'
-        }
-    
+        records.append(MailDnsRecordSpec(
+            key="spf",
+            type="TXT",
+            name=domain.domain,
+            value=f"v=spf1 mx a:mail.{domain.domain} ~all",
+        ))
+
     if domain.dkim_enabled:
-        # In real implementation, fetch actual DKIM public key
-        records["dkim"] = {
-            "type": "TXT",
-            "name": f"default._domainkey.{domain.domain}",
-            "value": "[DKIM key - generate to see actual value]",
-            "note": "Use POST /dkim/regenerate to create keys"
-        }
-    
+        dkim_value: Optional[str] = None
+        dkim_note: Optional[str] = None
+        if domain.dkim_public_key:
+            dkim_value = f"v=DKIM1; k=rsa; p={domain.dkim_public_key}"
+        else:
+            dkim_note = "not_generated"
+
+        result = await db.execute(
+            select(func.count()).select_from(MailDomain).where(
+                and_(
+                    MailDomain.instance_id == domain.instance_id,
+                    MailDomain.dkim_enabled == True,  # noqa: E712
+                )
+            )
+        )
+        signing_domains = result.scalar_one()
+        if signing_domains > 1:
+            multi_domain_note = (
+                "DKIM signing on the mail agent currently covers one domain per "
+                "instance; records for additional domains are shown for verification "
+                "readiness."
+            )
+            dkim_note = f"{dkim_note} {multi_domain_note}" if dkim_note else multi_domain_note
+
+        records.append(MailDnsRecordSpec(
+            key="dkim",
+            type="TXT",
+            name=f"{domain.dkim_selector}._domainkey.{domain.domain}",
+            value=dkim_value,
+            note=dkim_note,
+        ))
+
     if domain.dmarc_enabled:
-        records["dmarc"] = {
-            "type": "TXT",
-            "name": f"_dmarc.{domain.domain}",
-            "value": f'"v=DMARC1; p=quarantine; rua=mailto:dmarc@{domain.domain}"'
-        }
-    
-    return records
+        records.append(MailDnsRecordSpec(
+            key="dmarc",
+            type="TXT",
+            name=f"_dmarc.{domain.domain}",
+            value=f"v=DMARC1; p=quarantine; rua=mailto:dmarc@{domain.domain}",
+        ))
+
+    return MailDnsRecordsResponse(domain=domain.domain, records=records)
 
 # ============================================================================
 # MAIL USER ENDPOINTS

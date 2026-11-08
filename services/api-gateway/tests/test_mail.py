@@ -842,3 +842,149 @@ class TestDkimOnCreate:
             row = (await session.execute(select(MailDomain).where(MailDomain.domain == "dkim-off.test"))).scalar_one()
             assert row.dkim_public_key is None
             assert row.dkim_private_key is None
+
+
+class TestDnsRecords:
+    MULTI_DOMAIN_NOTE = (
+        "DKIM signing on the mail agent currently covers one domain per "
+        "instance; records for additional domains are shown for verification "
+        "readiness."
+    )
+
+    @staticmethod
+    async def _set_domain_flags(domain_id: int, **flags) -> None:
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.id == domain_id))).scalar_one()
+            for field, value in flags.items():
+                setattr(row, field, value)
+            await session.commit()
+
+    @staticmethod
+    async def _add_domain(instance_id: int, name: str) -> int:
+        async with TestSessionLocal() as session:
+            domain = MailDomain(instance_id=instance_id, domain=name, enabled=True)
+            session.add(domain)
+            await session.commit()
+            await session.refresh(domain)
+            return domain.id
+
+    async def test_dns_records_unknown_domain_404(self, client: AsyncClient, admin_user):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get("/api/v1/mail/domains/999999/dns-records", headers=headers)
+        assert response.status_code == 404
+
+    async def test_dns_records_all_toggles_off_mx_only(self, client: AsyncClient, admin_user, mail_domain):
+        await self._set_domain_flags(
+            mail_domain.id,
+            spf_enabled=False,
+            dkim_enabled=False,
+            dmarc_enabled=False,
+        )
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/domains/{mail_domain.id}/dns-records", headers=headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["domain"] == mail_domain.domain
+        assert len(body["records"]) == 1
+        mx = body["records"][0]
+        assert mx["key"] == "mx"
+        assert mx["type"] == "MX"
+        assert mx["name"] == mail_domain.domain
+        assert mx["value"] == f"10 mail.{mail_domain.domain}."
+        assert f"mail.{mail_domain.domain}" in mx["note"]
+
+    async def test_dns_records_dkim_with_public_key(self, client: AsyncClient, admin_user, mail_domain):
+        await self._set_domain_flags(
+            mail_domain.id,
+            dkim_selector="sel2026",
+            dkim_public_key="PubKeyABC123",
+        )
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/domains/{mail_domain.id}/dns-records", headers=headers)
+        assert response.status_code == 200
+        dkim = next(r for r in response.json()["records"] if r["key"] == "dkim")
+        assert dkim["type"] == "TXT"
+        assert dkim["name"] == f"sel2026._domainkey.{mail_domain.domain}"
+        assert dkim["value"].startswith("v=DKIM1; k=rsa; p=")
+        assert "PubKeyABC123" in dkim["value"]
+        # Single signing domain on the instance: no multi-domain caveat.
+        assert dkim["note"] is None or self.MULTI_DOMAIN_NOTE not in dkim["note"]
+
+    async def test_dns_records_dkim_missing_key_not_generated(self, client: AsyncClient, admin_user, mail_domain):
+        await self._set_domain_flags(mail_domain.id, dkim_public_key=None, dkim_private_key=None)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/domains/{mail_domain.id}/dns-records", headers=headers)
+        assert response.status_code == 200
+        dkim = next(r for r in response.json()["records"] if r["key"] == "dkim")
+        assert dkim["name"] == f"viswall._domainkey.{mail_domain.domain}"
+        assert dkim["value"] is None
+        assert dkim["note"] == "not_generated"
+
+    async def test_dns_records_readable_by_non_admin(self, client: AsyncClient, readonly_user, mail_domain):
+        token = await _login(client, "mailreader", "mailreaderpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/domains/{mail_domain.id}/dns-records", headers=headers)
+        assert response.status_code == 200
+        keys = [r["key"] for r in response.json()["records"]]
+        assert keys == ["mx", "spf", "dkim", "dmarc"]
+
+        spf = response.json()["records"][1]
+        assert spf["value"] == f"v=spf1 mx a:mail.{mail_domain.domain} ~all"
+        dmarc = response.json()["records"][3]
+        assert dmarc["value"] == f"v=DMARC1; p=quarantine; rua=mailto:dmarc@{mail_domain.domain}"
+        # Values must be bare record data, not wrapped in literal quotes.
+        assert not spf["value"].startswith('"')
+        assert not dmarc["value"].endswith('"')
+
+    async def test_dns_records_expose_no_private_material(self, client: AsyncClient, admin_user, mail_domain):
+        await self._set_domain_flags(
+            mail_domain.id,
+            dkim_public_key="PubKeyVisible",
+            dkim_private_key="-----BEGIN PRIVATE KEY-----SECRETBODY-----END PRIVATE KEY-----",
+        )
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/domains/{mail_domain.id}/dns-records", headers=headers)
+        assert response.status_code == 200
+        assert "private" not in response.text.lower()
+        assert "SECRETBODY" not in response.text
+        assert "PubKeyVisible" in response.text
+
+    async def test_dns_records_multi_domain_signing_note(self, client: AsyncClient, admin_user, instance, mail_domain):
+        await self._set_domain_flags(mail_domain.id, dkim_public_key="PubKeySecond")
+        await self._add_domain(instance.id, "second-signed.test")
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/domains/{mail_domain.id}/dns-records", headers=headers)
+        assert response.status_code == 200
+        dkim = next(r for r in response.json()["records"] if r["key"] == "dkim")
+        assert dkim["value"] is not None
+        assert self.MULTI_DOMAIN_NOTE in dkim["note"]
+
+        # A non-enabled signer on the same instance does not trigger the caveat.
+        await self._set_domain_flags((await self._get_id("second-signed.test")), dkim_enabled=False)
+        response = await client.get(f"/api/v1/mail/domains/{mail_domain.id}/dns-records", headers=headers)
+        assert response.status_code == 200
+        dkim = next(r for r in response.json()["records"] if r["key"] == "dkim")
+        assert self.MULTI_DOMAIN_NOTE not in (dkim["note"] or "")
+
+    async def _get_id(self, name: str) -> int:
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.domain == name))).scalar_one()
+            return row.id
