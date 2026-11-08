@@ -124,12 +124,21 @@ if [ -z "$SNAPSHOT_DIR" ]; then
     # order) and hold the pre-apply rules.v4/rules.v6 (+ netplan/ when
     # present). No snapshot at all is a hard error: the trap must never exit 0
     # pretending to have restored something.
-    SNAPSHOT_DIR="$(find "$STATE_DIR/snapshots" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -1 || true)"
-    if [ -z "$SNAPSHOT_DIR" ]; then
-        log "FATAL: no <snapshot-dir> argument and no snapshots under $STATE_DIR/snapshots"
-        usage
+    # Post-cutover safety: snapshots taken after the cutover are pre-apply
+    # captures of the STRIPPED (docker-only) iptables; restoring one would leave
+    # the host unfiltered. Prefer the preserved pre-cutover baseline when it
+    # exists, and fall back to the newest snapshot otherwise.
+    if [ -d "$STATE_DIR/cutover-baseline" ]; then
+        SNAPSHOT_DIR="$STATE_DIR/cutover-baseline"
+        log "no snapshot argument; using the preserved cutover baseline: $SNAPSHOT_DIR"
+    else
+        SNAPSHOT_DIR="$(find "$STATE_DIR/snapshots" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -1 || true)"
+        if [ -z "$SNAPSHOT_DIR" ]; then
+            log "FATAL: no <snapshot-dir> argument and no snapshots under $STATE_DIR/snapshots"
+            usage
+        fi
+        log "no snapshot argument; using newest snapshot: $SNAPSHOT_DIR"
     fi
-    log "no snapshot argument; using newest snapshot: $SNAPSHOT_DIR"
 fi
 if [ ! -d "$SNAPSHOT_DIR" ]; then
     log "FATAL: snapshot dir not found: $SNAPSHOT_DIR"
