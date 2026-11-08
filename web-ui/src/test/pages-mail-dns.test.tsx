@@ -60,6 +60,18 @@ const dnsRecords = {
   ],
 }
 
+const dnsRecordsWithCaveat = {
+  ...dnsRecords,
+  records: dnsRecords.records.map((record) =>
+    record.key === 'dkim'
+      ? {
+          ...record,
+          note: 'not_generated DKIM signing on the mail agent currently covers one domain per instance; records for additional domains are shown for verification readiness.',
+        }
+      : record,
+  ),
+}
+
 const dnsCheck = {
   checked_at: '2026-11-08T12:00:00Z',
   results: [
@@ -157,6 +169,22 @@ describe('DNS Settings tab records', () => {
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText(/Generates a new DKIM key for example\.test/)).toBeInTheDocument()
     expect(within(dialog).getByText(/DNS record must be updated/)).toBeInTheDocument()
+  })
+
+  it('keeps the CTA and surfaces the caveat as helper text when the not_generated note carries extra detail', async () => {
+    server.use(
+      http.get('*/mail/domains/:domainId/dns-records', () => HttpResponse.json(dnsRecordsWithCaveat)),
+      http.post('*/mail/domains/:domainId/dns-check', () => HttpResponse.json(dnsCheck)),
+    )
+    renderDetail()
+    await waitFor(() => {
+      expect(screen.getByText('example.test')).toBeInTheDocument()
+    })
+    await userEvent.click(screen.getByRole('tab', { name: /dns settings/i }))
+
+    expect(screen.getByRole('button', { name: /generate dkim key/i })).toBeInTheDocument()
+    expect(screen.getByText(/additional domains/)).toBeInTheDocument()
+    expect(screen.queryByText('not_generated')).not.toBeInTheDocument()
   })
 })
 
