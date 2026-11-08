@@ -37,9 +37,9 @@ viswall/
 │   │   ├── alembic.ini       # Alembic config
 │   │   ├── requirements.txt
 │   │   └── Dockerfile
-│   ├── firewall-service/     # Agent code (1,223 lines) — wired into docker-compose (commented by default)
-│   ├── mail-service/         # Agent code (902 lines) — wired into docker-compose (commented by default)
-│   ├── vpn-service/          # Agent code (573 lines) — wired into docker-compose (commented by default)
+│   ├── firewall-service/     # Agent package: wired into docker-compose; enabled in production
+│   ├── mail-service/         # Agent code: wired into docker-compose (profile `mail`)
+│   ├── vpn-service/          # Agent package: wired into docker-compose; enabled in production
 │   ├── sogo-service/         # SOGo groupware (CalDAV/CardDAV/ActiveSync) — wired into docker-compose
 │   └── node-agent/           # Host-network agent: interface discovery, live apply, netplan persistence
 ├── web-ui/                   # React + TypeScript SPA
@@ -132,12 +132,14 @@ export METRICS_RETENTION_DAYS=30        # prune snapshots older than N days; 0 d
 
 ### Node Agent (host interface management)
 
-`services/node-agent/` runs on the appliance host (`network_mode: host`, `NET_ADMIN`) and serves:
+`services/node-agent/` runs on the appliance host (`network_mode: host`, `pid: host`, `privileged: true` for CAP_SYS_ADMIN) and serves:
 
 - `GET /interfaces` — live host interface + default-route state (iproute2 JSON)
 - `POST /interfaces/apply` — planned, idempotent netlink changes; refuses touching the default-route interface unless `force: true`; persists desired state to `/etc/netplan/60-viswall.yaml`
 
-The gateway dispatches via `Instance.config["agent_endpoints"]["node"]` (service key `node`). Configure the agent with `NODE_INSTANCE_ID` / `NODE_API_KEY` in `.env`; reveal the instance API key on the Instance detail page (admin only). The console UI lives at `/interfaces` (Sidebar → Network → Interfaces); desired state is stored in `network_interfaces` and applied only on explicit "Apply to Host".
+The gateway dispatches via `Instance.config["agent_endpoints"]["node"]` (service key `node`). Configure the agent with `NODE_INSTANCE_ID` / `NODE_API_KEY` in `.env`; reveal the instance API key on the Instance detail page (admin only). Without `pid: host`, CAP_SYS_ADMIN and matching credentials the API returns 503 and try-mode breaks (PR #79). The console UI lives at `/interfaces` (Sidebar → Network → Interfaces); desired state is stored in `network_interfaces` and applied only on explicit "Apply to Host".
+
+`InterfaceApplyRequest` currently exposes only `force`; the gateway reads `try_mode` with `getattr(..., False)`, so the console cannot request the SSH-safe `netplan try` path yet. Guardrail 4 also refuses any desired interface absent from the host netplan files, so "Apply to Host" returns 400 for the unfiltered imported inventory (65 rows; only `enp0s31f6` is in netplan).
 
 ---
 
@@ -253,7 +255,9 @@ When a PR is filed, the agent **must** monitor CI check results until completion
 These are intentional or known areas needing future work. Agents should be aware:
 
 1. **LDAP/AD auth**: Implemented with auto-provisioning. Configure via Settings page (admin only) or `POST /auth/ldap-config`.
-2. **Service agents**: `firewall-service/`, `mail-service/`, `vpn-service/` agents are now wired into docker-compose (commented out by default). Uncomment in `deployments/docker/docker-compose.yml` to enable for dev/testing. They require `privileged: true` and `network_mode: host`.
+2. **Service agents**: all agents are wired into docker-compose. On this production host `firewall-service` and `vpn-service` run **enabled** (no longer commented out), and `node-agent` runs host-network; `mail-service` runs under the `mail` profile. Firewall/vpn run with `privileged: true`, `network_mode: host` and `pid: host`; node-agent additionally needs `pid: host` and `NODE_INSTANCE_ID`/`NODE_API_KEY` for `netplan try`.
+   - **Docker coexistence**: the viswall firewall module owns the host filter in `table inet viswall`; Docker keeps its own `ip`/`ip6` filter, raw and nat tables (`DOCKER-USER`, `DOCKER-FORWARD`, DNAT, MASQUERADE). The 2026-10-24 cutover stripped the legacy operator iptables to the Docker-only baseline and enabled `viswall-firewall-persist.service`.
+   - **Post-cutover operations**: the console rollback returns **409** while `COMMIT` exists (PR #85); the safe rollback source is the preserved baseline `/var/lib/viswall-firewall/cutover-baseline/`. Anti-spoof rows are runtime-generated from container lifecycle, so reconcile bidirectionally against the current live ruleset (the importer only adds; stale rows need a console DELETE).
 3. **Ansible deployment**: Playbooks in `deployments/ansible/` support manager and agent node deployment.
 4. **Grafana dashboards**: Provisioned with Prometheus datasource and a Viswall Overview dashboard. Add more dashboards to `deployments/docker/grafana/dashboards/`.
 5. **LLM email classification**: Implemented with editable per-domain categories. Supports OpenAI, Anthropic Claude, and local (Ollama) models. Classification view in Mail Domain Detail page.

@@ -71,7 +71,7 @@ Viswall separates the control plane (manager) from the data plane (agents). This
 
 **Nginx** (`deployments/docker/nginx/`). Acts as a reverse proxy in front of the API Gateway and Web UI containers. Handles TLS termination using either self-signed certificates or Let's Encrypt. Also proxies `/sogo` to the SOGo groupware container.
 
-**Agents** (`services/firewall-service/`, `mail-service/`, `vpn-service/`, `dns-service/`, `dhcp-service/`). Lightweight Python services that run on each managed instance. They poll the manager for configuration changes (via heartbeat responses that include a config version) and apply rules locally using iptables/nftables, Postfix/Dovecot, WireGuard/IPsec tools, BIND9, or Kea DHCP. Agents are wired into the Docker Compose stack but commented out by default; in production they run on bare-metal or VM instances with `privileged: true` and `network_mode: host`.
+**Agents** (`services/firewall-service/`, `mail-service/`, `vpn-service/`, `dns-service/`, `dhcp-service/`, `node-agent/`). Lightweight Python services that run on each managed instance. They poll the manager for configuration changes (via heartbeat responses that include a config version) and apply rules locally using iptables/nftables, Postfix/Dovecot, WireGuard/IPsec tools, BIND9, or Kea DHCP. All are wired into the Docker Compose stack. On this production host `firewall-service` and `vpn-service` run enabled (not commented out), and `node-agent` runs host-network; they are host-equivalent with `privileged: true`, `network_mode: host` and `pid: host`, because they manipulate the host's netfilter, WireGuard config, systemd units and netplan.
 
 **PostgreSQL** (primary database). Stores all persistent state: users, instances, firewall rules, VPN servers and clients, mail domains and users, metrics snapshots, audit logs, routing policies, QoS policies, and LLM configuration. SQLAlchemy 2.0 async models live in `shared/models.py`.
 
@@ -89,7 +89,7 @@ Viswall separates the control plane (manager) from the data plane (agents). This
 
 ### Continuous Deployment (viswall.webmasters.co.at)
 
-Merges to `main` are built and deployed automatically to the production server: CI runs the test suite, then the `viswall-release` Jenkins job builds `api-gateway`, `web-ui`, `sogo`, and `dns-service` images and pushes them to GHCR, followed by `viswall-deploy`, which SSH-deploys them to the server with a health gate and automatic rollback. CI/CD runs on the self-hosted Jenkins at 10.80.2.251 (mirroring vidForge); GitHub stays the source/PR host. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [ci/jenkins/README.md](ci/jenkins/README.md) for the architecture, setup, and rollback procedures.
+Merges to `main` are built and deployed automatically to the production server: CI runs the test suite, then the `viswall-release` Jenkins job builds `api-gateway`, `web-ui`, `sogo`, `dns-service`, `node-agent`, `firewall-service` and `vpn-service` images and pushes them to GHCR, followed by `viswall-deploy`, which SSH-deploys them to the server with a health gate and automatic rollback. CI/CD runs on the self-hosted Jenkins at 10.80.2.251 (mirroring vidForge); GitHub stays the source/PR host. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [ci/jenkins/README.md](ci/jenkins/README.md) for the architecture, setup, and rollback procedures.
 
 ### Docker Compose (Single Node)
 
@@ -127,17 +127,19 @@ For production networks with multiple edge locations, deploy the manager separat
 The manager node requires only standard Docker networking. No privileged containers or host networking mode is needed.
 
 **Agent Nodes.** Each edge instance runs one or more agents:
-- `firewall-service` — applies iptables/nftables rules
+- `firewall-service`: applies iptables/nftables rules in `table inet viswall`
 - `mail-service` — manages Postfix/Dovecot configuration
 - `vpn-service` — configures WireGuard/IPsec/OpenVPN
 - `dns-service` — applies BIND9 server, zone, and DNSSEC configuration
 - `dhcp-service` — applies Kea DHCPv4/DHCPv6 configuration and lease operations
+- `node-agent`: discovers host interfaces and applies netplan changes (host-network, port 8085)
 
 Agents need:
-- `privileged: true` (for iptables/netfilter access)
+- `privileged: true` (for iptables/netfilter access; the node-agent also needs CAP_SYS_ADMIN for `nsenter`/`netplan try`)
 - `network_mode: host` (for direct network interface manipulation)
+- `pid: host` for the node-agent (PID 1 must be the host's systemd) and for firewall/vpn where they `nsenter` into host systemd units
 - Reachability to the manager's API endpoint over HTTPS
-- A unique API key per instance, stored in the manager database
+- A unique API key per instance, stored in the manager database (`NODE_INSTANCE_ID` / `NODE_API_KEY` for the node-agent)
 
 Agents register with the manager through the heartbeat endpoint. The manager responds with the current configuration version; if the version differs from what the agent has applied, the agent pulls the full configuration and applies it locally.
 
@@ -177,15 +179,15 @@ Services started: PostgreSQL, Redis, API Gateway, Web UI, Nginx.
 
 ### Minimal Firewall Appliance
 
-Run the manager plus the firewall agent on a single host. The firewall agent requires `privileged: true` and `network_mode: host`.
+Run the manager plus the firewall agent on a single host. The firewall agent requires `privileged: true`, `network_mode: host` and `pid: host`.
 
-Uncomment the `firewall-service` block in `docker-compose.yml`, then start:
+On this host `firewall-service` is **enabled in production** (it is no longer a commented-out block). Start it explicitly if you build a fresh stack:
 
 ```bash
 docker-compose up -d postgres redis api-gateway web-ui nginx firewall-service
 ```
 
-> **Note:** The firewall agent manipulates the host's netfilter tables. Only run this on a dedicated appliance or VM.
+> **Note:** The firewall agent manipulates the host's netfilter tables. Only run this on a dedicated appliance or VM. It owns `table inet viswall`; Docker keeps its own `ip`/`ip6` tables and chains.
 
 ### Mail Server with Groupware
 
@@ -201,15 +203,15 @@ Exposed ports: `25`, `465`, `587` (SMTP), `143`, `993` (IMAP). SOGo is available
 
 ### VPN Server
 
-Run the manager plus the VPN agent on a single host. The VPN agent requires `privileged: true` and `network_mode: host`.
+Run the manager plus the VPN agent on a single host. The VPN agent requires `privileged: true`, `network_mode: host` and `pid: host`.
 
-Uncomment the `vpn-service` block in `docker-compose.yml`, then start:
+On this host `vpn-service` is **enabled in production** (it is no longer a commented-out block). Start it explicitly if you build a fresh stack:
 
 ```bash
 docker-compose up -d postgres redis api-gateway web-ui nginx vpn-service
 ```
 
-> **Note:** The VPN agent creates WireGuard/IPsec interfaces on the host network namespace.
+> **Note:** The VPN agent renders `/etc/wireguard/client.conf` and restarts `wg-quick@client` through `nsenter`; that unit remains the single tunnel lifecycle owner.
 
 ### DNS and DHCP Services
 
@@ -227,9 +229,7 @@ Exposed ports include:
 
 ### Full Stack (Single Node)
 
-Run everything on one machine — manager, all agents, monitoring, and LLM inference. This is useful for homelabs and small offices.
-
-Uncomment all agent blocks in `docker-compose.yml`, then start the full stack:
+Run everything on one machine: manager, all agents, monitoring, and LLM inference. This is useful for homelabs and small offices. The production stack on this host runs the firewall, VPN, node, DNS and mail services; the full stack starts every service in the compose file:
 
 ```bash
 docker-compose up -d
