@@ -103,6 +103,8 @@ import type {
   QoSStats,
   NATRule,
   NATRuleCreate,
+  MailDnsRecordsResponse,
+  MailDnsCheckResponse,
   MailMessage,
   CategoryConfig,
 } from '../types'
@@ -119,6 +121,7 @@ const queryKeys = {
   networkInterfacesLive: (instanceId: number) => ['network-interfaces-live', instanceId] as const,
   mailDomains: (instanceId: number) => ['mail-domains', instanceId] as const,
   mailDomain: (instanceId: number, domainId: number) => ['mail-domains', instanceId, domainId] as const,
+  mailDnsRecords: (domainId: number) => ['mail-dns-records', domainId] as const,
   groupwareStatus: (domainId: number) => ['groupware-status', domainId] as const,
   groupwareStats: (domainId: number) => ['groupware-stats', domainId] as const,
   mailUsers: (instanceId: number, domainId: number) => ['mail-users', instanceId, domainId] as const,
@@ -600,6 +603,26 @@ export function useDeleteMailDomain(instanceId: number) {
   })
 }
 
+export function useMailDomainDnsRecords(instanceId: number, domainId: number) {
+  return useQuery<MailDnsRecordsResponse>({
+    queryKey: queryKeys.mailDnsRecords(domainId),
+    queryFn: async () => {
+      const { data } = await api.get(`/mail/domains/${domainId}/dns-records`)
+      return data
+    },
+    enabled: !!instanceId && !!domainId,
+  })
+}
+
+export function useMailDnsCheck(instanceId: number, domainId: number) {
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/mail/domains/${domainId}/dns-check`)
+      return data as MailDnsCheckResponse
+    },
+  })
+}
+
 export function useGroupwareStatus(domainId: number) {
   return useQuery<{
     domain_id: number
@@ -817,8 +840,9 @@ export function useRegenerateDkim(instanceId: number) {
       const { data } = await api.post(`/mail/domains/${domainId}/dkim/regenerate`)
       return data
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: queryKeys.mailDomains(instanceId) })
+      qc.invalidateQueries({ queryKey: queryKeys.mailDnsRecords(variables) })
     },
   })
 }

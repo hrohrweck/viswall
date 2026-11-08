@@ -108,8 +108,10 @@ pipeline {
         TAG = BUILD_TAG.replaceAll('[^a-zA-Z0-9]', '')
       }
       steps {
-        // Self-healing CI base image: rebuilt on the agent whenever absent.
-        sh 'docker image inspect viswall-ci-python:3.12 >/dev/null 2>&1 || docker build -q -f ci/jenkins/Dockerfile.ci-python -t viswall-ci-python:3.12 .'
+        // Always build: the requirements.txt COPY layer busts the Docker layer
+        // cache whenever the pins change, so a stale image can never mask
+        // dependency drift. Unchanged requirements stay cached (near-instant).
+        sh 'docker build -q -f ci/jenkins/Dockerfile.ci-python -t viswall-ci-python:3.12 .'
         sh '''
           docker network create $NET >/dev/null 2>&1 || true
           docker rm -f vw-pg-$TAG vw-redis-$TAG >/dev/null 2>&1 || true

@@ -55,6 +55,11 @@ regexes = [
   '''instance_api_key\s*:\s*Optional''',
   '''instance_api_key\s*=\s*INSTANCE_API_KEY''',
   '''os\.environ\.get\("VISWALL_TOKEN''',
+  # CLI credential plumbing: every typer command declares optional --url/--token
+  # passthrough options that get_client() resolves from config/env. The assigned
+  # value is always the Option default (None) — never a literal credential.
+  '''token:\s*Optional\[str\]\s*=\s*typer\.Option''',
+  '''url:\s*Optional\[str\]\s*=\s*typer\.Option''',
 ]
 
 # Bearer / Authorization headers

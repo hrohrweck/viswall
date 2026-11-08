@@ -83,6 +83,14 @@ class MailResource:
         """Delete mail domain."""
         self._client._request("DELETE", f"/mail/domains/{domain_id}")
 
+    def get_dns_records(self, domain_id: int) -> Dict[str, Any]:
+        """Get expected DNS records for a mail domain."""
+        return self._client._request("GET", f"/mail/domains/{domain_id}/dns-records")
+
+    def check_dns(self, domain_id: int) -> Dict[str, Any]:
+        """Run a live DNS verification for a mail domain."""
+        return self._client._request("POST", f"/mail/domains/{domain_id}/dns-check")
+
     def list_users(self, domain_id: int) -> List[Dict[str, Any]]:
         """List mail users for a domain."""
         return self._client._request("GET", f"/mail/users/{domain_id}")

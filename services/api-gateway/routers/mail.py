@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import datetime
+import logging
 
 from shared.database import get_db
 from shared.models import MailAlias, MailDomain, MailUser, Instance, User, MailMessage
@@ -11,21 +12,29 @@ from shared.schemas import (
     MailDomainCreate, MailDomainUpdate, MailDomainResponse,
     MailUserCreate, MailUserUpdate, MailUserResponse,
     MailAliasCreate, MailAliasUpdate, MailAliasResponse,
-    MailMessageCreate, MailMessageResponse, MailClassificationResult,
+    MailMessageCreate, MailMessageResponse,
+    MailClassificationResult,
     MailMessageListParams, MailMessageActionRequest,
+    MailDnsRecordSpec, MailDnsRecordsResponse,
+    MailDnsCheckResponse,
     LLMConfig
 )
 from shared.security import require_auth, require_admin, get_password_hash
 from shared.audit_logger import log_audit
-from utils.agent_client import agent_request, AgentClientError
+from utils.agent_client import agent_request, AgentClientError, log_agent_dispatch
+from utils.dkim import generate_dkim_keypair
+from utils.dns_check import run_dns_check
 from mail_classifier import (
     classify_email,
     LLMClassificationError,
     DEFAULT_CATEGORIES,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
+MAIL_AGENT_SERVICE = "mail"
 # ============================================================================
 # MAIL DOMAIN ENDPOINTS
 # ============================================================================
@@ -106,9 +115,15 @@ async def create_domain(
 
     await db.refresh(domain)
     
-    # Trigger DKIM generation if enabled
+    # Generate and persist DKIM key material inline when enabled; the
+    # background reload below re-installs it on the mail agent.
     if data.dkim_enabled:
-        background_tasks.add_task(generate_dkim_keys, domain.id, data.domain)
+        selector, public_key_b64, private_key_pem = generate_dkim_keypair()
+        domain.dkim_selector = selector
+        domain.dkim_public_key = public_key_b64
+        domain.dkim_private_key = private_key_pem
+        await db.commit()
+        await db.refresh(domain)
     
     # Trigger Exim config reload on instance
     background_tasks.add_task(reload_mail_config, instance_id)
@@ -216,11 +231,10 @@ async def delete_domain(
 @router.post("/domains/{domain_id}/dkim/regenerate")
 async def regenerate_dkim(
     domain_id: int,
-    background_tasks: BackgroundTasks,
     admin_id: int = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Regenerate DKIM keys for a domain"""
+    """Regenerate DKIM keys for a domain and install them on the mail agent"""
     result = await db.execute(
         select(MailDomain).where(MailDomain.id == domain_id)
     )
@@ -232,61 +246,161 @@ async def regenerate_dkim(
     if not domain.dkim_enabled:
         raise HTTPException(status_code=400, detail="DKIM is not enabled for this domain")
     
-    background_tasks.add_task(generate_dkim_keys, domain_id, domain.domain)
+    selector, public_key_b64, private_key_pem = generate_dkim_keypair()
+    domain.dkim_selector = selector
+    domain.dkim_public_key = public_key_b64
+    domain.dkim_private_key = private_key_pem
+    await db.commit()
+    await db.refresh(domain)
     
-    return {"status": "queued", "message": "DKIM key generation started"}
+    installed = False
+    try:
+        await agent_request(
+            db=db,
+            instance_id=domain.instance_id,
+            method="POST",
+            path="/dkim/install",
+            json_data={
+                "domain": domain.domain,
+                "selector": selector,
+                "private_key_pem": private_key_pem,
+            },
+            service=MAIL_AGENT_SERVICE,
+            timeout=10.0,
+        )
+        installed = True
+        await log_agent_dispatch(
+            db,
+            instance_id=domain.instance_id,
+            resource_type="mail_agent",
+            action="deploy",
+            path="/dkim/install",
+            ok=True,
+            detail=f"DKIM key installed for {domain.domain}",
+            user_id=admin_id,
+        )
+    except AgentClientError as e:
+        logger.error(f"Failed to install DKIM key for {domain.domain} on instance {domain.instance_id}: {e}")
+        await log_agent_dispatch(
+            db,
+            instance_id=domain.instance_id,
+            resource_type="mail_agent",
+            action="deploy",
+            path="/dkim/install",
+            ok=False,
+            detail=f"DKIM install for {domain.domain} failed: {e}",
+            user_id=admin_id,
+        )
+    
+    await log_audit(
+        db=db,
+        user_id=admin_id,
+        action="update",
+        resource_type="mail_domain",
+        resource_id=str(domain_id),
+        instance_id=domain.instance_id,
+        new_value={"dkim_selector": selector, "installed": installed},
+    )
+    
+    return {
+        "status": "ok",
+        "installed": installed,
+        "dns_name": f"{selector}._domainkey.{domain.domain}",
+        "dns_value": f"v=DKIM1; k=rsa; p={public_key_b64}",
+    }
 
-@router.get("/domains/{domain_id}/dns-records")
+@router.get("/domains/{domain_id}/dns-records", response_model=MailDnsRecordsResponse)
 async def get_dns_records(
     domain_id: int,
-    admin_id: int = Depends(require_admin),
+    user_id: int = Depends(require_auth),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get DNS records needed for mail domain (SPF, DKIM, DMARC)"""
+    """Get the DNS records a mail domain needs published (MX, SPF, DKIM, DMARC)."""
     result = await db.execute(
         select(MailDomain).where(MailDomain.id == domain_id)
     )
     domain = result.scalar_one_or_none()
-    
+
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
-    
-    records = {
-        "mx": {
-            "type": "MX",
-            "name": domain.domain,
-            "value": f"10 mail.{domain.domain}.",
-            "priority": 10
-        },
-        "spf": None,
-        "dkim": None,
-        "dmarc": None
-    }
-    
+
+    records: List[MailDnsRecordSpec] = [
+        MailDnsRecordSpec(
+            key="mx",
+            type="MX",
+            name=domain.domain,
+            value=f"10 mail.{domain.domain}.",
+            note=f"Also create an A/AAAA record for mail.{domain.domain} pointing at this appliance.",
+        )
+    ]
+
     if domain.spf_enabled:
-        records["spf"] = {
-            "type": "TXT",
-            "name": domain.domain,
-            "value": f'"v=spf1 mx a:mail.{domain.domain} ~all"'
-        }
-    
+        records.append(MailDnsRecordSpec(
+            key="spf",
+            type="TXT",
+            name=domain.domain,
+            value=f"v=spf1 mx a:mail.{domain.domain} ~all",
+        ))
+
     if domain.dkim_enabled:
-        # In real implementation, fetch actual DKIM public key
-        records["dkim"] = {
-            "type": "TXT",
-            "name": f"default._domainkey.{domain.domain}",
-            "value": "[DKIM key - generate to see actual value]",
-            "note": "Use POST /dkim/regenerate to create keys"
-        }
-    
+        dkim_value: Optional[str] = None
+        dkim_note: Optional[str] = None
+        if domain.dkim_public_key:
+            dkim_value = f"v=DKIM1; k=rsa; p={domain.dkim_public_key}"
+        else:
+            dkim_note = "not_generated"
+
+        result = await db.execute(
+            select(func.count()).select_from(MailDomain).where(
+                and_(
+                    MailDomain.instance_id == domain.instance_id,
+                    MailDomain.dkim_enabled == True,  # noqa: E712
+                )
+            )
+        )
+        signing_domains = result.scalar_one()
+        if signing_domains > 1:
+            multi_domain_note = (
+                "DKIM signing on the mail agent currently covers one domain per "
+                "instance; records for additional domains are shown for verification "
+                "readiness."
+            )
+            dkim_note = f"{dkim_note} {multi_domain_note}" if dkim_note else multi_domain_note
+
+        records.append(MailDnsRecordSpec(
+            key="dkim",
+            type="TXT",
+            name=f"{domain.dkim_selector}._domainkey.{domain.domain}",
+            value=dkim_value,
+            note=dkim_note,
+        ))
+
     if domain.dmarc_enabled:
-        records["dmarc"] = {
-            "type": "TXT",
-            "name": f"_dmarc.{domain.domain}",
-            "value": f'"v=DMARC1; p=quarantine; rua=mailto:dmarc@{domain.domain}"'
-        }
-    
-    return records
+        records.append(MailDnsRecordSpec(
+            key="dmarc",
+            type="TXT",
+            name=f"_dmarc.{domain.domain}",
+            value=f"v=DMARC1; p=quarantine; rua=mailto:dmarc@{domain.domain}",
+        ))
+
+    return MailDnsRecordsResponse(domain=domain.domain, records=records)
+
+@router.post("/domains/{domain_id}/dns-check", response_model=MailDnsCheckResponse)
+async def check_domain_dns(
+    domain_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    """Run a live DNS check of the records a mail domain needs published."""
+    result = await db.execute(
+        select(MailDomain).where(MailDomain.id == domain_id)
+    )
+    domain = result.scalar_one_or_none()
+
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+
+    return await run_dns_check(db, domain)
 
 # ============================================================================
 # MAIL USER ENDPOINTS
@@ -929,53 +1043,55 @@ async def message_action(
 # BACKGROUND TASKS (These would be actual async tasks in production)
 # ============================================================================
 
-async def generate_dkim_keys(domain_id: int, domain_name: str):
-    """Generate DKIM keys for a domain"""
-    from shared.database import AsyncSessionLocal
-    from utils.agent_client import agent_request, AgentClientError, log_agent_dispatch
-    import logging
-    logger = logging.getLogger(__name__)
-
-    async with AsyncSessionLocal() as db:
-        try:
-            result = await db.execute(select(MailDomain).where(MailDomain.id == domain_id))
-            domain = result.scalar_one_or_none()
-            if not domain:
-                return
-            await agent_request(
-                db=db,
-                instance_id=domain.instance_id,
-                method="POST",
-                path="/dkim/generate",
-                json_data={"domain": domain_name},
-            )
-            await log_agent_dispatch(
-                db, instance_id=domain.instance_id, resource_type="mail_agent",
-                action="deploy", path="/dkim/generate", ok=True,
-                detail=f"DKIM keys generated for {domain_name}",
-            )
-        except AgentClientError as e:
-            logger.error(f"Failed to generate DKIM for {domain_name}: {e}")
-            await log_agent_dispatch(
-                db, instance_id=domain.instance_id, resource_type="mail_agent",
-                action="deploy", path="/dkim/generate", ok=False,
-                detail=f"DKIM generation for {domain_name} failed: {e}",
-            )
-
 async def reload_mail_config(instance_id: int):
-    """Reload Exim configuration on an instance"""
+    """Re-install persisted DKIM keys, then reload Exim config on an instance"""
     from shared.database import AsyncSessionLocal
-    from utils.agent_client import agent_request, AgentClientError, log_agent_dispatch
     import logging
     logger = logging.getLogger(__name__)
 
     async with AsyncSessionLocal() as db:
+        # Re-push persisted keys so restarts/redeploys converge before the reload.
+        result = await db.execute(
+            select(MailDomain).where(
+                MailDomain.instance_id == instance_id,
+                MailDomain.dkim_enabled.is_(True),
+                MailDomain.dkim_private_key.isnot(None),
+            )
+        )
+        for domain in result.scalars().all():
+            try:
+                await agent_request(
+                    db=db,
+                    instance_id=instance_id,
+                    method="POST",
+                    path="/dkim/install",
+                    json_data={
+                        "domain": domain.domain,
+                        "selector": domain.dkim_selector,
+                        "private_key_pem": domain.dkim_private_key,
+                    },
+                    service=MAIL_AGENT_SERVICE,
+                    timeout=10.0,
+                )
+                await log_agent_dispatch(
+                    db, instance_id=instance_id, resource_type="mail_agent",
+                    action="deploy", path="/dkim/install", ok=True,
+                    detail=f"DKIM key re-installed for {domain.domain}",
+                )
+            except AgentClientError as e:
+                logger.error(f"Failed to re-install DKIM key for {domain.domain} on instance {instance_id}: {e}")
+                await log_agent_dispatch(
+                    db, instance_id=instance_id, resource_type="mail_agent",
+                    action="deploy", path="/dkim/install", ok=False,
+                    detail=f"DKIM re-install for {domain.domain} failed: {e}",
+                )
         try:
             await agent_request(
                 db=db,
                 instance_id=instance_id,
                 method="POST",
                 path="/reload",
+                service=MAIL_AGENT_SERVICE,
             )
             await log_agent_dispatch(
                 db, instance_id=instance_id, resource_type="mail_agent",

@@ -454,6 +454,36 @@ export interface MailDomainUpdate {
   mta_forward_port?: number;
 }
 
+export type MailDnsCheckStatus = 'correct' | 'incorrect' | 'missing' | 'error';
+
+export interface MailDnsRecordSpec {
+  key: string;
+  type: string;
+  name: string;
+  value: string | null;
+  note?: string | null;
+}
+
+export interface MailDnsRecordsResponse {
+  domain: string;
+  records: MailDnsRecordSpec[];
+}
+
+export interface MailDnsCheckItem {
+  key: string;
+  type: string;
+  name: string;
+  expected_value: string | null;
+  found_values: string[];
+  status: MailDnsCheckStatus;
+  detail?: string | null;
+}
+
+export interface MailDnsCheckResponse {
+  checked_at: string;
+  results: MailDnsCheckItem[];
+}
+
 export interface MailUser {
   id: number;
   domain_id: number;

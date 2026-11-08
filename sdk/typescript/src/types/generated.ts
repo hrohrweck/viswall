@@ -396,16 +396,23 @@ export interface paths {
   "/api/v1/mail/domains/{domain_id}/dkim/regenerate": {
     /**
      * Regenerate Dkim
-     * @description Regenerate DKIM keys for a domain
+     * @description Regenerate DKIM keys for a domain and install them on the mail agent
      */
     post: operations["regenerate_dkim_api_v1_mail_domains__domain_id__dkim_regenerate_post"];
   };
   "/api/v1/mail/domains/{domain_id}/dns-records": {
     /**
      * Get Dns Records
-     * @description Get DNS records needed for mail domain (SPF, DKIM, DMARC)
+     * @description Get the DNS records a mail domain needs published (MX, SPF, DKIM, DMARC).
      */
     get: operations["get_dns_records_api_v1_mail_domains__domain_id__dns_records_get"];
+  };
+  "/api/v1/mail/domains/{domain_id}/dns-check": {
+    /**
+     * Check Domain Dns
+     * @description Run a live DNS check of the records a mail domain needs published.
+     */
+    post: operations["check_domain_dns_api_v1_mail_domains__domain_id__dns_check_post"];
   };
   "/api/v1/mail/users/{domain_id}": {
     /**
@@ -1289,13 +1296,9 @@ export interface components {
       /** Resource Id */
       resource_id: string | null;
       /** Old Value */
-      old_value: {
-        [key: string]: unknown;
-      } | null;
+      old_value: Record<string, never> | null;
       /** New Value */
-      new_value: {
-        [key: string]: unknown;
-      } | null;
+      new_value: Record<string, never> | null;
       /** Ip Address */
       ip_address: string | null;
       /**
@@ -1323,9 +1326,7 @@ export interface components {
       /** Conversation Id */
       conversation_id?: string | null;
       /** Context */
-      context?: {
-        [key: string]: unknown;
-      } | null;
+      context?: Record<string, never> | null;
     };
     /** ChatResponse */
     ChatResponse: {
@@ -1334,9 +1335,7 @@ export interface components {
       /** Message */
       message: string;
       /** Data */
-      data?: {
-        [key: string]: unknown;
-      } | null;
+      data?: Record<string, never> | null;
       /**
        * Can Apply
        * @default false
@@ -1350,9 +1349,7 @@ export interface components {
       /** Config Type */
       config_type: string;
       /** Config */
-      config: {
-        [key: string]: unknown;
-      };
+      config: Record<string, never>;
       /** Question */
       question?: string | null;
     };
@@ -2655,9 +2652,7 @@ export interface components {
       /** Last Seen */
       last_seen: string | null;
       /** Config */
-      config: {
-        [key: string]: unknown;
-      };
+      config: Record<string, never>;
       /**
        * Created At
        * Format: date-time
@@ -2684,9 +2679,7 @@ export interface components {
       /** Capabilities */
       capabilities?: string[] | null;
       /** Config */
-      config?: {
-        [key: string]: unknown;
-      } | null;
+      config?: Record<string, never> | null;
     };
     /** InterfaceApplyChange */
     InterfaceApplyChange: {
@@ -3220,6 +3213,56 @@ export interface components {
       /** Enabled */
       enabled?: boolean | null;
     };
+    /** MailDnsCheckItem */
+    MailDnsCheckItem: {
+      /** Key */
+      key: string;
+      /** Type */
+      type: string;
+      /** Name */
+      name: string;
+      /** Expected Value */
+      expected_value?: string | null;
+      /** Found Values */
+      found_values?: string[];
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "correct" | "incorrect" | "missing" | "error";
+      /** Detail */
+      detail?: string | null;
+    };
+    /** MailDnsCheckResponse */
+    MailDnsCheckResponse: {
+      /**
+       * Checked At
+       * Format: date-time
+       */
+      checked_at: string;
+      /** Results */
+      results: components["schemas"]["MailDnsCheckItem"][];
+    };
+    /** MailDnsRecordSpec */
+    MailDnsRecordSpec: {
+      /** Key */
+      key: string;
+      /** Type */
+      type: string;
+      /** Name */
+      name: string;
+      /** Value */
+      value?: string | null;
+      /** Note */
+      note?: string | null;
+    };
+    /** MailDnsRecordsResponse */
+    MailDnsRecordsResponse: {
+      /** Domain */
+      domain: string;
+      /** Records */
+      records: components["schemas"]["MailDnsRecordSpec"][];
+    };
     /** MailDomainCreate */
     MailDomainCreate: {
       /** Domain */
@@ -3277,9 +3320,7 @@ export interface components {
        */
       mta_forward_port?: number;
       /** Llm Config */
-      llm_config?: {
-        [key: string]: unknown;
-      } | null;
+      llm_config?: Record<string, never> | null;
     };
     /** MailDomainResponse */
     MailDomainResponse: {
@@ -3342,9 +3383,7 @@ export interface components {
       /** Instance Id */
       instance_id: number;
       /** Llm Config */
-      llm_config: {
-        [key: string]: unknown;
-      };
+      llm_config: Record<string, never>;
       /**
        * Created At
        * Format: date-time
@@ -3375,9 +3414,7 @@ export interface components {
       /** Groupware Enabled */
       groupware_enabled?: boolean | null;
       /** Llm Config */
-      llm_config?: {
-        [key: string]: unknown;
-      } | null;
+      llm_config?: Record<string, never> | null;
       /** Mta Forward Enabled */
       mta_forward_enabled?: boolean | null;
       /** Mta Forward Host */
@@ -3557,9 +3594,7 @@ export interface components {
       /** Disk Total Bytes */
       disk_total_bytes?: number | null;
       /** Interface Stats */
-      interface_stats?: {
-          [key: string]: unknown;
-        }[] | null;
+      interface_stats?: Record<string, never>[] | null;
       /** Mail Queue Size */
       mail_queue_size?: number | null;
       /** Mail Inbound Count */
@@ -3632,9 +3667,7 @@ export interface components {
     /** MultiFirewallRequest */
     MultiFirewallRequest: {
       /** Firewalls */
-      firewalls: {
-          [key: string]: unknown;
-        }[];
+      firewalls: Record<string, never>[];
       /** Topology */
       topology: {
         [key: string]: string[];
@@ -3648,17 +3681,13 @@ export interface components {
     /** MultiFirewallTestRequest */
     MultiFirewallTestRequest: {
       /** Firewalls */
-      firewalls: {
-          [key: string]: unknown;
-        }[];
+      firewalls: Record<string, never>[];
       /** Topology */
       topology: {
         [key: string]: string[];
       };
       /** Tests */
-      tests: {
-          [key: string]: unknown;
-        }[];
+      tests: Record<string, never>[];
     };
     /** NATRuleCreate */
     NATRuleCreate: {
@@ -4265,9 +4294,7 @@ export interface components {
       /** Queues */
       queues?: components["schemas"]["QoSQueueStats"][];
       /** Raw */
-      raw?: {
-        [key: string]: unknown;
-      } | null;
+      raw?: Record<string, never> | null;
       /**
        * Collected At
        * Format: date-time
@@ -4413,33 +4440,25 @@ export interface components {
     /** RuleSuggestionResponse */
     RuleSuggestionResponse: {
       /** Rule */
-      rule: {
-        [key: string]: unknown;
-      };
+      rule: Record<string, never>;
       /** Explanation */
       explanation: string;
       /** Security Notes */
       security_notes: string;
       /** Suggested Tests */
-      suggested_tests: {
-          [key: string]: unknown;
-        }[];
+      suggested_tests: Record<string, never>[];
     };
     /** SecurityAuditRequest */
     SecurityAuditRequest: {
       /** Rules */
-      rules: {
-          [key: string]: unknown;
-        }[];
+      rules: Record<string, never>[];
       /** Standard */
       standard?: string | null;
     };
     /** SecurityAuditResponse */
     SecurityAuditResponse: {
       /** Findings */
-      findings: {
-          [key: string]: unknown;
-        }[];
+      findings: Record<string, never>[];
       /** Risk Score */
       risk_score: number;
       /** Recommendations */
@@ -4464,13 +4483,9 @@ export interface components {
     /** SimulationResponse */
     SimulationResponse: {
       /** Packet */
-      packet: {
-        [key: string]: unknown;
-      };
+      packet: Record<string, never>;
       /** Matched Rule */
-      matched_rule: {
-        [key: string]: unknown;
-      } | null;
+      matched_rule: Record<string, never> | null;
       /** Final Action */
       final_action: string;
       /** Chain Traversed */
@@ -4482,9 +4497,7 @@ export interface components {
       /** Logs */
       logs: string[];
       /** Nat Translation */
-      nat_translation: {
-        [key: string]: unknown;
-      } | null;
+      nat_translation: Record<string, never> | null;
     };
     /**
      * TSIGAlgorithm
@@ -4522,18 +4535,14 @@ export interface components {
       /** Description */
       description: string;
       /** Rules */
-      rules?: {
-          [key: string]: unknown;
-        }[] | null;
+      rules?: Record<string, never>[] | null;
       /** Instance Id */
       instance_id?: number | null;
     };
     /** TestGenerationResponse */
     TestGenerationResponse: {
       /** Test Cases */
-      test_cases: {
-          [key: string]: unknown;
-        }[];
+      test_cases: Record<string, never>[];
       /** Explanation */
       explanation: string;
       /** Coverage Assessment */
@@ -4542,17 +4551,13 @@ export interface components {
     /** TestResultResponse */
     TestResultResponse: {
       /** Test Case */
-      test_case: {
-        [key: string]: unknown;
-      };
+      test_case: Record<string, never>;
       /** Passed */
       passed: boolean;
       /** Actual Action */
       actual_action: string;
       /** Actual Rule */
-      actual_rule: {
-        [key: string]: unknown;
-      } | null;
+      actual_rule: Record<string, never> | null;
       /** Error Message */
       error_message: string | null;
       /** Execution Time Ms */
@@ -4627,9 +4632,7 @@ export interface components {
       /** Instances */
       instances: number[];
       /** Preferences */
-      preferences: {
-        [key: string]: unknown;
-      };
+      preferences: Record<string, never>;
       /** Last Login */
       last_login: string | null;
       /**
@@ -4658,9 +4661,7 @@ export interface components {
       /** Instances */
       instances?: number[] | null;
       /** Preferences */
-      preferences?: {
-        [key: string]: unknown;
-      } | null;
+      preferences?: Record<string, never> | null;
     };
     /**
      * VPNAuthType
@@ -5026,9 +5027,7 @@ export interface components {
       instance_id: number;
       status: components["schemas"]["VPNStatus"];
       /** Config */
-      config: {
-        [key: string]: unknown;
-      };
+      config: Record<string, never>;
       /** Connected Clients */
       connected_clients: number;
       /** Bytes Received */
@@ -5170,9 +5169,7 @@ export interface components {
       instance_id: number;
       status: components["schemas"]["VPNStatus"];
       /** Config */
-      config: {
-        [key: string]: unknown;
-      };
+      config: Record<string, never>;
       /** Connected Clients */
       connected_clients: number;
       /** Bytes Received */
@@ -5206,9 +5203,7 @@ export interface components {
       /** Total Bytes Sent */
       total_bytes_sent: number;
       /** Client List */
-      client_list: {
-          [key: string]: unknown;
-        }[];
+      client_list: Record<string, never>[];
     };
     /** VPNServerUpdate */
     VPNServerUpdate: {
@@ -5231,9 +5226,7 @@ export interface components {
       /** Internet Redirect */
       internet_redirect?: boolean | null;
       /** Config */
-      config?: {
-        [key: string]: unknown;
-      } | null;
+      config?: Record<string, never> | null;
       /** Tunnel Type */
       tunnel_type?: ("server" | "client" | "site-to-site") | null;
       /** Endpoint */
@@ -5262,10 +5255,6 @@ export interface components {
       msg: string;
       /** Error Type */
       type: string;
-      /** Input */
-      input?: unknown;
-      /** Context */
-      ctx?: Record<string, never>;
     };
     /** WireGuardConfig */
     WireGuardConfig: {
@@ -5593,9 +5582,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": {
-          [key: string]: unknown;
-        };
+        "application/json": Record<string, never>;
       };
     };
     responses: {
@@ -6954,7 +6941,7 @@ export interface operations {
   };
   /**
    * Regenerate Dkim
-   * @description Regenerate DKIM keys for a domain
+   * @description Regenerate DKIM keys for a domain and install them on the mail agent
    */
   regenerate_dkim_api_v1_mail_domains__domain_id__dkim_regenerate_post: {
     parameters: {
@@ -6979,7 +6966,7 @@ export interface operations {
   };
   /**
    * Get Dns Records
-   * @description Get DNS records needed for mail domain (SPF, DKIM, DMARC)
+   * @description Get the DNS records a mail domain needs published (MX, SPF, DKIM, DMARC).
    */
   get_dns_records_api_v1_mail_domains__domain_id__dns_records_get: {
     parameters: {
@@ -6991,7 +6978,32 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": unknown;
+          "application/json": components["schemas"]["MailDnsRecordsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Check Domain Dns
+   * @description Run a live DNS check of the records a mail domain needs published.
+   */
+  check_domain_dns_api_v1_mail_domains__domain_id__dns_check_post: {
+    parameters: {
+      path: {
+        domain_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailDnsCheckResponse"];
         };
       };
       /** @description Validation Error */
@@ -7330,9 +7342,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": {
-          [key: string]: unknown;
-        };
+        "application/json": Record<string, never>;
       };
     };
     responses: {
@@ -7575,9 +7585,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
       /** @description Validation Error */
@@ -7597,9 +7605,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
     };
@@ -10002,9 +10008,7 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        "application/json": {
-          [key: string]: unknown;
-        } | null;
+        "application/json": Record<string, never> | null;
       };
     };
     responses: {
@@ -10598,9 +10602,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
       /** @description Validation Error */
@@ -10678,9 +10680,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": Record<string, never>;
         };
       };
       /** @description Validation Error */
