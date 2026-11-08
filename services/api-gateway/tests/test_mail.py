@@ -2,7 +2,9 @@
 
 import base64
 import uuid
+from datetime import datetime
 
+import dns.resolver
 import pytest
 import pytest_asyncio
 from cryptography.hazmat.primitives import serialization
@@ -11,6 +13,7 @@ from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import routers.mail as mail_router
+import utils.dns_check as dns_check_module
 from main import app
 from shared.database import get_db
 from shared.models import AuditLog, Base, Instance, MailAlias, MailDomain, MailMessage, MailUser, User
@@ -988,3 +991,270 @@ class TestDnsRecords:
         async with TestSessionLocal() as session:
             row = (await session.execute(select(MailDomain).where(MailDomain.domain == name))).scalar_one()
             return row.id
+
+
+class _FakeMX:
+    def __init__(self, preference: int, exchange: str):
+        self.preference = preference
+        self.exchange = exchange
+
+
+class _FakeTXT:
+    def __init__(self, *chunks: str):
+        self.strings = tuple(chunk.encode("ascii") for chunk in chunks)
+
+
+class _FakeA:
+    def __init__(self, address: str = "192.0.2.10"):
+        self.address = address
+
+
+class TestDnsCheck:
+    @staticmethod
+    async def _set_domain_flags(domain_id: int, **flags) -> None:
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.id == domain_id))).scalar_one()
+            for field, value in flags.items():
+                setattr(row, field, value)
+            await session.commit()
+
+    @staticmethod
+    def _routes_all_correct(
+        domain_name: str, public_key: str = "PubKeyABC123", selector: str = "viswall"
+    ) -> dict:
+        return {
+            (domain_name, "MX"): [_FakeMX(10, f"mail.{domain_name}.")],
+            (domain_name, "TXT"): [_FakeTXT(f"v=spf1 mx a:mail.{domain_name} ~all")],
+            (f"{selector}._domainkey.{domain_name}", "TXT"): [
+                _FakeTXT("v=DKIM1; ", "k=rsa; ", f"p={public_key}")
+            ],
+            (f"_dmarc.{domain_name}", "TXT"): [
+                _FakeTXT(f"v=DMARC1; p=quarantine; rua=mailto:dmarc@{domain_name}")
+            ],
+            (f"mail.{domain_name}", "A"): [_FakeA()],
+        }
+
+    @staticmethod
+    def _fake_resolve(monkeypatch, routes: dict) -> None:
+        async def _resolve(qname: str, rdtype: str):
+            key = (qname.lower(), rdtype)
+            if key not in routes:
+                raise dns.resolver.NXDOMAIN()
+            outcome = routes[key]
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+        monkeypatch.setattr(dns_check_module, "_resolve", _resolve)
+
+    @staticmethod
+    def _by_key(body: dict) -> dict:
+        return {row["key"]: row for row in body["results"]}
+
+    async def test_dns_check_all_correct(self, client: AsyncClient, admin_user, mail_domain, monkeypatch):
+        await self._set_domain_flags(mail_domain.id, dkim_public_key="PubKeyABC123")
+        self._fake_resolve(monkeypatch, self._routes_all_correct(mail_domain.domain))
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(f"/api/v1/mail/domains/{mail_domain.id}/dns-check", headers=headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert [row["key"] for row in body["results"]] == ["mx", "spf", "dkim", "dmarc"]
+        rows = self._by_key(body)
+        for key, row in rows.items():
+            assert row["status"] == "correct", f"{key}: {row}"
+            assert row["found_values"], f"{key} should carry the found value"
+
+        assert rows["mx"]["expected_value"] == f"10 mail.{mail_domain.domain}."
+        assert "found priority 10" in rows["mx"]["detail"]
+        assert "mail host resolves" in rows["mx"]["detail"]
+        assert rows["mx"]["found_values"] == [f"10 mail.{mail_domain.domain}."]
+
+        assert rows["spf"]["expected_value"] == f"v=spf1 mx a:mail.{mail_domain.domain} ~all"
+        assert rows["dkim"]["name"] == f"viswall._domainkey.{mail_domain.domain}"
+        assert rows["dkim"]["expected_value"] == f"v=DKIM1; k=rsa; p=PubKeyABC123"
+        assert rows["dmarc"]["expected_value"] == (
+            f"v=DMARC1; p=quarantine; rua=mailto:dmarc@{mail_domain.domain}"
+        )
+
+    async def test_dns_check_spf_present_but_different(
+        self, client: AsyncClient, admin_user, mail_domain, monkeypatch
+    ):
+        await self._set_domain_flags(mail_domain.id, dkim_public_key="PubKeyABC123")
+        routes = self._routes_all_correct(mail_domain.domain)
+        routes[(mail_domain.domain, "TXT")] = [_FakeTXT("v=spf1 -all")]
+        self._fake_resolve(monkeypatch, routes)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(f"/api/v1/mail/domains/{mail_domain.id}/dns-check", headers=headers)
+        assert response.status_code == 200
+        rows = self._by_key(response.json())
+        assert rows["spf"]["status"] == "incorrect"
+        assert rows["spf"]["found_values"] == ["v=spf1 -all"]
+        assert rows["mx"]["status"] == "correct"
+        assert rows["dkim"]["status"] == "correct"
+        assert rows["dmarc"]["status"] == "correct"
+
+    async def test_dns_check_spf_txt_without_spf_is_missing(
+        self, client: AsyncClient, admin_user, mail_domain, monkeypatch
+    ):
+        routes = self._routes_all_correct(mail_domain.domain)
+        routes[(mail_domain.domain, "TXT")] = [_FakeTXT("google-site-verification=abc123")]
+        self._fake_resolve(monkeypatch, routes)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(f"/api/v1/mail/domains/{mail_domain.id}/dns-check", headers=headers)
+        assert response.status_code == 200
+        rows = self._by_key(response.json())
+        assert rows["spf"]["status"] == "missing"
+        assert rows["spf"]["found_values"] == []
+
+    async def test_dns_check_dkim_nxdomain_missing(
+        self, client: AsyncClient, admin_user, mail_domain, monkeypatch
+    ):
+        await self._set_domain_flags(mail_domain.id, dkim_public_key="PubKeyABC123")
+        routes = self._routes_all_correct(mail_domain.domain)
+        routes[(f"viswall._domainkey.{mail_domain.domain}", "TXT")] = dns.resolver.NXDOMAIN()
+        self._fake_resolve(monkeypatch, routes)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(f"/api/v1/mail/domains/{mail_domain.id}/dns-check", headers=headers)
+        assert response.status_code == 200
+        rows = self._by_key(response.json())
+        assert rows["dkim"]["status"] == "missing"
+        assert rows["dkim"]["found_values"] == []
+        # One absent record does not take down the rest of the response.
+        assert rows["mx"]["status"] == "correct"
+        assert rows["spf"]["status"] == "correct"
+
+    async def test_dns_check_dkim_wrong_key_incorrect(
+        self, client: AsyncClient, admin_user, mail_domain, monkeypatch
+    ):
+        await self._set_domain_flags(mail_domain.id, dkim_public_key="PubKeyABC123")
+        routes = self._routes_all_correct(mail_domain.domain)
+        routes[(f"viswall._domainkey.{mail_domain.domain}", "TXT")] = [
+            _FakeTXT("v=DKIM1; k=rsa; p=OtherKey999")
+        ]
+        self._fake_resolve(monkeypatch, routes)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(f"/api/v1/mail/domains/{mail_domain.id}/dns-check", headers=headers)
+        assert response.status_code == 200
+        rows = self._by_key(response.json())
+        assert rows["dkim"]["status"] == "incorrect"
+        assert rows["dkim"]["found_values"] == ["v=DKIM1; k=rsa; p=OtherKey999"]
+
+    async def test_dns_check_timeout_yields_error_and_response(
+        self, client: AsyncClient, admin_user, mail_domain, monkeypatch
+    ):
+        await self._set_domain_flags(mail_domain.id, dkim_public_key="PubKeyABC123")
+        routes = self._routes_all_correct(mail_domain.domain)
+        routes[(mail_domain.domain, "TXT")] = dns.resolver.LifetimeTimeout()
+        self._fake_resolve(monkeypatch, routes)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(f"/api/v1/mail/domains/{mail_domain.id}/dns-check", headers=headers)
+        assert response.status_code == 200
+        rows = self._by_key(response.json())
+        assert rows["spf"]["status"] == "error"
+        assert rows["spf"]["detail"]
+        assert "timed out" in rows["spf"]["detail"]
+        # The gather still returns: one erroring row does not kill the response.
+        assert rows["mx"]["status"] == "correct"
+        assert rows["dkim"]["status"] == "correct"
+        assert rows["dmarc"]["status"] == "correct"
+
+    async def test_dns_check_checked_at_timezone_aware(
+        self, client: AsyncClient, admin_user, mail_domain, monkeypatch
+    ):
+        self._fake_resolve(monkeypatch, self._routes_all_correct(mail_domain.domain))
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(f"/api/v1/mail/domains/{mail_domain.id}/dns-check", headers=headers)
+        assert response.status_code == 200
+        checked_at = datetime.fromisoformat(response.json()["checked_at"])
+        assert checked_at.tzinfo is not None
+
+    async def test_dns_check_non_admin_gets_200(
+        self, client: AsyncClient, readonly_user, mail_domain, monkeypatch
+    ):
+        await self._set_domain_flags(mail_domain.id, dkim_public_key="PubKeyABC123")
+        self._fake_resolve(monkeypatch, self._routes_all_correct(mail_domain.domain))
+
+        token = await _login(client, "mailreader", "mailreaderpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(f"/api/v1/mail/domains/{mail_domain.id}/dns-check", headers=headers)
+        assert response.status_code == 200
+        assert len(response.json()["results"]) == 4
+
+    async def test_dns_check_toggles_off_mx_only(
+        self, client: AsyncClient, admin_user, mail_domain, monkeypatch
+    ):
+        await self._set_domain_flags(
+            mail_domain.id,
+            spf_enabled=False,
+            dkim_enabled=False,
+            dmarc_enabled=False,
+        )
+        routes = {
+            (mail_domain.domain, "MX"): [_FakeMX(25, f"mail.{mail_domain.domain}.")],
+        }
+        self._fake_resolve(monkeypatch, routes)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(f"/api/v1/mail/domains/{mail_domain.id}/dns-check", headers=headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert [row["key"] for row in body["results"]] == ["mx"]
+        mx = body["results"][0]
+        # Priority is informational only: 25 vs the advised 10 still matches.
+        assert mx["status"] == "correct"
+        # mail host has no A/AAAA: informational note, MX status unaffected.
+        assert "mail host does not resolve" in mx["detail"]
+
+    async def test_dns_check_unknown_domain_404(self, client: AsyncClient, admin_user):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post("/api/v1/mail/domains/999999/dns-check", headers=headers)
+        assert response.status_code == 404
+
+    async def test_dns_check_exposes_no_private_material(
+        self, client: AsyncClient, admin_user, mail_domain, monkeypatch
+    ):
+        await self._set_domain_flags(
+            mail_domain.id,
+            dkim_public_key="PubKeyVisible",
+            dkim_private_key="-----BEGIN PRIVATE KEY-----SECRETBODY-----END PRIVATE KEY-----",
+        )
+        routes = self._routes_all_correct(mail_domain.domain, public_key="PubKeyVisible")
+        routes[(f"viswall._domainkey.{mail_domain.domain}", "TXT")] = [
+            _FakeTXT("v=DKIM1; k=rsa; p=PubKeyVisible")
+        ]
+        self._fake_resolve(monkeypatch, routes)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(f"/api/v1/mail/domains/{mail_domain.id}/dns-check", headers=headers)
+        assert response.status_code == 200
+        assert "private" not in response.text.lower()
+        assert "SECRETBODY" not in response.text
+        assert "PubKeyVisible" in response.text

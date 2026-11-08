@@ -16,12 +16,14 @@ from shared.schemas import (
     MailClassificationResult,
     MailMessageListParams, MailMessageActionRequest,
     MailDnsRecordSpec, MailDnsRecordsResponse,
+    MailDnsCheckResponse,
     LLMConfig
 )
 from shared.security import require_auth, require_admin, get_password_hash
 from shared.audit_logger import log_audit
 from utils.agent_client import agent_request, AgentClientError, log_agent_dispatch
 from utils.dkim import generate_dkim_keypair
+from utils.dns_check import run_dns_check
 from mail_classifier import (
     classify_email,
     LLMClassificationError,
@@ -382,6 +384,23 @@ async def get_dns_records(
         ))
 
     return MailDnsRecordsResponse(domain=domain.domain, records=records)
+
+@router.post("/domains/{domain_id}/dns-check", response_model=MailDnsCheckResponse)
+async def check_domain_dns(
+    domain_id: int,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    """Run a live DNS check of the records a mail domain needs published."""
+    result = await db.execute(
+        select(MailDomain).where(MailDomain.id == domain_id)
+    )
+    domain = result.scalar_one_or_none()
+
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+
+    return await run_dns_check(db, domain)
 
 # ============================================================================
 # MAIL USER ENDPOINTS
