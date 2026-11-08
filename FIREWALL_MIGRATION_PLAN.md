@@ -1,12 +1,27 @@
 # Firewall Migration Plan: boseman iptables legacy stack → Viswall firewall module
 
-Status: **PLANNED, NOT EXECUTED**. Skeleton written 2026-10-22. This document is the
-migration's source of truth and is followed verbatim during todos 38-48 of
-`.omo/plans/firewall-migration.md`, then corrected wherever reality diverges.
+> ## CUTOVER COMPLETE — 2026-10-24 13:48–13:58 CEST (10m 12s)
+>
+> - Real `table inet viswall` applied from the console (**81 drop rules**), validation mode off.
+> - Legacy iptables stripped to the docker-only baseline (v4+v6); `netfilter-persistent` disabled.
+> - `/etc/nftables.conf` = table-scoped dump; `viswall-firewall-persist.service` enabled and
+>   verified loadable in a clean namespace.
+> - `COMMIT` written 13:57:48; dead-man trap stopped. WAN SSH + all critical ports green at every
+>   step (fresh public-IP login recorded after the apply, the strip and the persist step).
+> - Drift reference refreshed after the apply; prober re-armed with the FULL restore window.
+> - Post-cutover: the day-2 operability proof found and fixed a console re-apply bug (direct
+>   `nft -c` collided with the live named meters → 502); now validated in a throwaway netns
+>   (PR #82). Rule create/delete roundtrip propagates in ~1 s.
+> - Evidence: `.omo/evidence/task-44-firewall-migration.md`, `task-45-firewall-migration.md`.
+> - Remaining: t+24 h battery, reboot rehearsal, external internal-port probe, one test mail.
+
+Status: **EXECUTED — CUTOVER COMPLETE 2026-10-24 13:58 CEST.** Skeleton written 2026-10-22;
+followed during todos 38-48 and corrected wherever reality diverged (see the deviations register
+and the cutover record above). Remaining: t+24 h verification, reboot rehearsal, soak, decommission.
 
 Host: `boseman` / `46.4.63.216` (Hetzner KVM, single NIC `enp0s31f6`).
 Console: `https://viswall.webmasters.co.at`.
-Repo branch: `feat/firewall-production` in `/data/docker/persistent/viswall/viswall-fwdev`.
+Repo: `main` (the feature branch merged as PR #73); dev clone `/data/docker/persistent/viswall/viswall-fwdev`.
 Model: `DNS_MIGRATION_PLAN.md` (structure and cutover-record style).
 
 The goal: the viswall console becomes the single management surface for firewall
@@ -817,6 +832,33 @@ WAN-IP limitation.
 Two forms: the host-native script (preferred) and manual commands (when the script
 itself is suspect). Both must restore the previous world exactly and must leave
 boot-time protection behind.
+
+### 7.0 Post-cutover (COMMIT present) — the only safe rollback path
+
+> **The newest agent snapshots are pre-apply captures of the STRIPPED iptables**
+> (`-P INPUT ACCEPT`, Docker rules only). Restoring one and deleting the viswall
+> table would leave the host **unfiltered**. The console Rollback button now
+> returns **409** for this reason (agent `/firewall/rollback`; preserved-baseline
+> message included).
+>
+> The pre-cutover baseline is preserved outside the pruned snapshots dir at
+> `/var/lib/viswall-firewall/cutover-baseline/` (copied from the window snapshot
+> `20261024-114823-012744`; `iptables-restore --test` + `ip6tables-restore --test`
+> both green, 27 operator INPUT rules).
+>
+> Deliberate migration rollback:
+>
+> 1. `rm /var/lib/viswall-firewall/COMMIT`
+> 2. `/usr/local/sbin/restore_firewall.sh --no-restart-docker /var/lib/viswall-firewall/cutover-baseline`
+>    (omit `--no-restart-docker` for a full restore including `systemctl restart docker`)
+> 3. Re-enable the off-host Ansible generator on its control node (nothing local to
+>    re-enable — todo-1 found it dormant; the operator owns the control node).
+>
+> Rehearsed 2026-10-24 in a throwaway netns: stripped live ruleset → the baseline
+> restores **byte-identical** (v4 and v6), with `INPUT DROP` and the FIREWALL-DROP
+> log rule back. Dry-run of the script prints the full sequence (disable the persist
+> unit, delete the table, validate+restore both families, re-enable
+> netfilter-persistent, restart wg-quick).
 
 ### 7.1 Script
 
