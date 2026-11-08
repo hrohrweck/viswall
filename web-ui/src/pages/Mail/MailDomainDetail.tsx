@@ -46,6 +46,7 @@ import type { MailUser } from '../../types'
 import { formatBytes } from '../../utils/format'
 import { getErrMsg } from '../../lib/utils'
 import { MailClassificationView } from './MailClassificationView'
+import { MailDnsSettings } from './MailDnsSettings'
 import { MailboxForm } from '../../components/forms/MailboxForm'
 import { MailAliasForm } from '../../components/forms/MailAliasForm'
 
@@ -316,6 +317,7 @@ export function MailDomainDetail() {
     { value: 'users', label: `Mailboxes (${users?.length ?? 0})` },
     { value: 'forwarding', label: `Forwarding (${aliasGroups.length})` },
     { value: 'delivery', label: 'Delivery' },
+    { value: 'dns', label: 'DNS Settings' },
     { value: 'classification', label: 'Classification' },
     { value: 'groupware', label: 'Groupware' },
   ]
@@ -526,6 +528,10 @@ export function MailDomainDetail() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="dns">
+              <MailDnsSettings domain={domain} />
             </TabsContent>
           </Tabs>
         }
