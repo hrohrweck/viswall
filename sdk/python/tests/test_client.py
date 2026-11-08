@@ -272,6 +272,55 @@ class TestMailResource:
         assert str(request.url) == "https://test.example.com/api/v1/mail/aliases/1"
         client.close()
 
+    def test_get_dns_records(self, httpx_mock):
+        """Test get DNS records for a mail domain."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/domains/5/dns-records",
+            method="GET",
+            json={
+                "domain": "example.com",
+                "records": [
+                    {"key": "MX", "type": "MX", "name": "@",
+                     "value": "10 mail.example.com", "note": None},
+                ],
+            },
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.mail.get_dns_records(domain_id=5)
+        assert result["domain"] == "example.com"
+        assert result["records"][0]["key"] == "MX"
+
+        request = httpx_mock.get_request()
+        assert request.method == "GET"
+        assert str(request.url) == "https://test.example.com/api/v1/mail/domains/5/dns-records"
+        client.close()
+
+    def test_check_dns(self, httpx_mock):
+        """Test live DNS check for a mail domain."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/domains/5/dns-check",
+            method="POST",
+            json={
+                "checked_at": "2026-01-01T00:00:00Z",
+                "results": [
+                    {"key": "MX", "type": "MX", "name": "@",
+                     "expected_value": "10 mail.example.com",
+                     "found_values": ["10 mail.example.com"],
+                     "status": "correct", "detail": None},
+                ],
+            },
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.mail.check_dns(domain_id=5)
+        assert result["results"][0]["status"] == "correct"
+
+        request = httpx_mock.get_request()
+        assert request.method == "POST"
+        assert str(request.url) == "https://test.example.com/api/v1/mail/domains/5/dns-check"
+        client.close()
+
 
 class TestDHCPResource:
     """Test DHCPResource."""
