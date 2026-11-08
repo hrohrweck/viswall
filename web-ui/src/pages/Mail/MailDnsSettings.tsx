@@ -122,7 +122,11 @@ export function MailDnsSettings({ domain }: MailDnsSettingsProps) {
         <div className="divide-y divide-border">
           {dns.records.map((record) => {
             const result = checkByKey.get(record.key)
-            const noteVisible = !!record.note && record.note !== 'not_generated'
+            const isNotGenerated = !!record.note && record.note.startsWith('not_generated')
+            const extraNote = isNotGenerated && record.note
+              ? record.note.slice('not_generated'.length).trim()
+              : ''
+            const noteVisible = !!record.note && !isNotGenerated
             return (
               <div key={record.key} className="py-4 first:pt-0 last:pb-0">
                 <div className="flex items-start justify-between gap-4">
@@ -143,11 +147,14 @@ export function MailDnsSettings({ domain }: MailDnsSettingsProps) {
                           <Copy className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                    ) : record.note === 'not_generated' ? (
-                      <div>
+                    ) : isNotGenerated ? (
+                      <div className="space-y-1">
                         <Button size="sm" variant="secondary" onClick={() => setShowDkimConfirm(true)}>
                           Generate DKIM key
                         </Button>
+                        {extraNote && (
+                          <p className="text-xs text-on-surface-muted">{extraNote}</p>
+                        )}
                       </div>
                     ) : null}
                     {noteVisible && (
