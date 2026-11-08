@@ -3,7 +3,8 @@
 
 PATCHes ``/api/v1/instances/{id}`` with an admin JWT (``VISWALL_TOKEN``).  The
 payload is a merge, never a replace: unknown capabilities and config keys
-(notably ``version``) survive, ``agent_endpoints`` gains firewall/vpn/node
+(notably ``version``) survive, ``agent_endpoints`` gains firewall/vpn/node via
+host.docker.internal plus mail on the compose network (``mail-service:8082``)
 while keeping dns, and ``api_key`` is never read or written.  The PATCH route
 exists in ``routers/instances.py``; 404/405/501 falls back to one transactional
 SQL read-modify-write via ``DATABASE_URL``.
@@ -31,9 +32,12 @@ DESIRED_CAPABILITIES = ("mail", "dns", "firewall", "vpn")
 # host.docker.internal (api-gateway has the host-gateway extra_host; the
 # agents bind the host loopback unless the deployment overrides AGENT_HOST).
 DESIRED_ENDPOINTS = {
+    # Host-network agents reached via host.docker.internal (see above).
     "firewall": "http://host.docker.internal:8081",
     "vpn": "http://host.docker.internal:8083",
     "node": "http://host.docker.internal:8085",
+    # The mail agent stays on the compose network, addressed by service name.
+    "mail": "http://mail-service:8082",
 }
 
 # Exact instance-1 row observed read-only in todo 5.  Used by --dry-run only.
@@ -79,6 +83,11 @@ def build_patch(
     return {"capabilities": capabilities, "config": config}
 
 
+# Agents that bind the host loopback and must be addressed via
+# host.docker.internal from the gateway's bridge netns.
+HOST_LOOPBACK_SERVICES = ("firewall", "vpn", "node")
+
+
 def _check(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -111,10 +120,11 @@ def run_self_test() -> None:
     _check(endpoints["legacy"] == "http://old:9999", "unknown endpoint was dropped")
     for name, url in DESIRED_ENDPOINTS.items():
         _check(endpoints[name] == url, f"{name} endpoint missing")
-        _check(
-            url.startswith("http://host.docker.internal:"),
-            f"{name} endpoint must target the host via host.docker.internal",
-        )
+        if name in HOST_LOOPBACK_SERVICES:
+            _check(
+                url.startswith("http://host.docker.internal:"),
+                f"{name} endpoint must target the host via host.docker.internal",
+            )
     _check(capabilities == original_capabilities, "input capabilities were mutated")
     _check(config == original_config, "input config was mutated")
 
@@ -134,7 +144,7 @@ def run_self_test() -> None:
     _check(third == second, "third run is not idempotent")
     print(
         "self-test: version kept; dns+unknown keys kept; firewall/vpn/node added "
-        "via host.docker.internal; rerun idempotent"
+        "via host.docker.internal, mail via compose network; rerun idempotent"
     )
 
 

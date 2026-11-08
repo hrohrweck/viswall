@@ -1,9 +1,11 @@
-"""Tests for mail domain deletion endpoints."""
+"""Tests for mail domain endpoints and DKIM key management."""
 
+import base64
 import uuid
 
 import pytest
 import pytest_asyncio
+from cryptography.hazmat.primitives import serialization
 from httpx import AsyncClient
 from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -57,14 +59,13 @@ async def setup_database():
 @pytest_asyncio.fixture(autouse=True)
 async def no_mail_background_tasks(monkeypatch):
     """Mail mutations schedule background tasks (reload_mail_config,
-    generate_dkim_keys) that would dial out to agent endpoints. Neutralize them,
+    create_maildir) that would dial out to agent endpoints. Neutralize them,
     mirroring the DNS dispatch noop in conftest."""
 
     async def _noop(*args, **kwargs):
         return None
 
     monkeypatch.setattr(mail_router, "reload_mail_config", _noop)
-    monkeypatch.setattr(mail_router, "generate_dkim_keys", _noop)
     monkeypatch.setattr(mail_router, "create_maildir", _noop)
 
 
@@ -629,3 +630,215 @@ class TestMailDomainMtaForwarding:
             row = (await session.execute(select(MailDomain).where(MailDomain.id == mail_domain.id))).scalar_one()
             assert row.mta_forward_host == "mx.example.net"
             assert row.mta_forward_port == 25
+
+
+class TestDkimKeygen:
+    async def test_generate_dkim_keypair_shape(self):
+        from utils.dkim import generate_dkim_keypair
+
+        selector, public_key_b64, private_key_pem = generate_dkim_keypair()
+
+        assert selector == "viswall"
+        assert "\n" not in public_key_b64
+        assert " " not in public_key_b64
+
+        public_key = serialization.load_der_public_key(base64.b64decode(public_key_b64))
+        assert public_key.key_size == 2048
+
+        private_key = serialization.load_pem_private_key(private_key_pem.encode("ascii"), password=None)
+        assert private_key.key_size == 2048
+        assert private_key_pem.startswith("-----BEGIN PRIVATE KEY-----")
+
+        derived_pub_b64 = base64.b64encode(
+            private_key.public_key().public_bytes(
+                encoding=serialization.Encoding.DER,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+        ).decode("ascii")
+        assert derived_pub_b64 == public_key_b64
+
+
+class TestDkimRegenerate:
+    @staticmethod
+    async def _enable_dkim(domain_id: int, enabled: bool = True) -> None:
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.id == domain_id))).scalar_one()
+            row.dkim_enabled = enabled
+            await session.commit()
+
+    async def test_regenerate_dkim_success(
+        self, client: AsyncClient, admin_user, instance, mail_domain, monkeypatch
+    ):
+        await self._enable_dkim(mail_domain.id)
+
+        calls = {}
+
+        async def _fake_agent_request(**kwargs):
+            calls["kwargs"] = kwargs
+            return {"status": "ok"}
+
+        monkeypatch.setattr(mail_router, "agent_request", _fake_agent_request)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/domains/{mail_domain.id}/dkim/regenerate", headers=headers
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "ok"
+        assert body["installed"] is True
+        assert body["dns_name"] == f"viswall._domainkey.{mail_domain.domain}"
+        assert body["dns_value"].startswith("v=DKIM1; k=rsa; p=")
+        assert "private_key" not in response.text
+
+        kwargs = calls["kwargs"]
+        assert kwargs["path"] == "/dkim/install"
+        assert kwargs["service"] == "mail"
+        assert kwargs["json_data"]["domain"] == mail_domain.domain
+        assert kwargs["json_data"]["selector"] == "viswall"
+        assert "private_key_pem" in kwargs["json_data"]
+
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.id == mail_domain.id))).scalar_one()
+            assert row.dkim_selector == "viswall"
+            assert row.dkim_public_key
+            assert row.dkim_private_key
+            assert f"p={row.dkim_public_key}" in body["dns_value"]
+            assert kwargs["json_data"]["private_key_pem"] == row.dkim_private_key
+
+        async with TestSessionLocal() as session:
+            dispatches = (
+                await session.execute(
+                    select(AuditLog).where(
+                        AuditLog.resource_type == "mail_agent",
+                        AuditLog.resource_id == str(instance.id),
+                    )
+                )
+            ).scalars().all()
+            assert any(
+                log.new_value
+                and log.new_value.get("path") == "/dkim/install"
+                and log.new_value.get("status") == "success"
+                for log in dispatches
+            )
+            updates = (
+                await session.execute(
+                    select(AuditLog).where(
+                        AuditLog.action == "update",
+                        AuditLog.resource_type == "mail_domain",
+                        AuditLog.resource_id == str(mail_domain.id),
+                    )
+                )
+            ).scalars().all()
+            assert len(updates) == 1
+
+    async def test_regenerate_dkim_agent_unreachable(
+        self, client: AsyncClient, admin_user, instance, mail_domain, monkeypatch
+    ):
+        await self._enable_dkim(mail_domain.id)
+
+        async def _boom(**kwargs):
+            raise mail_router.AgentClientError("agent unreachable")
+
+        monkeypatch.setattr(mail_router, "agent_request", _boom)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/domains/{mail_domain.id}/dkim/regenerate", headers=headers
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "ok"
+        assert body["installed"] is False
+        assert body["dns_name"] == f"viswall._domainkey.{mail_domain.domain}"
+        assert "private_key" not in response.text
+
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.id == mail_domain.id))).scalar_one()
+            assert row.dkim_public_key
+            assert row.dkim_private_key
+
+            dispatches = (
+                await session.execute(
+                    select(AuditLog).where(
+                        AuditLog.resource_type == "mail_agent",
+                        AuditLog.resource_id == str(instance.id),
+                    )
+                )
+            ).scalars().all()
+            assert any(
+                log.new_value
+                and log.new_value.get("path") == "/dkim/install"
+                and log.new_value.get("status") == "failed"
+                for log in dispatches
+            )
+            updates = (
+                await session.execute(
+                    select(AuditLog).where(
+                        AuditLog.action == "update",
+                        AuditLog.resource_type == "mail_domain",
+                        AuditLog.resource_id == str(mail_domain.id),
+                    )
+                )
+            ).scalars().all()
+            assert len(updates) == 1
+
+    async def test_regenerate_dkim_disabled_rejected(self, client: AsyncClient, admin_user, mail_domain):
+        await self._enable_dkim(mail_domain.id, enabled=False)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/domains/{mail_domain.id}/dkim/regenerate", headers=headers
+        )
+        assert response.status_code == 400
+
+    async def test_regenerate_dkim_unknown_domain(self, client: AsyncClient, admin_user):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post("/api/v1/mail/domains/999999/dkim/regenerate", headers=headers)
+        assert response.status_code == 404
+
+
+class TestDkimOnCreate:
+    async def test_create_domain_with_dkim_persists_key(self, client: AsyncClient, admin_user, instance):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/domains/{instance.id}",
+            json={"domain": "dkim-create.test", "dkim_enabled": True},
+            headers=headers,
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert "private_key" not in response.text
+
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.id == body["id"]))).scalar_one()
+            assert row.dkim_selector == "viswall"
+            assert row.dkim_public_key
+            assert row.dkim_private_key
+            assert base64.b64decode(row.dkim_public_key)
+
+    async def test_create_domain_dkim_disabled_no_key(self, client: AsyncClient, admin_user, instance):
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.post(
+            f"/api/v1/mail/domains/{instance.id}",
+            json={"domain": "dkim-off.test", "dkim_enabled": False},
+            headers=headers,
+        )
+        assert response.status_code == 201
+
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(MailDomain).where(MailDomain.domain == "dkim-off.test"))).scalar_one()
+            assert row.dkim_public_key is None
+            assert row.dkim_private_key is None
