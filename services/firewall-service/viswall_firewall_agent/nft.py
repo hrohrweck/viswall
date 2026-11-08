@@ -825,20 +825,41 @@ class NFTablesManager:
             with conf_path.open("w") as f:
                 f.write(ruleset)
 
-            # Validate ruleset
+            # Validate the ruleset in a THROWAWAY network namespace. A direct
+            # `nft -c -f` collides with the LIVE table's named meter sets on
+            # every re-apply ("File exists; meter 'ssh_limit' overlaps an
+            # existing set"), which makes the console unable to change anything
+            # after the real ruleset is live. If namespace isolation is
+            # unavailable, skip the pre-check and rely on the transactional
+            # `nft -f` below plus the last-good restore.
+            unshare = shutil.which("unshare")
+            isolated = False
+            if unshare:
+                probe = await asyncio.create_subprocess_exec(
+                    unshare, "-n", "true",
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                await probe.communicate()
+                isolated = probe.returncode == 0
+            validation_argv = ["nft", "-c", "-f", str(conf_path)]
+            if isolated:
+                validation_argv = [unshare, "-n", *validation_argv]
             proc = await asyncio.create_subprocess_exec(
-                "nft",
-                "-c",
-                "-f",
-                str(conf_path),
+                *validation_argv,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await proc.communicate()
 
-            if proc.returncode != 0:
+            if proc.returncode != 0 and isolated:
                 print(f"nftables validation failed: {stderr.decode()}")
                 return False
+            if not isolated:
+                logger.warning(
+                    "namespace-isolated validation unavailable; relying on the "
+                    "transactional nft -f plus the last-good restore"
+                )
 
             # Swap only the viswall table: delete it first (a first apply has
             # no such table — a non-zero exit there is expected and harmless),

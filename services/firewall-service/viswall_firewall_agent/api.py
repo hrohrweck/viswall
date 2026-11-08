@@ -320,7 +320,14 @@ async def _nft_validation_error() -> str:
     only way to surface the exact ``nft -c`` stderr without editing nft.py.
     """
     try:
-        rc, _, stderr = await _run_capture("nft", "-c", "-f", NFTablesManager.CONFIG_PATH)
+        # Validate in a throwaway netns like apply_ruleset: a plain `nft -c`
+        # collides with the live table's named meter sets and would mask the
+        # real error with "File exists; meter ... overlaps".
+        unshare = shutil.which("unshare")
+        argv = ["nft", "-c", "-f", NFTablesManager.CONFIG_PATH]
+        if unshare:
+            argv = [unshare, "-n", *argv]
+        rc, _, stderr = await _run_capture(*argv)
     except OSError:
         return "nftables apply failed (nft unavailable)"
     if rc != 0 and stderr.strip():
