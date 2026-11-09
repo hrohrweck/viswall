@@ -10,3 +10,5 @@ secret:
       match: "@@DB_PASS@@"
     - name: "Dovecot template variable (alt)"
       match: "password=@@DB_PASS@@"
+    - name: "Mail-service test fake PEM fixture"
+      match: "private_key_pem.*fake"
