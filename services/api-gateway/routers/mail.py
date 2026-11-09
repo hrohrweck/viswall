@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import datetime
@@ -349,23 +349,6 @@ async def get_dns_records(
             dkim_value = f"v=DKIM1; k=rsa; p={domain.dkim_public_key}"
         else:
             dkim_note = "not_generated"
-
-        result = await db.execute(
-            select(func.count()).select_from(MailDomain).where(
-                and_(
-                    MailDomain.instance_id == domain.instance_id,
-                    MailDomain.dkim_enabled == True,  # noqa: E712
-                )
-            )
-        )
-        signing_domains = result.scalar_one()
-        if signing_domains > 1:
-            multi_domain_note = (
-                "DKIM signing on the mail agent currently covers one domain per "
-                "instance; records for additional domains are shown for verification "
-                "readiness."
-            )
-            dkim_note = f"{dkim_note} {multi_domain_note}" if dkim_note else multi_domain_note
 
         records.append(MailDnsRecordSpec(
             key="dkim",

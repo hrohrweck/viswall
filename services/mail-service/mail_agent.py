@@ -81,19 +81,27 @@ def classify():
 
 
 class DkimInstallRequest(BaseModel):
-    domain: str
+    domain: str = Field(pattern=r"^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$")
     selector: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$")
     private_key_pem: str
 
 
 @app.post("/dkim/install")
 def dkim_install(req: DkimInstallRequest, _: None = Depends(_require_instance_key)):
+    if (
+        os.path.basename(req.domain) != req.domain
+        or ".." in req.domain
+        or req.domain in (".", "..")
+    ):
+        raise HTTPException(status_code=400, detail="invalid dkim domain")
     if os.path.basename(req.selector) != req.selector or req.selector in (".", ".."):
         raise HTTPException(status_code=400, detail="invalid dkim selector")
+    # One key file per hosted domain — the exim template signs
+    # $sender_address_domain when /etc/exim4/dkim/<domain>.private exists.
     paths = []
     for directory in (DKIM_STAGING_DIR, EXIM_DKIM_DIR):
         os.makedirs(directory, exist_ok=True)
-        key_path = os.path.join(directory, f"{req.selector}.private")
+        key_path = os.path.join(directory, f"{req.domain}.private")
         fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o400)
         with os.fdopen(fd, "w") as f:
             f.write(req.private_key_pem)

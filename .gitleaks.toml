@@ -125,6 +125,7 @@ paths = [
   # path-based so squash merges / new commits don't need fresh fingerprints.
   '''services/api-gateway/tests/test_.*\.py''',
   '''services/dns-service/tests/.*\.py''',
+  '''services/mail-service/tests/.*\.py''',
   '''services/node-agent/tests/.*\.py''',
   '''sdk/python/tests/.*\.py''',
   '''sdk/cli/tests/.*\.py''',

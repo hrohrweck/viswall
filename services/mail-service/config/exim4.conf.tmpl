@@ -131,11 +131,13 @@ dovecot_lmtp:
 remote_smtp:
   driver = smtp
   helo_data = @@PRIMARY_HOSTNAME@@
-  dkim_domain = ${if eq{$sender_address_domain}{@@DKIM_DOMAIN@@}{@@DKIM_DOMAIN@@}{}}
+  # Per-sender-domain signing: every hosted domain with a key installed at
+  # /etc/exim4/dkim/<domain>.private is signed; the ${if exists{...}} guard
+  # leaves domains without a key unsigned (empty expansion = no signing).
+  dkim_domain = $sender_address_domain
   dkim_selector = viswall
-  dkim_private_key = /etc/exim4/dkim/viswall.private
+  dkim_private_key = ${if exists{/etc/exim4/dkim/$sender_address_domain.private}{/etc/exim4/dkim/$sender_address_domain.private}{}}
   dkim_canon = relaxed
-  dkim_strict = false
 
 begin retry
 *   *   F,2h,15m; G,16h,1h,1.5; F,4d,6h
