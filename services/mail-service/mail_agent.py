@@ -113,7 +113,8 @@ def dkim_install(req: DkimInstallRequest, _: None = Depends(_require_instance_ke
 
 def main():
     import uvicorn
-    uvicorn.run(app, host="::", port=int(os.getenv("AGENT_PORT", "8082")), log_level="info")
+    # The gateway reaches agents via the compose bridge over IPv4; a "::" bind is v6-only and unreachable.
+    uvicorn.run(app, host=os.getenv("AGENT_HOST", "0.0.0.0"), port=int(os.getenv("AGENT_PORT", "8082")), log_level="info")
 
 
 if __name__ == "__main__":
