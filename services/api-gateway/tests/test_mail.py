@@ -848,12 +848,6 @@ class TestDkimOnCreate:
 
 
 class TestDnsRecords:
-    MULTI_DOMAIN_NOTE = (
-        "DKIM signing on the mail agent currently covers one domain per "
-        "instance; records for additional domains are shown for verification "
-        "readiness."
-    )
-
     @staticmethod
     async def _set_domain_flags(domain_id: int, **flags) -> None:
         async with TestSessionLocal() as session:
@@ -918,8 +912,7 @@ class TestDnsRecords:
         assert dkim["name"] == f"sel2026._domainkey.{mail_domain.domain}"
         assert dkim["value"].startswith("v=DKIM1; k=rsa; p=")
         assert "PubKeyABC123" in dkim["value"]
-        # Single signing domain on the instance: no multi-domain caveat.
-        assert dkim["note"] is None or self.MULTI_DOMAIN_NOTE not in dkim["note"]
+        assert dkim["note"] is None
 
     async def test_dns_records_dkim_missing_key_not_generated(self, client: AsyncClient, admin_user, mail_domain):
         await self._set_domain_flags(mail_domain.id, dkim_public_key=None, dkim_private_key=None)
@@ -967,7 +960,9 @@ class TestDnsRecords:
         assert "SECRETBODY" not in response.text
         assert "PubKeyVisible" in response.text
 
-    async def test_dns_records_multi_domain_signing_note(self, client: AsyncClient, admin_user, instance, mail_domain):
+    async def test_dns_records_multi_domain_signing_no_caveat(self, client: AsyncClient, admin_user, instance, mail_domain):
+        # Multi-domain DKIM signing is supported by the mail agent, so several
+        # signing domains on one instance must not add any caveat note.
         await self._set_domain_flags(mail_domain.id, dkim_public_key="PubKeySecond")
         await self._add_domain(instance.id, "second-signed.test")
 
@@ -978,19 +973,7 @@ class TestDnsRecords:
         assert response.status_code == 200
         dkim = next(r for r in response.json()["records"] if r["key"] == "dkim")
         assert dkim["value"] is not None
-        assert self.MULTI_DOMAIN_NOTE in dkim["note"]
-
-        # A non-enabled signer on the same instance does not trigger the caveat.
-        await self._set_domain_flags((await self._get_id("second-signed.test")), dkim_enabled=False)
-        response = await client.get(f"/api/v1/mail/domains/{mail_domain.id}/dns-records", headers=headers)
-        assert response.status_code == 200
-        dkim = next(r for r in response.json()["records"] if r["key"] == "dkim")
-        assert self.MULTI_DOMAIN_NOTE not in (dkim["note"] or "")
-
-    async def _get_id(self, name: str) -> int:
-        async with TestSessionLocal() as session:
-            row = (await session.execute(select(MailDomain).where(MailDomain.domain == name))).scalar_one()
-            return row.id
+        assert dkim["note"] is None
 
 
 class _FakeMX:

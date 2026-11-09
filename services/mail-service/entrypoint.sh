@@ -30,13 +30,19 @@ chown Debian-exim:Debian-exim /etc/exim4/tls.crt /etc/exim4/tls.key || true
 chmod 600 /etc/exim4/tls.key /etc/dovecot/ssl/server.key
 
 # DKIM key staging: mount is RO/root-owned; Exim runs as Debian-exim and must read it.
-if [ -f /opt/viswall/dkim-staging/viswall.private ]; then
+# One key per hosted domain (<domain>.private); agent installs land in dkim-staging.
+found_dkim_key=0
+for keyfile in /opt/viswall/dkim-staging/*.private; do
+  [ -e "$keyfile" ] || continue
+  found_dkim_key=1
+  base=$(basename "$keyfile")
   mkdir -p /etc/exim4/dkim
-  cp /opt/viswall/dkim-staging/viswall.private /etc/exim4/dkim/viswall.private
-  chown Debian-exim:Debian-exim /etc/exim4/dkim/viswall.private
-  chmod 0400 /etc/exim4/dkim/viswall.private
-else
-  echo "[entrypoint] WARNING: no DKIM staging key — outbound mail will be unsigned"
+  cp "$keyfile" "/etc/exim4/dkim/$base"
+  chown Debian-exim:Debian-exim "/etc/exim4/dkim/$base" 2>/dev/null || true
+  chmod 0400 "/etc/exim4/dkim/$base"
+done
+if [ "$found_dkim_key" -eq 0 ]; then
+  echo "[entrypoint] WARNING: no DKIM staging keys — outbound mail will be unsigned"
 fi
 
 # --- render templated configs (token subst; avoids clobbering exim ${...}) ---
@@ -53,7 +59,6 @@ render() {
       -e "s|@@DB_USER@@|${DB_USER}|g" \
       -e "s|@@DB_PASS@@|${DB_PASS}|g" \
       -e "s|@@MAIL_STORAGE@@|${MAIL_STORAGE}|g" \
-      -e "s|@@DKIM_DOMAIN@@|${DKIM_DOMAIN}|g" \
       "$1"
 }
 render /opt/viswall/config/exim4.conf.tmpl            > /etc/exim4/exim4.conf
