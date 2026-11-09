@@ -101,6 +101,56 @@ class TestMailCounters:
         assert saved["offset"] == log.stat().st_size
         assert saved["counters"] == result
 
+    def test_stale_offset_with_recycled_inode_rereads_from_zero(self, paths):
+        # Recreated anonymous /var/log/exim4 volume can hand the fresh mainlog
+        # the SAME inode the state recorded while the stored offset points past
+        # the (smaller) new file: seek() past EOF reads nothing and tell()
+        # returns the stale offset — the counter used to freeze on exactly that.
+        log, _, state = paths
+        log.write_text(ARRIVAL * 2 + DELIVERY)
+        old_size = log.stat().st_size
+        assert mail_agent._mail_counters() == {**ZERO, "received": 2, "delivered": 1}
+
+        inode = log.stat().st_ino
+        log.write_text(ARRIVAL + SPAM_REJECT)  # in-place overwrite: smaller, same inode
+        assert log.stat().st_ino == inode
+        seeded = {"received": 7, "delivered": 4, "rejected_spam": 2, "rejected_virus": 1}
+        state.write_text(
+            json.dumps({"inode": inode, "offset": old_size + 1000, "counters": seeded})
+        )
+
+        result = mail_agent._mail_counters()
+        # pre-seeded counters + a full re-read of the new content from offset 0
+        assert result == {**seeded, "received": 8, "rejected_spam": 3}
+
+        saved = json.loads(state.read_text())  # state ADVANCED, no longer stale
+        assert saved["inode"] == inode
+        assert saved["offset"] == log.stat().st_size
+        assert saved["counters"] == result
+
+    def test_stale_offset_after_in_place_truncation_to_empty(self, paths):
+        # In-place truncation (`: > mainlog` / copytruncate): same inode, size 0.
+        log, _, state = paths
+        log.write_text(ARRIVAL * 2)
+        old_size = log.stat().st_size
+        assert mail_agent._mail_counters() == {**ZERO, "received": 2}
+
+        inode = log.stat().st_ino
+        log.write_text("")
+        assert log.stat().st_ino == inode
+        seeded = {"received": 5, "delivered": 2, "rejected_spam": 1, "rejected_virus": 0}
+        state.write_text(
+            json.dumps({"inode": inode, "offset": old_size + 1000, "counters": seeded})
+        )
+
+        result = mail_agent._mail_counters()
+        assert result == seeded  # empty file: nothing to reread, counters survive
+
+        saved = json.loads(state.read_text())
+        assert saved["inode"] == inode
+        assert saved["offset"] == 0
+        assert saved["counters"] == seeded
+
     def test_missing_log_returns_none_without_writing_state(self, paths):
         log, _, state = paths  # log never created
         assert mail_agent._mail_counters() is None

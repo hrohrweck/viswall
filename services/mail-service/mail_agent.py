@@ -105,9 +105,14 @@ def _mail_counters():
     file's unread remainder is drained from the stored offset when mainlog.1
     is available; when mainlog.1 is missing or unreadable the remainder is
     discarded and the new file is read from offset 0 — the parser must never
-    get stuck. The first call without a state file reads the entire current
-    log and stores it as the baseline (the collector's first delta is 0
-    because it has no previous snapshot, so the backlog never displays).
+    get stuck. When the inode matches but the stored offset exceeds the
+    current file size, the offset is stale — a recycled inode on the
+    recreated anonymous volume (fresh ext4 allocates inodes sequentially)
+    or an in-place truncation — so the whole file is reread from offset 0;
+    the collector's one-interval clamp keeps the rescan spike bounded. The
+    first call without a state file reads the entire current log and stores
+    it as the baseline (the collector's first delta is 0 because it has no
+    previous snapshot, so the backlog never displays).
 
     Returns the counters dict (all zeros for an empty or fully-garbage log),
     or None on any error (log missing, permission denied) — /stats then
@@ -128,6 +133,8 @@ def _mail_counters():
             stored_inode = None  # no/corrupt state file → full first read
 
         st = os.stat(MAIL_LOG_PATH)
+        if stored_inode == st.st_ino and stored_offset > st.st_size:
+            stored_offset = 0  # recycled inode / in-place truncation: stale offset
         if stored_inode == st.st_ino:
             offset = _scan_log_lines(MAIL_LOG_PATH, stored_offset, counters)
         else:
