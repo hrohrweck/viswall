@@ -117,7 +117,9 @@ python -m alembic downgrade -1
 
 A background task (`metrics_collector.py`) runs on startup and periodically inserts `MetricSnapshot` rows for all instances (they stay "inactive" until an agent heartbeat arrives).
 
-System and network metrics are **real host telemetry** read via psutil; with the host `/proc` bind-mounted read-only at `/host/proc` (see docker-compose.yml) the appliance's real interfaces are reported (loopback and container bridges filtered). Mail metrics have no collection source yet and are left NULL — the Metrics UI only shows mail sections for instances with deployed mail domains.
+System and network metrics are **real host telemetry** read via psutil; with the host `/proc` bind-mounted read-only at `/host/proc` (see docker-compose.yml) the appliance's real interfaces are reported (loopback and container bridges filtered).
+
+Mail metrics come from each instance's mail agent: the agent tails the Exim mainlog into cumulative counters (received, delivered, rejected_spam, rejected_virus — rotation-safe via an inode+offset state file at `/var/lib/viswall/mail-stats.json`, exposed on the agent's `GET /stats`), and the gateway collector fetches them each interval, computes per-interval deltas against the previous cumulative persisted in Redis (`viswall:metrics:mail_cum:<instance_id>`), and stores them in the `metric_snapshots` mail_* columns. The spam/virus series are wired end-to-end but read 0 with the stock exim config (its ACL only warns on spam) until a spam-deny ACL exists.
 
 ```bash
 # Configurable via environment variables
