@@ -1,5 +1,6 @@
 """Tests for the background metrics collector."""
 
+import json
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -48,10 +49,18 @@ async def inactive_instance():
         yield instance
 
 
-async def test_collects_for_instances_that_are_not_active(inactive_instance):
+async def test_collects_for_instances_that_are_not_active(inactive_instance, monkeypatch):
     """Instances stay 'inactive' until an agent heartbeat arrives — the
     collector must still produce snapshots for them (simulated metrics)."""
     from metrics_collector import run_metrics_collection_cycle
+
+    # This instance has no mail agent (no agent_endpoints.mail) — stub the
+    # fetch as unavailable so the test makes no real network call.
+    import metrics_collector
+
+    monkeypatch.setattr(
+        metrics_collector, "_mail_stats", AsyncMock(return_value=None)
+    )
 
     async with TestSessionLocal() as db:
         inserted = await run_metrics_collection_cycle(db)
@@ -76,8 +85,8 @@ async def test_collects_for_instances_that_are_not_active(inactive_instance):
         assert iface["name"] != "lo"
         assert iface["rx_bytes"] >= 0
         assert iface["tx_bytes"] >= 0
-    # Mail telemetry has no collection source — fields stay NULL rather
-    # than being filled with simulated numbers
+    # Mail fields stay NULL: the fixture instance has no agent_endpoints.mail,
+    # so its mail agent is unavailable (fields absent rather than invented)
     assert snapshot.mail_queue_size is None
     assert snapshot.mail_inbound_count is None
     assert snapshot.mail_outbound_count is None
@@ -165,3 +174,240 @@ async def test_interface_stats_exclude_loopback_and_virtual(monkeypatch):
     assert "br-f00d" not in names
     assert "eth0" in names
     assert "wg0" in names
+
+
+def _cum(received, delivered, spam, virus, queue=3):
+    return {
+        "queue_length": queue,
+        "received": received,
+        "delivered": delivered,
+        "rejected_spam": spam,
+        "rejected_virus": virus,
+    }
+
+
+MAIL_DELTA_FIELDS = (
+    "mail_inbound_count",
+    "mail_outbound_count",
+    "mail_spam_count",
+    "mail_virus_count",
+)
+
+
+async def test_collect_instance_metrics_computes_mail_deltas(
+    monkeypatch, inactive_instance
+):
+    """Two consecutive cycles with different cumulative counters produce the
+    correct per-interval deltas; the baseline cycle only stores the queue."""
+    import metrics_collector
+
+    state = {}
+
+    async def fake_prev(instance_id):
+        return state.get(instance_id)
+
+    async def fake_store(instance_id, cum):
+        state[instance_id] = cum
+
+    monkeypatch.setattr(metrics_collector, "_mail_prev_from_redis", fake_prev)
+    monkeypatch.setattr(metrics_collector, "_store_mail_cum", fake_store)
+    monkeypatch.setattr(
+        metrics_collector,
+        "_mail_stats",
+        AsyncMock(side_effect=[_cum(100, 200, 5, 1), _cum(107, 215, 8, 2, queue=6)]),
+    )
+
+    async with TestSessionLocal() as db:
+        first = await metrics_collector.collect_instance_metrics(db, inactive_instance)
+        second = await metrics_collector.collect_instance_metrics(db, inactive_instance)
+
+    assert first["mail_queue_size"] == 3
+    assert "mail_inbound_count" not in first
+    assert second["mail_queue_size"] == 6
+    assert second["mail_inbound_count"] == 7
+    assert second["mail_outbound_count"] == 15
+    assert second["mail_spam_count"] == 3
+    assert second["mail_virus_count"] == 1
+
+
+async def test_first_mail_observation_stores_baseline_without_deltas(
+    monkeypatch, inactive_instance
+):
+    """No prior cumulative → only the queue size lands in the snapshot dict;
+    delta fields stay absent (NULL columns in the DB)."""
+    import metrics_collector
+
+    monkeypatch.setattr(
+        metrics_collector, "_mail_prev_from_redis", AsyncMock(return_value=None)
+    )
+    store_mock = AsyncMock()
+    monkeypatch.setattr(metrics_collector, "_store_mail_cum", store_mock)
+    baseline = _cum(100, 200, 5, 1)
+    monkeypatch.setattr(
+        metrics_collector, "_mail_stats", AsyncMock(return_value=baseline)
+    )
+
+    async with TestSessionLocal() as db:
+        result = await metrics_collector.collect_instance_metrics(db, inactive_instance)
+
+    assert result["mail_queue_size"] == 3
+    for field in MAIL_DELTA_FIELDS:
+        assert field not in result
+    store_mock.assert_awaited_once_with(inactive_instance.id, baseline)
+
+
+async def test_mail_fields_absent_when_agent_unavailable(
+    monkeypatch, inactive_instance
+):
+    """Agent unreachable → mail fields absent and system metrics unaffected."""
+    import metrics_collector
+
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+    prev_mock = AsyncMock()
+    store_mock = AsyncMock()
+    monkeypatch.setattr(metrics_collector, "_mail_prev_from_redis", prev_mock)
+    monkeypatch.setattr(metrics_collector, "_store_mail_cum", store_mock)
+
+    async with TestSessionLocal() as db:
+        result = await metrics_collector.collect_instance_metrics(db, inactive_instance)
+
+    for field in ("mail_queue_size", *MAIL_DELTA_FIELDS):
+        assert field not in result
+    assert result["cpu_percent"] is not None
+    assert result["memory_used_bytes"] <= result["memory_total_bytes"]
+    assert isinstance(result["interface_stats"], list)
+    prev_mock.assert_not_awaited()
+    store_mock.assert_not_awaited()
+
+
+async def test_mail_counter_reset_clamps_deltas_to_zero(
+    monkeypatch, inactive_instance
+):
+    """Agent cumulative resets to a lower value → deltas clamp to 0 for one
+    interval instead of going negative."""
+    import metrics_collector
+
+    monkeypatch.setattr(
+        metrics_collector,
+        "_mail_prev_from_redis",
+        AsyncMock(return_value=_cum(500, 600, 50, 20)),
+    )
+    monkeypatch.setattr(metrics_collector, "_store_mail_cum", AsyncMock())
+    monkeypatch.setattr(
+        metrics_collector,
+        "_mail_stats",
+        AsyncMock(return_value=_cum(490, 580, 12, 0, queue=2)),
+    )
+
+    async with TestSessionLocal() as db:
+        result = await metrics_collector.collect_instance_metrics(db, inactive_instance)
+
+    assert result["mail_queue_size"] == 2
+    assert result["mail_inbound_count"] == 0
+    assert result["mail_outbound_count"] == 0
+    assert result["mail_spam_count"] == 0
+    assert result["mail_virus_count"] == 0
+
+
+class _FakeStatsResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self._payload
+
+
+class _FakeStatsClient:
+    def __init__(self, payload):
+        self._payload = payload
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+    async def get(self, url):
+        assert url == "http://mail-agent.internal:9000/stats"
+        return _FakeStatsResponse(self._payload)
+
+
+async def test_mail_stats_parses_agent_counters(monkeypatch, inactive_instance):
+    """/stats contract: queue_length merged with the cumulative mail dict."""
+    import httpx
+    from metrics_collector import _mail_stats
+
+    monkeypatch.setattr(
+        "utils.agent_client.get_instance_endpoint",
+        AsyncMock(return_value="http://mail-agent.internal:9000"),
+    )
+    payload = {
+        "queue_length": 4,
+        "mail": {"received": 10, "delivered": 9, "rejected_spam": 2, "rejected_virus": 1},
+    }
+    monkeypatch.setattr(
+        httpx, "AsyncClient", lambda **kwargs: _FakeStatsClient(payload)
+    )
+
+    async with TestSessionLocal() as db:
+        assert await _mail_stats(db, inactive_instance) == _cum(10, 9, 2, 1, queue=4)
+
+
+async def test_mail_stats_returns_none_when_agent_log_unreadable(
+    monkeypatch, inactive_instance
+):
+    """/stats answering {"queue_length": N, "mail": null} → None, not garbage."""
+    import httpx
+    from metrics_collector import _mail_stats
+
+    monkeypatch.setattr(
+        "utils.agent_client.get_instance_endpoint",
+        AsyncMock(return_value="http://mail-agent.internal:9000"),
+    )
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: _FakeStatsClient({"queue_length": 4, "mail": None}),
+    )
+
+    async with TestSessionLocal() as db:
+        assert await _mail_stats(db, inactive_instance) is None
+
+
+async def test_mail_cumulative_round_trips_through_redis(monkeypatch):
+    """The cumulative counters JSON round-trip through the Redis state key."""
+    import metrics_collector
+
+    stored = {}
+    redis_mock = MagicMock()
+    redis_mock.get = AsyncMock(side_effect=lambda key: stored.get(key))
+    redis_mock.set = AsyncMock(
+        side_effect=lambda key, value: stored.__setitem__(key, value)
+    )
+    redis_mock.aclose = AsyncMock()
+    monkeypatch.setattr(
+        "redis.asyncio.Redis", MagicMock(from_url=MagicMock(return_value=redis_mock))
+    )
+
+    assert await metrics_collector._mail_prev_from_redis(42) is None
+
+    cum = _cum(10, 9, 2, 1, queue=3)
+    await metrics_collector._store_mail_cum(42, cum)
+
+    assert stored["viswall:metrics:mail_cum:42"] == json.dumps(cum)
+    assert await metrics_collector._mail_prev_from_redis(42) == cum
+
+
+async def test_mail_cumulative_redis_failure_returns_none(monkeypatch):
+    """Redis down → previous cumulative reads as None (baseline mode for one
+    interval) instead of raising."""
+    import metrics_collector
+
+    def _boom(*args, **kwargs):
+        raise ConnectionError("redis down")
+
+    monkeypatch.setattr("redis.asyncio.Redis.from_url", _boom)
+    assert await metrics_collector._mail_prev_from_redis(1) is None

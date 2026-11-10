@@ -5,6 +5,7 @@ Exim and Dovecot read Postgres directly (see /opt/viswall/config + entrypoint.sh
 so this agent only exposes control/health endpoints. LLM email classification is a
 follow-up enhancement wired via the api-gateway (see migration plan B3).
 """
+import json
 import os
 import secrets
 import subprocess
@@ -16,6 +17,9 @@ app = FastAPI(title="Viswall Mail Agent", version="2.0.0")
 EXIM_CONF = "/etc/exim4/exim4.conf"
 DKIM_STAGING_DIR = "/opt/viswall/dkim-staging"
 EXIM_DKIM_DIR = "/etc/exim4/dkim"
+MAIL_LOG_PATH = "/var/log/exim4/mainlog"
+MAIL_LOG_ROTATED_PATH = "/var/log/exim4/mainlog.1"
+MAIL_STATS_STATE_PATH = "/var/lib/viswall/mail-stats.json"
 
 INSTANCE_API_KEY = os.getenv("INSTANCE_API_KEY") or None
 
@@ -49,6 +53,108 @@ def _queue_length():
         return None
 
 
+def _scan_log_lines(path, offset, counters):
+    """Read `path` from byte `offset` to EOF, classifying each Exim mainlog
+    line into `counters`. Returns the new EOF byte offset."""
+    with open(path, "rb") as fh:
+        fh.seek(offset)
+        for raw in fh:
+            line = raw.decode("utf-8", "replace")
+            low = line.lower()
+            if " <= " in line:
+                counters["received"] += 1
+            if " => " in line:
+                counters["delivered"] += 1
+            if "rejected" in low and ("spam" in low or "score" in low):
+                counters["rejected_spam"] += 1
+            if "rejected" in low and ("malware" in low or "virus" in low or "clamd" in low):
+                counters["rejected_virus"] += 1
+        return fh.tell()
+
+
+def _mail_counters():
+    """Cumulative mail-activity counters tailed from the Exim mainlog.
+
+    The read position is persisted in MAIL_STATS_STATE_PATH as
+    {"inode": int, "offset": int, "counters": {"received": int,
+    "delivered": int, "rejected_spam": int, "rejected_virus": int}},
+    written atomically (temp file + rename), so counters survive log
+    rotation and container restarts.
+
+    Line classification (Exim mainlog format):
+    - " <= " (case-sensitive substring) — message ARRIVAL → `received`.
+      This counts ALL arrivals (inbound SMTP, outbound submissions, local
+      bounces alike). It is NOT a true inbound/outbound split; the Metrics
+      UI's inbound/outbound labels are an approximation.
+    - " => " (case-sensitive substring) — completed DELIVERY → `delivered`
+      (likewise all deliveries, not just outbound).
+    - "rejected" (case-insensitive) AND ("spam" or "score") → `rejected_spam`.
+    - "rejected" (case-insensitive) AND ("malware", "virus" or "clamd") →
+      `rejected_virus`.
+    - Any other line (deferrals, bounces, queue runs, "Completed") is not
+      counted.
+
+    NOTE: with the stock exim config (acl_check_data = `warn spam =
+    nobody:true`, headers only) no log line can match the rejected_spam
+    classifier, so rejected_spam stays 0 until a spam-deny ACL exists
+    (a separate decision, not part of this agent).
+
+    Rotation handling: when the mainlog inode differs from the stored one
+    (logrotate, or a fresh anonymous /var/log/exim4 volume after a container
+    recreate while the state file still holds the old inode), the rotated
+    file's unread remainder is drained from the stored offset when mainlog.1
+    is available; when mainlog.1 is missing or unreadable the remainder is
+    discarded and the new file is read from offset 0 — the parser must never
+    get stuck. When the inode matches but the stored offset exceeds the
+    current file size, the offset is stale — a recycled inode on the
+    recreated anonymous volume (fresh ext4 allocates inodes sequentially)
+    or an in-place truncation — so the whole file is reread from offset 0;
+    the collector's one-interval clamp keeps the rescan spike bounded. The
+    first call without a state file reads the entire current log and stores
+    it as the baseline (the collector's first delta is 0 because it has no
+    previous snapshot, so the backlog never displays).
+
+    Returns the counters dict (all zeros for an empty or fully-garbage log),
+    or None on any error (log missing, permission denied) — /stats then
+    reports "mail": null.
+    """
+    counters = {"received": 0, "delivered": 0, "rejected_spam": 0, "rejected_virus": 0}
+    stored_inode = None
+    stored_offset = 0
+    try:
+        try:
+            with open(MAIL_STATS_STATE_PATH, encoding="utf-8") as fh:
+                state = json.load(fh)
+            stored_inode = int(state["inode"])
+            stored_offset = int(state["offset"])
+            for key in counters:
+                counters[key] = int(state["counters"][key])
+        except (OSError, ValueError, KeyError, TypeError):
+            stored_inode = None  # no/corrupt state file → full first read
+
+        st = os.stat(MAIL_LOG_PATH)
+        if stored_inode == st.st_ino and stored_offset > st.st_size:
+            stored_offset = 0  # recycled inode / in-place truncation: stale offset
+        if stored_inode == st.st_ino:
+            offset = _scan_log_lines(MAIL_LOG_PATH, stored_offset, counters)
+        else:
+            if stored_inode is not None:
+                try:
+                    _scan_log_lines(MAIL_LOG_ROTATED_PATH, stored_offset, counters)
+                except OSError:
+                    pass  # mainlog.1 missing/unreadable → skip the drain
+            offset = _scan_log_lines(MAIL_LOG_PATH, 0, counters)
+
+        os.makedirs(os.path.dirname(MAIL_STATS_STATE_PATH), exist_ok=True)
+        tmp_path = MAIL_STATS_STATE_PATH + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as fh:
+            json.dump({"inode": st.st_ino, "offset": offset, "counters": counters}, fh)
+        os.replace(tmp_path, MAIL_STATS_STATE_PATH)
+        return dict(counters)
+    except Exception:
+        return None
+
+
 @app.get("/health")
 def health():
     checks = {
@@ -61,7 +167,11 @@ def health():
 
 @app.get("/stats")
 def stats():
-    return {"queue_length": _queue_length()}
+    counters = _mail_counters()
+    return {
+        "queue_length": _queue_length(),
+        "mail": counters,  # {"received": int, "delivered": int, "rejected_spam": int, "rejected_virus": int} or None
+    }
 
 
 @app.post("/reload")

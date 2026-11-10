@@ -214,6 +214,7 @@ services:
       - ../../dkim:/opt/viswall/dkim-staging
       - mail_data:/var/mail
       - exim_spool:/var/spool/exim4
+      - viswall_mail_state:/var/lib/viswall
     depends_on:
       postgres:
         condition: service_healthy
@@ -392,6 +393,7 @@ volumes:
     external: true
     name: viswall_mail_data
   exim_spool:
+  viswall_mail_state:
 
 networks:
   viswall:
