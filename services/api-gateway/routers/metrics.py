@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
@@ -18,6 +20,8 @@ from shared.schemas import (
     MetricsSummary,
 )
 from shared.security import require_auth
+
+from metrics_collector import REDIS_URL
 
 router = APIRouter()
 
@@ -165,6 +169,27 @@ async def get_metrics_summary(
     return summaries
 
 
+async def _mail_cumulative_from_redis(instance_id: int) -> dict | None:
+    """Cumulative mail counters persisted by the collector, or None.
+
+    Redis unreachable or the stored value missing/corrupt → None; the
+    dashboard then renders without totals instead of failing (same
+    graceful philosophy as the collector's _mail_prev_from_redis).
+    """
+    try:
+        from redis.asyncio import Redis
+
+        redis = Redis.from_url(REDIS_URL, decode_responses=True)
+        try:
+            raw = await redis.get(f"viswall:metrics:mail_cum:{instance_id}")
+            parsed = json.loads(raw) if raw else None
+            return parsed if isinstance(parsed, dict) else None
+        finally:
+            await redis.aclose()
+    except Exception:
+        return None
+
+
 @router.get("/dashboard/{instance_id}")
 async def get_dashboard_data(
     instance_id: int,
@@ -233,6 +258,19 @@ async def get_dashboard_data(
             "spam_count": latest.mail_spam_count,
             "virus_count": latest.mail_virus_count,
         }
+
+    # Lifetime cumulative totals from the collector's Redis key (written
+    # every collection cycle); unavailable → None totals, dashboard still 200
+    cum = await _mail_cumulative_from_redis(instance_id)
+    mail.update(
+        {
+            "total_received": cum.get("received") if cum else None,
+            "total_delivered": cum.get("delivered") if cum else None,
+            "total_spam": cum.get("rejected_spam") if cum else None,
+            "total_virus": cum.get("rejected_virus") if cum else None,
+            "totals_available": bool(cum),
+        }
+    )
 
     return {
         "instance_id": instance_id,
