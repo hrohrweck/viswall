@@ -8,10 +8,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
+from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from shared.models import Base, Instance, MetricSnapshot
+from main import app
+from shared.database import get_db
+from shared.models import Base, Instance, MetricSnapshot, User
+from shared.security import get_password_hash
 
 
 pytestmark = pytest.mark.asyncio
@@ -411,3 +415,156 @@ async def test_mail_cumulative_redis_failure_returns_none(monkeypatch):
 
     monkeypatch.setattr("redis.asyncio.Redis.from_url", _boom)
     assert await metrics_collector._mail_prev_from_redis(1) is None
+
+
+async def override_get_db():
+    async with TestSessionLocal() as session:
+        yield session
+
+
+@pytest_asyncio.fixture
+async def dashboard_client(client: AsyncClient):
+    """App client with get_db pointed at this file's SQLite engine."""
+    previous_override = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_get_db
+    yield client
+    if previous_override is None:
+        app.dependency_overrides.pop(get_db, None)
+    else:
+        app.dependency_overrides[get_db] = previous_override
+
+
+@pytest_asyncio.fixture
+async def dashboard_user():
+    async with TestSessionLocal() as session:
+        user = User(
+            username="metricsadmin",
+            email="metricsadmin@example.com",
+            password_hash=get_password_hash("metricsadminpass"),
+            auth_backend="local",
+            role="admin",
+            is_active=True,
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        yield user
+
+
+@pytest_asyncio.fixture
+async def mail_snapshot(inactive_instance):
+    async with TestSessionLocal() as session:
+        snapshot = MetricSnapshot(
+            instance_id=inactive_instance.id,
+            mail_queue_size=3,
+            mail_inbound_count=7,
+            mail_outbound_count=15,
+            mail_spam_count=3,
+            mail_virus_count=1,
+        )
+        session.add(snapshot)
+        await session.commit()
+        await session.refresh(snapshot)
+        yield snapshot
+
+
+async def _dashboard(dashboard_client: AsyncClient, instance_id: int):
+    login = await dashboard_client.post(
+        "/api/v1/auth/login",
+        json={"username": "metricsadmin", "password": "metricsadminpass"},
+    )
+    assert login.status_code == 200
+    return await dashboard_client.get(
+        f"/api/v1/metrics/dashboard/{instance_id}",
+        headers={"Authorization": f"Bearer {login.json()['access_token']}"},
+    )
+
+
+def _redis_mock(monkeypatch, raw_value):
+    redis_mock = MagicMock()
+    redis_mock.get = AsyncMock(return_value=raw_value)
+    redis_mock.aclose = AsyncMock()
+    monkeypatch.setattr(
+        "redis.asyncio.Redis", MagicMock(from_url=MagicMock(return_value=redis_mock))
+    )
+
+
+async def test_dashboard_mail_totals_read_from_redis(
+    dashboard_client, dashboard_user, inactive_instance, mail_snapshot, monkeypatch
+):
+    """Redis holds the collector's cumulative key → the dashboard mail dict
+    gains the lifetime totals alongside the unchanged snapshot fields."""
+    _redis_mock(monkeypatch, json.dumps(_cum(826, 833, 44, 4, queue=5)))
+
+    response = await _dashboard(dashboard_client, inactive_instance.id)
+
+    assert response.status_code == 200
+    mail = response.json()["mail"]
+    assert mail["queue_size"] == 3
+    assert mail["inbound_count"] == 7
+    assert mail["outbound_count"] == 15
+    assert mail["spam_count"] == 3
+    assert mail["virus_count"] == 1
+    assert mail["total_received"] == 826
+    assert mail["total_delivered"] == 833
+    assert mail["total_spam"] == 44
+    assert mail["total_virus"] == 4
+    assert mail["totals_available"] is True
+
+
+async def test_dashboard_mail_totals_none_when_redis_down(
+    dashboard_client, dashboard_user, inactive_instance, monkeypatch
+):
+    """Redis unreachable → the endpoint still returns 200 with None totals."""
+
+    def _boom(*args, **kwargs):
+        raise ConnectionError("redis down")
+
+    monkeypatch.setattr("redis.asyncio.Redis.from_url", _boom)
+
+    response = await _dashboard(dashboard_client, inactive_instance.id)
+
+    assert response.status_code == 200
+    mail = response.json()["mail"]
+    assert mail["total_received"] is None
+    assert mail["total_delivered"] is None
+    assert mail["total_spam"] is None
+    assert mail["total_virus"] is None
+    assert mail["totals_available"] is False
+
+
+async def test_dashboard_mail_totals_none_without_redis_key(
+    dashboard_client, dashboard_user, inactive_instance, monkeypatch
+):
+    """No cumulative key stored yet → totals None, flag False, still 200."""
+    _redis_mock(monkeypatch, None)
+
+    response = await _dashboard(dashboard_client, inactive_instance.id)
+
+    assert response.status_code == 200
+    mail = response.json()["mail"]
+    assert mail["total_received"] is None
+    assert mail["total_delivered"] is None
+    assert mail["total_spam"] is None
+    assert mail["total_virus"] is None
+    assert mail["totals_available"] is False
+
+
+@pytest.mark.parametrize(
+    "raw_value", ["{not json", "[1, 2, 3]", '"just-a-string"']
+)
+async def test_dashboard_mail_totals_none_on_malformed_redis_value(
+    raw_value, dashboard_client, dashboard_user, inactive_instance, monkeypatch
+):
+    """Corrupt or wrong-shape Redis value → no 500, totals degrade to None."""
+    _redis_mock(monkeypatch, raw_value)
+
+    response = await _dashboard(dashboard_client, inactive_instance.id)
+
+    assert response.status_code == 200
+    mail = response.json()["mail"]
+    assert mail["total_received"] is None
+    assert mail["total_delivered"] is None
+    assert mail["total_spam"] is None
+    assert mail["total_virus"] is None
+    assert mail["totals_available"] is False
