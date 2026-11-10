@@ -5,6 +5,10 @@ import {
   MemoryStick,
   Network,
   Mail,
+  Inbox,
+  MailCheck,
+  ShieldAlert,
+  Bug,
   Activity,
   Info,
 } from 'lucide-react'
@@ -25,7 +29,7 @@ import {
   useDashboardData,
   useMetricsQuery,
 } from '../hooks/useApi'
-import { Card, PageHeader, Skeleton, QueryError } from '../components/ui'
+import { Card, CardTitle, PageHeader, Skeleton, QueryError } from '../components/ui'
 import { cn } from '../lib/utils'
 import { CHART, chartTheme } from '../lib/chartColors'
 import type { MetricSnapshot } from '../types'
@@ -289,6 +293,34 @@ export function Metrics() {
             color: 'green',
             detail: 'Messages',
           },
+          {
+            label: 'Received (total)',
+            value: counts?.mail?.total_received?.toString() ?? '-',
+            icon: Inbox,
+            color: 'blue',
+            detail: 'Cumulative',
+          },
+          {
+            label: 'Delivered (total)',
+            value: counts?.mail?.total_delivered?.toString() ?? '-',
+            icon: MailCheck,
+            color: 'green',
+            detail: 'Cumulative',
+          },
+          {
+            label: 'Spam (total)',
+            value: counts?.mail?.total_spam?.toString() ?? '-',
+            icon: ShieldAlert,
+            color: 'orange',
+            detail: 'Cumulative',
+          },
+          {
+            label: 'Virus (total)',
+            value: counts?.mail?.total_virus?.toString() ?? '-',
+            icon: Bug,
+            color: 'purple',
+            detail: 'Cumulative',
+          },
         ]
       : []),
   ]
@@ -449,7 +481,16 @@ export function Metrics() {
         </Card>
 
         {mailDeployed && (
-          <Card title="Mail Activity">
+          <Card
+            title={
+              <div>
+                <CardTitle>Mail Activity</CardTitle>
+                <p className="text-xs text-on-surface-muted mt-0.5">
+                  New mail per collection interval
+                </p>
+              </div>
+            }
+          >
             {historicalLoading ? (
               <Skeleton className="h-[250px] w-full" />
             ) : historicalError ? (

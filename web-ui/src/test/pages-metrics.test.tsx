@@ -192,6 +192,55 @@ describe('Metrics', () => {
     expect(screen.getByText('Firewall Rules')).toBeInTheDocument()
     expect(screen.getByText('System Resources')).toBeInTheDocument()
   })
+
+  it('shows - placeholders for cumulative mail totals when the dashboard omits them', async () => {
+    // Default dashboard fixture carries no mail totals — the cards still
+    // render (stable grid) with '-' values.
+    const Wrapper = createWrapper()
+    render(<Metrics />, { wrapper: Wrapper })
+
+    for (const label of [
+      'Received (total)',
+      'Delivered (total)',
+      'Spam (total)',
+      'Virus (total)',
+    ]) {
+      const card = await screen.findByText(label)
+      expect(card.nextElementSibling?.textContent).toBe('-')
+    }
+  })
+
+  it('renders cumulative mail totals from the dashboard mail object', async () => {
+    server.use(
+      http.get('/api/v1/metrics/dashboard/1', () =>
+        HttpResponse.json({
+          ...dashboardData,
+          mail: {
+            ...dashboardData.mail,
+            total_received: 1234,
+            total_delivered: 1100,
+            total_spam: 42,
+            total_virus: 3,
+            totals_available: true,
+          },
+        }),
+      ),
+    )
+
+    const Wrapper = createWrapper()
+    render(<Metrics />, { wrapper: Wrapper })
+
+    const totals: Record<string, string> = {
+      'Received (total)': '1234',
+      'Delivered (total)': '1100',
+      'Spam (total)': '42',
+      'Virus (total)': '3',
+    }
+    for (const [label, value] of Object.entries(totals)) {
+      const card = await screen.findByText(label)
+      expect(card.nextElementSibling?.textContent).toBe(value)
+    }
+  })
 })
 
 describe('chartTheme', () => {

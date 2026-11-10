@@ -1525,5 +1525,10 @@ export interface DashboardData {
     outbound_count?: number;
     spam_count?: number;
     virus_count?: number;
+    total_received?: number | null;
+    total_delivered?: number | null;
+    total_spam?: number | null;
+    total_virus?: number | null;
+    totals_available?: boolean;
   };
 }
