@@ -179,6 +179,45 @@ class MailResource:
         """Get mail statistics."""
         return self._client._request("GET", f"/mail/stats/{instance_id}")
 
+    def get_logs(
+        self,
+        instance_id: int,
+        offset: int = 0,
+        limit: int = 200,
+        q: Optional[str] = None,
+        domain: Optional[str] = None,
+        mail_id: Optional[str] = None,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get one page of exim mainlog lines from an instance's mail agent.
+
+        Args:
+            instance_id: Instance ID
+            offset: Pagination offset (default 0)
+            limit: Lines per page (default 200)
+            q: Keyword filter (matched anywhere in the line)
+            domain: Filter by domain name
+            mail_id: Filter by exim message ID
+            since: Agent-local start time ("YYYY-MM-DD HH:MM[:SS]")
+            until: Agent-local end time ("YYYY-MM-DD HH:MM[:SS]")
+
+        Returns:
+            Dict with lines, total_matched and next_offset (None = end of data)
+        """
+        params: Dict[str, Any] = {"offset": offset, "limit": limit}
+        if q is not None:
+            params["q"] = q
+        if domain is not None:
+            params["domain"] = domain
+        if mail_id is not None:
+            params["mail_id"] = mail_id
+        if since is not None:
+            params["since"] = since
+        if until is not None:
+            params["until"] = until
+        return self._client._request("GET", f"/mail/logs/{instance_id}", params=params)
+
     def test_classify(self, domain_id: int, subject: str, sender: str, **kwargs: Any) -> Dict[str, Any]:
         """Test LLM classification on a sample email."""
         data = {"subject": subject, "sender": sender, **kwargs}

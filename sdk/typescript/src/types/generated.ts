@@ -490,6 +490,17 @@ export interface paths {
      */
     get: operations["get_mail_stats_api_v1_mail_stats__instance_id__get"];
   };
+  "/api/v1/mail/logs/{instance_id}": {
+    /**
+     * Get Mail Logs
+     * @description Get one page of exim mainlog lines from an instance's mail agent.
+     *
+     * Read scope matches GET /domains/{instance_id} (superadmin or instance
+     * membership). The agent also reports a diagnostic source_files field
+     * that MailLogsPage intentionally drops (pydantic strips extras).
+     */
+    get: operations["get_mail_logs_api_v1_mail_logs__instance_id__get"];
+  };
   "/api/v1/mail/domains/{domain_id}/classify": {
     /**
      * Test Classify Email
@@ -3421,6 +3432,21 @@ export interface components {
       mta_forward_host?: string | null;
       /** Mta Forward Port */
       mta_forward_port?: number | null;
+    };
+    /**
+     * MailLogsPage
+     * @description One page of exim mainlog lines from a mail agent.
+     * next_offset None = end of data. since/until are agent-local time
+     * ("YYYY-MM-DD HH:MM[:SS]"). Offsets are per-request; rotation between
+     * requests may shift them (tolerated drift).
+     */
+    MailLogsPage: {
+      /** Lines */
+      lines: string[];
+      /** Total Matched */
+      total_matched: number;
+      /** Next Offset */
+      next_offset?: number | null;
     };
     /** MailMessageActionRequest */
     MailMessageActionRequest: {
@@ -7320,6 +7346,44 @@ export interface operations {
       200: {
         content: {
           "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Get Mail Logs
+   * @description Get one page of exim mainlog lines from an instance's mail agent.
+   *
+   * Read scope matches GET /domains/{instance_id} (superadmin or instance
+   * membership). The agent also reports a diagnostic source_files field
+   * that MailLogsPage intentionally drops (pydantic strips extras).
+   */
+  get_mail_logs_api_v1_mail_logs__instance_id__get: {
+    parameters: {
+      query?: {
+        offset?: number;
+        limit?: number;
+        q?: string | null;
+        domain?: string | null;
+        mail_id?: string | null;
+        since?: string | null;
+        until?: string | null;
+      };
+      path: {
+        instance_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MailLogsPage"];
         };
       };
       /** @description Validation Error */

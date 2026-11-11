@@ -322,6 +322,75 @@ class TestMailResource:
         client.close()
 
 
+    def test_get_logs_defaults(self, httpx_mock):
+        """Test get logs pins the default pagination params in the URL."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/logs/1?offset=0&limit=200",
+            method="GET",
+            json={"lines": ["first line", "second line"], "total_matched": 2, "next_offset": None},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.mail.get_logs(1)
+        assert result["lines"] == ["first line", "second line"]
+        assert result["total_matched"] == 2
+        assert result["next_offset"] is None
+
+        request = httpx_mock.get_request()
+        assert request.method == "GET"
+        assert str(request.url) == "https://test.example.com/api/v1/mail/logs/1?offset=0&limit=200"
+        client.close()
+
+    def test_get_logs_with_filters(self, httpx_mock):
+        """Test get logs forwards every filter param and drops unset ones."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/logs/1",
+            method="GET",
+            match_params={
+                "offset": "100",
+                "limit": "5",
+                "q": "rejected",
+                "domain": "example.com",
+                "mail_id": "1a2b3c",
+                "since": "2026-11-11 00:00",
+                "until": "2026-11-11 23:59",
+            },
+            json={"lines": ["rejected line"], "total_matched": 1, "next_offset": 105},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.mail.get_logs(
+            1, offset=100, limit=5, q="rejected", domain="example.com",
+            mail_id="1a2b3c", since="2026-11-11 00:00", until="2026-11-11 23:59",
+        )
+        assert result["next_offset"] == 105
+
+        request = httpx_mock.get_request()
+        assert request.url.params["offset"] == "100"
+        assert request.url.params["limit"] == "5"
+        assert request.url.params["q"] == "rejected"
+        assert request.url.params["domain"] == "example.com"
+        assert request.url.params["mail_id"] == "1a2b3c"
+        assert request.url.params["since"] == "2026-11-11 00:00"
+        assert request.url.params["until"] == "2026-11-11 23:59"
+        client.close()
+
+    def test_get_logs_unset_filters_not_sent(self, httpx_mock):
+        """Test get logs without filters sends only offset and limit."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/mail/logs/2?offset=0&limit=200",
+            method="GET",
+            json={"lines": [], "total_matched": 0, "next_offset": None},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        client.mail.get_logs(2, q=None, domain=None)
+
+        request = httpx_mock.get_request()
+        assert set(request.url.params.keys()) == {"offset", "limit"}
+        client.close()
+
+
 class TestDHCPResource:
     """Test DHCPResource."""
 

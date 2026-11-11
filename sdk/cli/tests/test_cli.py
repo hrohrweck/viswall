@@ -722,6 +722,78 @@ class TestVPNSiteToSite:
         assert "Invalid remote_endpoint" in result.output
 
 
+class TestMailLogs:
+    def test_logs_default_page(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/logs/1?offset=0&limit=200",
+            json={"lines": ["first line", "second line"], "total_matched": 2, "next_offset": None},
+        )
+
+        result = runner.invoke(app, ["mail", "logs", "--instance-id", "1"])
+        assert result.exit_code == 0
+        assert "first line" in result.output
+        assert "second line" in result.output
+        assert "end of data" in result.output
+
+        request = httpx_mock.get_request()
+        assert request.url.params["offset"] == "0"
+        assert request.url.params["limit"] == "200"
+
+    def test_logs_with_filters(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/logs/1",
+            method="GET",
+            match_params={
+                "offset": "10",
+                "limit": "5",
+                "q": "rejected",
+                "domain": "example.com",
+                "mail_id": "1a2b3c",
+                "since": "2026-11-11 00:00",
+                "until": "2026-11-11 23:59",
+            },
+            json={"lines": ["bad line"], "total_matched": 1, "next_offset": 15},
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "mail", "logs",
+                "--instance-id", "1",
+                "--offset", "10",
+                "--limit", "5",
+                "--q", "rejected",
+                "--domain", "example.com",
+                "--mail-id", "1a2b3c",
+                "--since", "2026-11-11 00:00",
+                "--until", "2026-11-11 23:59",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "bad line" in result.output
+        assert "offset 15" in result.output
+
+    def test_logs_api_error(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/mail/logs/1?offset=0&limit=200",
+            status_code=503,
+            json={"detail": "agent unreachable"},
+        )
+
+        result = runner.invoke(app, ["mail", "logs", "--instance-id", "1"])
+        assert result.exit_code == 1
+        assert "agent unreachable" in result.output
+
+
 class TestMailDns:
     def test_dns_records(self, httpx_mock, monkeypatch):
         monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")

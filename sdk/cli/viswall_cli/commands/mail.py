@@ -341,3 +341,45 @@ def test_classify(
     except ViswallAPIError as e:
         print_error(str(e))
         raise typer.Exit(1)
+
+
+@app.command("logs")
+def get_logs(
+    instance_id: int = typer.Option(..., "--instance-id", "-i", help="Instance ID"),
+    offset: int = typer.Option(0, "--offset", help="Pagination offset"),
+    limit: int = typer.Option(200, "--limit", help="Lines per page"),
+    q: Optional[str] = typer.Option(None, "--q", help="Keyword filter"),
+    domain: Optional[str] = typer.Option(None, "--domain", help="Domain filter"),
+    mail_id: Optional[str] = typer.Option(None, "--mail-id", help="Exim message ID filter"),
+    since: Optional[str] = typer.Option(None, "--since", help='Start time "YYYY-MM-DD HH:MM[:SS]"'),
+    until: Optional[str] = typer.Option(None, "--until", help='End time "YYYY-MM-DD HH:MM[:SS]"'),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+    format: str = typer.Option("table", "--format", "-f"),
+) -> None:
+    """Show one page of exim mainlog lines from an instance."""
+    client = get_client(url=url, token=token)
+    try:
+        page = client.mail.get_logs(
+            instance_id,
+            offset=offset,
+            limit=limit,
+            q=q,
+            domain=domain,
+            mail_id=mail_id,
+            since=since,
+            until=until,
+        )
+        print_result(
+            [{"line": line} for line in page.get("lines", [])],
+            format=format,
+            columns=["line"],
+        )
+        next_offset = page.get("next_offset")
+        if next_offset is not None:
+            print_success(f"{page.get('total_matched', 0)} matched - next page at offset {next_offset}")
+        else:
+            print_success(f"{page.get('total_matched', 0)} matched - end of data")
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
