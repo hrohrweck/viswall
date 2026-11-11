@@ -206,7 +206,11 @@ def get_logs(
     """Filtered, paginated Exim mainlog lines for log investigation.
 
     Reads MAIL_LOG_ROTATED_PATH first (when present and readable), then
-    MAIL_LOG_PATH — the oldest→newest concatenation. Active filters apply
+    MAIL_LOG_PATH — the oldest→newest concatenation. The matched set is
+    then REVERSED, so the returned page order is newest→oldest
+    (user-directed change superseding the original oldest-first default):
+    offset 0 is the NEWEST page, deeper offsets walk backwards in time,
+    and the last page holds the oldest line. Active filters apply
     with AND:
     - q: case-insensitive substring on the whole line
     - domain: case-insensitive substring (matches user@domain and HELO strings)
@@ -221,9 +225,10 @@ def get_logs(
       only while a time filter is active.
 
     `limit` is clamped after parsing to 1..500 (never a 422); the page is
-    sliced AFTER filtering and `next_offset` is `offset + limit` only when
-    more matched lines follow, else None (the end sentinel the gateway
-    schema and the UI infinite query key on).
+    sliced AFTER filtering and the newest→oldest reversal, and `next_offset`
+    is `offset + limit` only when more matched lines follow, else None (the
+    end sentinel the gateway schema and the UI infinite query key on) —
+    pagination semantics unchanged.
 
     Rotation-drift tolerance: offsets are computed per request against the
     CURRENT concatenation; if logrotate rotates between two client requests,
@@ -270,6 +275,7 @@ def get_logs(
                     continue
                 matched.append(line)
 
+    matched.reverse()
     total_matched = len(matched)
     next_offset = offset + limit if total_matched > offset + limit else None
     return {
