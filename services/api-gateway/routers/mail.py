@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.exc import IntegrityError
@@ -15,6 +15,7 @@ from shared.schemas import (
     MailMessageCreate, MailMessageResponse,
     MailClassificationResult,
     MailMessageListParams, MailMessageActionRequest,
+    MailLogsPage,
     MailDnsRecordSpec, MailDnsRecordsResponse,
     MailDnsCheckResponse,
     LLMConfig
@@ -764,6 +765,58 @@ async def get_mail_stats(
         "queue_size": 0,
         "storage_used": 0
     }
+
+@router.get("/logs/{instance_id}", response_model=MailLogsPage)
+async def get_mail_logs(
+    instance_id: int,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=200),
+    q: Optional[str] = None,
+    domain: Optional[str] = None,
+    mail_id: Optional[str] = None,
+    since: Optional[str] = None,
+    until: Optional[str] = None,
+    user_id: int = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get one page of exim mainlog lines from an instance's mail agent.
+
+    Read scope matches GET /domains/{instance_id} (superadmin or instance
+    membership). The agent also reports a diagnostic source_files field
+    that MailLogsPage intentionally drops (pydantic strips extras).
+    """
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one()
+
+    if user.role != "superadmin" and instance_id not in (user.instances or []):
+        raise HTTPException(status_code=403, detail="Access denied to this instance")
+
+    if limit > 500:
+        limit = 500
+    elif limit < 1:
+        limit = 1
+
+    params = {"offset": offset, "limit": limit}
+    for name, value in (
+        ("q", q), ("domain", domain), ("mail_id", mail_id),
+        ("since", since), ("until", until),
+    ):
+        if value is not None:
+            params[name] = value
+
+    try:
+        page = await agent_request(
+            db=db,
+            instance_id=instance_id,
+            method="GET",
+            path="/logs",
+            params=params,
+            service=MAIL_AGENT_SERVICE,
+            timeout=15.0,
+        )
+    except AgentClientError:
+        raise HTTPException(status_code=502, detail="mail agent unreachable or logs endpoint unavailable")
+    return page
 
 # ============================================================================
 # LLM CLASSIFICATION ENDPOINTS
