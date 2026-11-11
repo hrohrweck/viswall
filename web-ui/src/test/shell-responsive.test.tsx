@@ -154,4 +154,16 @@ describe('Shell responsive', () => {
     const hamburger = screen.getByRole('button', { name: 'Open navigation' })
     expect(hamburger.className).toContain('lg:hidden')
   })
+
+  it('main content area is fluid: flex-1 w-full and no max-width cap', () => {
+    stubMatchMedia(true)
+    seedStores()
+    renderLayout()
+
+    const main = document.getElementById('main-content')
+    expect(main).toBeTruthy()
+    expect(main!.className).toContain('flex-1')
+    expect(main!.className).toContain('w-full')
+    expect(main!.className).not.toMatch(/max-w-/)
+  })
 })
