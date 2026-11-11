@@ -570,6 +570,22 @@ export interface MailMessage {
   received_at: string;
 }
 
+/** One page of exim mainlog lines from a mail agent. `next_offset: null` = end of data. */
+export interface MailLogsPage {
+  lines: string[];
+  total_matched: number;
+  next_offset: number | null;
+}
+
+/** Server-side AND-combined mainlog filters. since/until are naive "YYYY-MM-DD HH:MM" in agent-local time. */
+export interface MailLogsFilters {
+  q?: string;
+  domain?: string;
+  mail_id?: string;
+  since?: string;
+  until?: string;
+}
+
 export type VPNTunnelType = 'server' | 'client' | 'site-to-site'
 
 export interface VPNServer {

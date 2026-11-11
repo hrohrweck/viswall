@@ -1241,3 +1241,218 @@ class TestDnsCheck:
         assert "private" not in response.text.lower()
         assert "SECRETBODY" not in response.text
         assert "PubKeyVisible" in response.text
+
+
+class TestMailLogs:
+    """GET /mail/logs/{instance_id} — proxied exim mainlog pages.
+
+    The agent response also carries a diagnostic source_files field that
+    MailLogsPage intentionally omits (pydantic strips extras); the API
+    surface stays lines/total_matched/next_offset only.
+    """
+
+    PAGE = {
+        "lines": [
+            "2026-01-01 00:00:01 1aBcDe-0001 <= sender@remote.example",
+            "2026-01-01 00:00:02 1aBcDe-0002 rejected SPAM",
+        ],
+        "total_matched": 2,
+        "next_offset": None,
+        "source_files": ["/var/log/exim4/mainlog"],
+    }
+
+    @staticmethod
+    def _fake_agent(page: dict):
+        calls = []
+
+        async def _fake(**kwargs):
+            calls.append(kwargs)
+            return dict(page)
+
+        return calls, _fake
+
+    @staticmethod
+    async def _grant_instance_access(user_id: int, instance_id: int) -> None:
+        async with TestSessionLocal() as session:
+            row = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
+            row.instances = [instance_id]
+            await session.commit()
+
+    async def test_logs_happy_path(self, client: AsyncClient, admin_user, instance, monkeypatch):
+        calls, fake = self._fake_agent(self.PAGE)
+        monkeypatch.setattr(mail_router, "agent_request", fake)
+        await self._grant_instance_access(admin_user.id, instance.id)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/logs/{instance.id}", headers=headers)
+        assert response.status_code == 200
+        assert response.json() == {
+            "lines": self.PAGE["lines"],
+            "total_matched": 2,
+            "next_offset": None,
+        }
+
+        assert len(calls) == 1
+        kwargs = calls[0]
+        assert kwargs["path"] == "/logs"
+        assert kwargs["service"] == "mail"
+        assert kwargs["method"] == "GET"
+        assert kwargs["instance_id"] == instance.id
+        assert kwargs["timeout"] == 15.0
+        assert kwargs["params"] == {"offset": 0, "limit": 200}
+
+    async def test_logs_forwards_all_filters(self, client: AsyncClient, admin_user, instance, monkeypatch):
+        calls, fake = self._fake_agent(self.PAGE)
+        monkeypatch.setattr(mail_router, "agent_request", fake)
+        await self._grant_instance_access(admin_user.id, instance.id)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(
+            f"/api/v1/mail/logs/{instance.id}",
+            params={
+                "offset": 400,
+                "limit": 100,
+                "q": "rejected",
+                "domain": "example.test",
+                "mail_id": "1aBcDe",
+                "since": "2026-01-01 00:00",
+                "until": "2026-01-02 23:59",
+            },
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert calls[0]["params"] == {
+            "offset": 400,
+            "limit": 100,
+            "q": "rejected",
+            "domain": "example.test",
+            "mail_id": "1aBcDe",
+            "since": "2026-01-01 00:00",
+            "until": "2026-01-02 23:59",
+        }
+
+    async def test_logs_omits_unset_filters(self, client: AsyncClient, admin_user, instance, monkeypatch):
+        calls, fake = self._fake_agent(self.PAGE)
+        monkeypatch.setattr(mail_router, "agent_request", fake)
+        await self._grant_instance_access(admin_user.id, instance.id)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(
+            f"/api/v1/mail/logs/{instance.id}",
+            params={"q": "spam", "since": "2026-01-01 00:00"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert calls[0]["params"] == {
+            "offset": 0,
+            "limit": 200,
+            "q": "spam",
+            "since": "2026-01-01 00:00",
+        }
+
+    async def test_logs_readonly_user_with_instance_access(self, client: AsyncClient, readonly_user, instance, monkeypatch):
+        calls, fake = self._fake_agent(self.PAGE)
+        monkeypatch.setattr(mail_router, "agent_request", fake)
+        await self._grant_instance_access(readonly_user.id, instance.id)
+
+        token = await _login(client, "mailreader", "mailreaderpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/logs/{instance.id}", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["total_matched"] == 2
+        assert len(calls) == 1
+
+    async def test_logs_denied_without_instance_access(self, client: AsyncClient, readonly_user, instance, monkeypatch):
+        calls, fake = self._fake_agent(self.PAGE)
+        monkeypatch.setattr(mail_router, "agent_request", fake)
+
+        token = await _login(client, "mailreader", "mailreaderpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/logs/{instance.id}", headers=headers)
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Access denied to this instance"
+        assert calls == []
+
+    async def test_logs_requires_auth(self, client: AsyncClient, instance, monkeypatch):
+        calls, fake = self._fake_agent(self.PAGE)
+        monkeypatch.setattr(mail_router, "agent_request", fake)
+
+        response = await client.get(f"/api/v1/mail/logs/{instance.id}")
+        # No Authorization header: FastAPI's http_bearer auto_error replies
+        # 403 "Not authenticated"; 401 is only for present-but-invalid tokens.
+        assert response.status_code == 403
+        assert calls == []
+
+    async def test_logs_agent_unreachable_502(self, client: AsyncClient, admin_user, instance, monkeypatch):
+        async def _boom(**kwargs):
+            raise mail_router.AgentClientError("cannot connect to agent")
+
+        monkeypatch.setattr(mail_router, "agent_request", _boom)
+        await self._grant_instance_access(admin_user.id, instance.id)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/logs/{instance.id}", headers=headers)
+        assert response.status_code == 502
+        assert response.json()["detail"] == "mail agent unreachable or logs endpoint unavailable"
+
+    async def test_logs_limit_clamped_to_500(self, client: AsyncClient, admin_user, instance, monkeypatch):
+        page = dict(self.PAGE, next_offset=500)
+        calls, fake = self._fake_agent(page)
+        monkeypatch.setattr(mail_router, "agent_request", fake)
+        await self._grant_instance_access(admin_user.id, instance.id)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/logs/{instance.id}", params={"limit": 1000}, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["next_offset"] == 500
+        assert calls[0]["params"]["limit"] == 500
+
+    async def test_logs_limit_zero_clamped_to_1(self, client: AsyncClient, admin_user, instance, monkeypatch):
+        calls, fake = self._fake_agent(self.PAGE)
+        monkeypatch.setattr(mail_router, "agent_request", fake)
+        await self._grant_instance_access(admin_user.id, instance.id)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/logs/{instance.id}", params={"limit": 0}, headers=headers)
+        assert response.status_code == 200
+        assert calls[0]["params"]["limit"] == 1
+
+    async def test_logs_negative_offset_rejected(self, client: AsyncClient, admin_user, instance, monkeypatch):
+        calls, fake = self._fake_agent(self.PAGE)
+        monkeypatch.setattr(mail_router, "agent_request", fake)
+        await self._grant_instance_access(admin_user.id, instance.id)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(f"/api/v1/mail/logs/{instance.id}", params={"offset": -1}, headers=headers)
+        assert response.status_code == 422
+        assert calls == []
+
+    async def test_logs_large_offset_forwarded(self, client: AsyncClient, admin_user, instance, monkeypatch):
+        calls, fake = self._fake_agent(self.PAGE)
+        monkeypatch.setattr(mail_router, "agent_request", fake)
+        await self._grant_instance_access(admin_user.id, instance.id)
+
+        token = await _login(client, "mailadmin", "mailadminpass")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = await client.get(
+            f"/api/v1/mail/logs/{instance.id}", params={"offset": 999999999}, headers=headers
+        )
+        assert response.status_code == 200
+        assert calls[0]["params"]["offset"] == 999999999

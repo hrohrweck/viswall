@@ -738,6 +738,16 @@ class MailMessageActionRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class MailLogsPage(BaseModel):
+    """One page of exim mainlog lines from a mail agent.
+    next_offset None = end of data. since/until are agent-local time
+    ("YYYY-MM-DD HH:MM[:SS]"). Offsets are per-request; rotation between
+    requests may shift them (tolerated drift)."""
+    lines: List[str]
+    total_matched: int
+    next_offset: Optional[int] = None
+
+
 # Metrics Schemas
 class MetricSnapshotBase(BaseModel):
     cpu_percent: Optional[float] = None
