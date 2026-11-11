@@ -7,9 +7,10 @@ follow-up enhancement wired via the api-gateway (see migration plan B3).
 """
 import json
 import os
+import re
 import secrets
 import subprocess
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="Viswall Mail Agent", version="2.0.0")
@@ -171,6 +172,111 @@ def stats():
     return {
         "queue_length": _queue_length(),
         "mail": counters,  # {"received": int, "delivered": int, "rejected_spam": int, "rejected_virus": int} or None
+    }
+
+
+_LOG_TS_PREFIX = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
+
+
+def _normalize_time_bound(value, is_until):
+    """Normalize a since/until bound for lexicographic comparison against the
+    zero-padded 19-char exim timestamp prefix ("YYYY-MM-DD HH:MM:SS").
+
+    Accepts "YYYY-MM-DD HH:MM[:SS]" or the datetime-local "T" separator.
+    A 16-char bound (minute precision) is padded to a whole minute:
+    ":00" for since, ":59" for until — both bounds stay inclusive.
+    """
+    normalized = value.replace("T", " ")
+    if len(normalized) == 16:
+        normalized += ":59" if is_until else ":00"
+    return normalized
+
+
+@app.get("/logs")
+def get_logs(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=200),
+    q: str | None = None,
+    domain: str | None = None,
+    mail_id: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    _: None = Depends(_require_instance_key),
+):
+    """Filtered, paginated Exim mainlog lines for log investigation.
+
+    Reads MAIL_LOG_ROTATED_PATH first (when present and readable), then
+    MAIL_LOG_PATH — the oldest→newest concatenation. Active filters apply
+    with AND:
+    - q: case-insensitive substring on the whole line
+    - domain: case-insensitive substring (matches user@domain and HELO strings)
+    - mail_id: substring (exim queue ids)
+    - since/until: "YYYY-MM-DD HH:MM[:SS]" or "YYYY-MM-DDTHH:MM[:SS]",
+      agent-local time, both bounds INCLUSIVE. The exim timestamp is a
+      zero-padded fixed-width prefix, so the bounds are normalized (T→space;
+      a 16-char bound is padded :00 for since / :59 for until) and compared
+      LEXICOGRAPHICALLY against line[:19] — never datetime.strptime per line
+      (which would cost ~1 s at today's log size). Lines shorter than 19
+      chars or without a timestamp-shaped "YYYY-MM-DD " prefix are excluded
+      only while a time filter is active.
+
+    `limit` is clamped after parsing to 1..500 (never a 422); the page is
+    sliced AFTER filtering and `next_offset` is `offset + limit` only when
+    more matched lines follow, else None (the end sentinel the gateway
+    schema and the UI infinite query key on).
+
+    Rotation-drift tolerance: offsets are computed per request against the
+    CURRENT concatenation; if logrotate rotates between two client requests,
+    offsets may shift and a page can repeat or skip lines — accepted, this
+    endpoint is stateless by design.
+
+    Performance: full scan of the readable sources per request (~70k lines /
+    8.8 MB today ≈ tens of ms; p95 < 300 ms verified in the Task 5 deploy lane).
+
+    Missing or unreadable log files yield an empty 200, never a 500.
+    """
+    limit = min(500, max(1, limit))
+    since_bound = _normalize_time_bound(since, False) if since is not None else None
+    until_bound = _normalize_time_bound(until, True) if until is not None else None
+    q_lower = q.lower() if q is not None else None
+    domain_lower = domain.lower() if domain is not None else None
+
+    matched = []
+    source_files = []
+    for path in (MAIL_LOG_ROTATED_PATH, MAIL_LOG_PATH):
+        try:
+            fh = open(path, encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        source_files.append(os.path.basename(path))
+        with fh:
+            for raw in fh:
+                line = raw.rstrip("\n")
+                if since_bound is not None or until_bound is not None:
+                    if _LOG_TS_PREFIX.match(line) is None:
+                        continue
+                    stamp = line[:19]
+                    if since_bound is not None and stamp < since_bound:
+                        continue
+                    if until_bound is not None and stamp > until_bound:
+                        continue
+                if q_lower is not None or domain_lower is not None:
+                    low = line.lower()
+                    if q_lower is not None and q_lower not in low:
+                        continue
+                    if domain_lower is not None and domain_lower not in low:
+                        continue
+                if mail_id is not None and mail_id not in line:
+                    continue
+                matched.append(line)
+
+    total_matched = len(matched)
+    next_offset = offset + limit if total_matched > offset + limit else None
+    return {
+        "lines": matched[offset : offset + limit],
+        "total_matched": total_matched,
+        "next_offset": next_offset,
+        "source_files": source_files,
     }
 
 
