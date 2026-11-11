@@ -1,6 +1,7 @@
 import {
   useQuery,
   useMutation,
+  useInfiniteQuery,
   useQueryClient,
   UseQueryOptions,
 } from '@tanstack/react-query'
@@ -106,6 +107,8 @@ import type {
   MailDnsRecordsResponse,
   MailDnsCheckResponse,
   MailMessage,
+  MailLogsPage,
+  MailLogsFilters,
   CategoryConfig,
 } from '../types'
 
@@ -128,6 +131,7 @@ const queryKeys = {
   mailAliases: (instanceId: number, domainId: number) => ['mail-aliases', instanceId, domainId] as const,
   mailMessages: (domainId: number, filters?: Record<string, unknown>) => ['mail-messages', domainId, filters] as const,
   mailMessage: (messageId: number) => ['mail-message', messageId] as const,
+  mailLogs: (instanceId: number, filters: MailLogsFilters) => ['mail-logs', instanceId, filters] as const,
   vpnServers: (instanceId: number) => ['vpn-servers', instanceId] as const,
   vpnServer: (instanceId: number, serverId: number) => ['vpn-servers', instanceId, serverId] as const,
   vpnClients: (instanceId: number, serverId: number) => ['vpn-clients', instanceId, serverId] as const,
@@ -697,6 +701,25 @@ export function useMailMessage(messageId: number) {
       return data
     },
     enabled: !!messageId,
+  })
+}
+
+export function useMailLogs(instanceId: number, filters: MailLogsFilters, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.mailLogs(instanceId, filters),
+    queryFn: async ({ pageParam }) => {
+      // The `.data` destructure is mandatory: utils/api.ts has no
+      // response-unwrapping interceptor, so the raw promise resolves to the
+      // full AxiosResponse and getNextPageParam would read next_offset off
+      // it — always undefined (review blocker B1).
+      const { data } = await api.get(`/mail/logs/${instanceId}`, {
+        params: { offset: pageParam, limit: 200, ...filters },
+      })
+      return data as MailLogsPage
+    },
+    initialPageParam: 0,
+    getNextPageParam: (last: MailLogsPage) => last.next_offset ?? undefined,
+    enabled,
   })
 }
 

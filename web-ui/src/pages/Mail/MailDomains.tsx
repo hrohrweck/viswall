@@ -14,9 +14,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  Tabs,
+  TabsContent,
   buttonVariants,
   toast,
 } from '../../components/ui'
+import { MailLogsPanel } from './MailLogsPanel'
 import type { MailDomain } from '../../types'
 import { getErrMsg } from '../../lib/utils'
 
@@ -26,6 +29,7 @@ export function MailDomains() {
   const { data: domains, isLoading, isError, refetch } = useMailDomains(selectedInstanceId!)
   const deleteMutation = useDeleteMailDomain(selectedInstanceId!)
   const [deleteTarget, setDeleteTarget] = useState<MailDomain | null>(null)
+  const [activeTab, setActiveTab] = useState('domains')
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -88,6 +92,13 @@ export function MailDomains() {
     },
   ]
 
+  const hostedDomains = domains ?? []
+  const hasDomains = hostedDomains.length > 0
+  const tabItems = [
+    { value: 'domains', label: 'Mail Domains' },
+    ...(hasDomains ? [{ value: 'logs', label: 'Logs' }] : []),
+  ]
+
   return (
     <div>
       <PageHeader
@@ -99,73 +110,86 @@ export function MailDomains() {
             Add Domain
           </Link>
         }
+        tabs={
+          <Tabs items={tabItems} value={activeTab} onValueChange={setActiveTab}>
+            <TabsContent value="domains">
+              {domains && domains.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <Card>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-info-subtle rounded-card"><Mail className="w-5 h-5 text-info" /></div>
+                      <div><p className="text-sm text-on-surface-muted">Total Domains</p><p className="text-2xl font-bold text-on-surface">{domains.length}</p></div>
+                    </div>
+                  </Card>
+                  <Card>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-success-subtle rounded-card"><Mail className="w-5 h-5 text-success" /></div>
+                      <div><p className="text-sm text-on-surface-muted">Active</p><p className="text-2xl font-bold text-on-surface">{domains.filter((d) => d.enabled).length}</p></div>
+                    </div>
+                  </Card>
+                  <Card>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-info-subtle rounded-card"><Mail className="w-5 h-5 text-info" /></div>
+                      <div><p className="text-sm text-on-surface-muted">Spam Filter</p><p className="text-2xl font-bold text-on-surface">{domains.filter((d) => d.spam_filter_enabled).length}</p></div>
+                    </div>
+                  </Card>
+                  <Card>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-danger-subtle rounded-card"><Mail className="w-5 h-5 text-danger" /></div>
+                      <div><p className="text-sm text-on-surface-muted">Antivirus</p><p className="text-2xl font-bold text-on-surface">{domains.filter((d) => d.virus_scan_enabled).length}</p></div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {isError ? (
+                <QueryError onRetry={() => refetch()} />
+              ) : (
+                <DataTable
+                  columns={columns}
+                  data={domains ?? []}
+                  keyExtractor={(d) => d.id}
+                  isLoading={isLoading}
+                  onRowClick={(d) => navigate(`/mail/domains/${d.id}`)}
+                  rowActions={(d) => (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger />
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => navigate(`/mail/domains/${d.id}`)}>
+                          View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          danger
+                          onClick={() => setDeleteTarget(d)}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  emptyContent={
+                    <EmptyState
+                      icon={Mail}
+                      title="No mail domains"
+                      description="Add your first email domain to get started."
+                      actionLabel="Add Domain"
+                      actionTo="/mail/domains/create"
+                    />
+                  }
+                />
+              )}
+            </TabsContent>
+            {hasDomains && (
+              <TabsContent value="logs">
+                <MailLogsPanel
+                  instanceId={selectedInstanceId}
+                  domains={hostedDomains.map((d) => d.domain)}
+                />
+              </TabsContent>
+            )}
+          </Tabs>
+        }
       />
-
-      {domains && domains.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 mb-6">
-          <Card>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-info-subtle rounded-card"><Mail className="w-5 h-5 text-info" /></div>
-              <div><p className="text-sm text-on-surface-muted">Total Domains</p><p className="text-2xl font-bold text-on-surface">{domains.length}</p></div>
-            </div>
-          </Card>
-          <Card>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-success-subtle rounded-card"><Mail className="w-5 h-5 text-success" /></div>
-              <div><p className="text-sm text-on-surface-muted">Active</p><p className="text-2xl font-bold text-on-surface">{domains.filter((d) => d.enabled).length}</p></div>
-            </div>
-          </Card>
-          <Card>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-info-subtle rounded-card"><Mail className="w-5 h-5 text-info" /></div>
-              <div><p className="text-sm text-on-surface-muted">Spam Filter</p><p className="text-2xl font-bold text-on-surface">{domains.filter((d) => d.spam_filter_enabled).length}</p></div>
-            </div>
-          </Card>
-          <Card>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-danger-subtle rounded-card"><Mail className="w-5 h-5 text-danger" /></div>
-              <div><p className="text-sm text-on-surface-muted">Antivirus</p><p className="text-2xl font-bold text-on-surface">{domains.filter((d) => d.virus_scan_enabled).length}</p></div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {isError ? (
-        <QueryError onRetry={() => refetch()} />
-      ) : (
-        <DataTable
-          columns={columns}
-          data={domains ?? []}
-          keyExtractor={(d) => d.id}
-          isLoading={isLoading}
-          onRowClick={(d) => navigate(`/mail/domains/${d.id}`)}
-          rowActions={(d) => (
-            <DropdownMenu>
-              <DropdownMenuTrigger />
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => navigate(`/mail/domains/${d.id}`)}>
-                  View
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  danger
-                  onClick={() => setDeleteTarget(d)}
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          emptyContent={
-            <EmptyState
-              icon={Mail}
-              title="No mail domains"
-              description="Add your first email domain to get started."
-              actionLabel="Add Domain"
-              actionTo="/mail/domains/create"
-            />
-          }
-        />
-      )}
 
       <ConfirmDialog
         open={!!deleteTarget}
