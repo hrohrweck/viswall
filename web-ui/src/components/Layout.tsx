@@ -74,7 +74,7 @@ export function Layout() {
         >
           <Sidebar />
         </div>
-        <main id="main-content" className="flex-1 p-4 lg:p-6 max-w-[1440px] w-full">
+        <main id="main-content" className="flex-1 p-4 lg:p-6 w-full">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
