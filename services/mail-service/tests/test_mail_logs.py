@@ -21,6 +21,9 @@ L5 = "2026-11-09 12:00:05 1xQaCD-000000000b0-BBB Completed"
 GARBAGE = "garbage line without any exim timestamp"
 SHORT = "2026-11-09 1"  # shorter than 19 chars
 ALL_LINES = [L0, L1, L2, L3, L4, L5]
+# The endpoint returns matched lines newest→oldest (reversed after the
+# rotated→main chronological read), so the newest fixture line comes first.
+NEWEST_FIRST_LINES = [L5, L4, L3, L2, L1, L0]
 
 
 @pytest.fixture()
@@ -44,13 +47,13 @@ def write_log(path, lines):
 
 
 class TestLogsDefaults:
-    def test_default_returns_all_lines_oldest_first(self, paths, client):
+    def test_default_returns_all_lines_newest_first(self, paths, client):
         log, _ = paths
         write_log(log, ALL_LINES)
         response = client.get("/logs", headers=HEADERS)
         assert response.status_code == 200
         assert response.json() == {
-            "lines": ALL_LINES,
+            "lines": NEWEST_FIRST_LINES,
             "total_matched": 6,
             "next_offset": None,
             "source_files": ["mainlog"],
@@ -60,7 +63,7 @@ class TestLogsDefaults:
         log, _ = paths
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS, params={"offset": 1, "limit": 2}).json()
-        assert body["lines"] == [L1, L2]
+        assert body["lines"] == [L4, L3]
         assert body["total_matched"] == 6
         assert body["next_offset"] == 3
 
@@ -68,7 +71,7 @@ class TestLogsDefaults:
         log, _ = paths
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS, params={"offset": 2, "limit": 4}).json()
-        assert body["lines"] == [L2, L3, L4, L5]
+        assert body["lines"] == [L3, L2, L1, L0]
         assert body["next_offset"] is None  # total_matched == offset + limit
 
     def test_offset_past_end_returns_empty_page_with_none(self, paths, client):
@@ -95,7 +98,7 @@ class TestLogsDefaults:
         )
         body = client.get("/logs", headers=HEADERS, params={"limit": 1000}).json()
         assert len(body["lines"]) == 500
-        assert body["lines"][0].endswith("Z000 <= gen0@gen.test")
+        assert body["lines"][0].endswith("Z599 <= gen599@gen.test")
         assert body["total_matched"] == 600
         assert body["next_offset"] == 500
 
@@ -103,14 +106,14 @@ class TestLogsDefaults:
         log, _ = paths
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS, params={"limit": 0}).json()
-        assert body["lines"] == [L0]
+        assert body["lines"] == [L5]
         assert body["next_offset"] == 1
 
     def test_negative_limit_clamped_to_1_not_422(self, paths, client):
         log, _ = paths
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS, params={"limit": -7}).json()
-        assert body["lines"] == [L0]
+        assert body["lines"] == [L5]
         assert body["total_matched"] == 6
 
 
@@ -137,7 +140,7 @@ class TestLogsFilters:
         log, _ = paths
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS, params={"mail_id": "1xQaAB"}).json()
-        assert body["lines"] == [L1, L2]
+        assert body["lines"] == [L2, L1]
         assert body["total_matched"] == 2
 
     def test_combined_filters_apply_with_and(self, paths, client):
@@ -162,13 +165,13 @@ class TestLogsTimeFilter:
         log, _ = paths
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS, params={"since": "2026-11-09 11:00:03"}).json()
-        assert body["lines"] == [L3, L4, L5]  # the bound line itself is kept
+        assert body["lines"] == [L5, L4, L3]  # the bound line itself is kept
 
     def test_until_is_inclusive(self, paths, client):
         log, _ = paths
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS, params={"until": "2026-11-09 10:05:02"}).json()
-        assert body["lines"] == [L0, L1, L2]
+        assert body["lines"] == [L2, L1, L0]
 
     def test_since_and_until_window(self, paths, client):
         log, _ = paths
@@ -178,13 +181,13 @@ class TestLogsTimeFilter:
             headers=HEADERS,
             params={"since": "2026-11-09 10:00:00", "until": "2026-11-09 11:30:04"},
         ).json()
-        assert body["lines"] == [L1, L2, L3, L4]
+        assert body["lines"] == [L4, L3, L2, L1]
 
     def test_t_separator_normalized(self, paths, client):
         log, _ = paths
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS, params={"since": "2026-11-09T11:30:04"}).json()
-        assert body["lines"] == [L4, L5]
+        assert body["lines"] == [L5, L4]
 
     def test_16_char_since_pads_seconds_00(self, paths, client):
         # L0 ends on :00 — without the ":00" padding it would compare
@@ -192,28 +195,28 @@ class TestLogsTimeFilter:
         log, _ = paths
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS, params={"since": "2026-11-09 09:59"}).json()
-        assert body["lines"] == ALL_LINES
+        assert body["lines"] == NEWEST_FIRST_LINES
 
     def test_16_char_until_pads_seconds_59(self, paths, client):
         # L2 (10:05:02) falls inside minute 10:05 only with the ":59" padding.
         log, _ = paths
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS, params={"until": "2026-11-09T10:05"}).json()
-        assert body["lines"] == [L0, L1, L2]
+        assert body["lines"] == [L2, L1, L0]
 
     def test_untimestamped_lines_excluded_only_while_time_filter_active(self, paths, client):
         log, _ = paths
         write_log(log, [GARBAGE, SHORT, *ALL_LINES])
         # No time filter → untimestamped lines pass through like any other.
         body = client.get("/logs", headers=HEADERS).json()
-        assert body["lines"] == [GARBAGE, SHORT, *ALL_LINES]
+        assert body["lines"] == [L5, L4, L3, L2, L1, L0, SHORT, GARBAGE]
         assert body["total_matched"] == 8
         # since active → excluded.
         body = client.get("/logs", headers=HEADERS, params={"since": "2026-11-09 00:00:00"}).json()
-        assert body["lines"] == ALL_LINES
+        assert body["lines"] == NEWEST_FIRST_LINES
         # until active → excluded.
         body = client.get("/logs", headers=HEADERS, params={"until": "2026-11-30 23:59:59"}).json()
-        assert body["lines"] == ALL_LINES
+        assert body["lines"] == NEWEST_FIRST_LINES
 
 
 class TestLogsRotation:
@@ -226,12 +229,15 @@ class TestLogsRotation:
         "H=mail.example.net [192.0.2.2] P=esmtp S=20"
     )
 
-    def test_rotated_lines_come_first(self, paths, client):
+    def test_newest_first_across_rotated_and_main(self, paths, client):
         log, rotated = paths
         write_log(rotated, self.OLD_ROTATED)
         write_log(log, ALL_LINES)
         body = client.get("/logs", headers=HEADERS).json()
-        assert body["lines"] == self.OLD_ROTATED + ALL_LINES
+        # Read order is rotated→main (chronological on disk); the returned
+        # page order is newest→oldest, so main's newer lines come first and
+        # the rotated remainder trails in reverse.
+        assert body["lines"] == NEWEST_FIRST_LINES + [self.OLD_ROTATED[1], self.OLD_ROTATED[0]]
         assert body["total_matched"] == 8
         assert body["source_files"] == ["mainlog.1", "mainlog"]
 
@@ -239,7 +245,7 @@ class TestLogsRotation:
         log, rotated = paths
         write_log(rotated, self.OLD_ROTATED)  # mainlog never created
         body = client.get("/logs", headers=HEADERS).json()
-        assert body["lines"] == self.OLD_ROTATED
+        assert body["lines"] == [self.OLD_ROTATED[1], self.OLD_ROTATED[0]]
         assert body["source_files"] == ["mainlog.1"]
 
     def test_rotation_between_pages_tolerated(self, paths, client):
@@ -247,7 +253,7 @@ class TestLogsRotation:
         write_log(rotated, self.OLD_ROTATED)
         write_log(log, ALL_LINES)
         first = client.get("/logs", headers=HEADERS, params={"offset": 0, "limit": 2}).json()
-        assert first["lines"] == self.OLD_ROTATED
+        assert first["lines"] == [L5, L4]  # the newest lines page first
         assert first["total_matched"] == 8
         assert first["next_offset"] == 2
 
@@ -265,7 +271,7 @@ class TestLogsRotation:
         assert body["source_files"] == ["mainlog.1", "mainlog"]
         assert body["total_matched"] == 7
         stamps = [line[:19] for line in body["lines"]]
-        assert stamps == sorted(stamps)  # ordering preserved despite the shift
+        assert stamps == sorted(stamps, reverse=True)  # newest→oldest preserved despite the shift
 
 
 class TestLogsMissingFiles:

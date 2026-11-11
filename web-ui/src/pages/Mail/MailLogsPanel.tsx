@@ -84,16 +84,17 @@ export function MailLogsPanel({ instanceId, domains }: MailLogsPanelProps) {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-15rem)]">
+    <div className="flex flex-col h-[calc(100vh-15rem)] min-w-0">
       {/* Filter bar */}
-      <div className="shrink-0 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-2 pb-3 border-b border-border">
+      <div className="shrink-0 flex flex-wrap items-center gap-2 gap-y-3 pb-3 border-b border-border [contain:inline-size]">
         <Input
           aria-label="Keyword"
           placeholder="Keyword…"
+          className="min-w-[10rem] grow basis-48"
           value={qInput}
           onChange={(e) => setQInput(e.target.value)}
         />
-        <div>
+        <div className="min-w-[10rem] grow basis-48">
           <Input
             aria-label="Domain"
             list="mail-logs-domains"
@@ -111,18 +112,21 @@ export function MailLogsPanel({ instanceId, domains }: MailLogsPanelProps) {
           aria-label="Mail ID"
           placeholder="Mail ID…"
           mono
+          className="min-w-[10rem] grow basis-48"
           value={mailIdInput}
           onChange={(e) => setMailIdInput(e.target.value)}
         />
         <Input
           aria-label="Since"
           type="datetime-local"
+          className="min-w-[11rem] grow basis-48"
           value={sinceInput}
           onChange={(e) => setSinceInput(e.target.value)}
         />
         <Input
           aria-label="Until"
           type="datetime-local"
+          className="min-w-[11rem] grow basis-48"
           value={untilInput}
           onChange={(e) => setUntilInput(e.target.value)}
         />
@@ -138,12 +142,11 @@ export function MailLogsPanel({ instanceId, domains }: MailLogsPanelProps) {
         />
       ) : (
         <>
-          <div className="flex-1 min-h-0 overflow-y-auto mt-3">
+          <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-auto mt-3 [contain:inline-size]">
             {lines.map((line, i) => (
               <div
                 key={i}
                 className="font-mono text-xs whitespace-pre text-on-surface"
-                style={{ contentVisibility: 'auto' }}
               >
                 {line}
               </div>

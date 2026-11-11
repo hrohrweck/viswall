@@ -102,7 +102,7 @@ export function MailDomains() {
   return (
     <div>
       <PageHeader
-        title="Mail Domains"
+        title="Mail Server management"
         description="Manage email domains, users, and security settings"
         primaryAction={
           <Link to="/mail/domains/create" className={buttonVariants()}>
@@ -180,7 +180,7 @@ export function MailDomains() {
               )}
             </TabsContent>
             {hasDomains && (
-              <TabsContent value="logs">
+              <TabsContent value="logs" className="min-w-0">
                 <MailLogsPanel
                   instanceId={selectedInstanceId}
                   domains={hostedDomains.map((d) => d.domain)}
