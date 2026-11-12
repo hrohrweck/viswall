@@ -69,6 +69,116 @@ def test_record_line_when_plain() -> None:
     assert record_line(given) == "www 60 IN A 192.0.2.1"
 
 
+def _txt_record(content: str, ttl: int = 60) -> DNSRecordPayload:
+    return DNSRecordPayload(
+        name="txt", record_type="TXT", content=content, ttl=ttl
+    )
+
+
+def _txt_raw_chunks(line: str) -> list[str]:
+    """The space-separated quoted tokens of a rendered TXT record line.
+
+    Spaces inside the quotes are content, so tokens are cut only at
+    spaces that sit outside a quoted string; a quote preceded by an even
+    run of backslashes closes the chunk (same parity rule as the renderer).
+    """
+    rdata = line.split(" IN TXT ", 1)[1]
+    chunks: list[str] = []
+    start = None
+    for i, char in enumerate(rdata):
+        if start is None:
+            if char == '"':
+                start = i
+        elif char == '"':
+            run = 0
+            while rdata[i - 1 - run] == "\\":
+                run += 1
+            if run % 2 == 0:
+                chunks.append(rdata[start : i + 1])
+                start = None
+    return chunks
+
+
+def _txt_chunk_values(line: str) -> list[str]:
+    """Unescape and extract the quoted character-strings of TXT rdata."""
+    values: list[str] = []
+    for raw in _txt_raw_chunks(line):
+        i = 1
+        chars: list[str] = []
+        while raw[i] != '"':
+            if raw[i] == "\\":
+                chars.append(raw[i + 1])
+                i += 2
+            else:
+                chars.append(raw[i])
+                i += 1
+        values.append("".join(chars))
+    return values
+
+
+def _ends_on_unpaired_backslash(raw_chunk: str) -> bool:
+    """True when a quoted chunk's escaped content ends in an odd run of backslashes."""
+    body = raw_chunk[1:-1]
+    run = 0
+    while run < len(body) and body[-1 - run] == "\\":
+        run += 1
+    return run % 2 == 1
+
+
+def test_record_line_when_txt_short_value_is_quoted() -> None:
+    assert record_line(_txt_record("hello world")) == 'txt 60 IN TXT "hello world"'
+
+
+def test_record_line_when_txt_dkim_value_keeps_semicolons_quoted() -> None:
+    line = record_line(_txt_record("v=DKIM1; k=rsa; p=abc", ttl=3600))
+    assert _txt_raw_chunks(line) == ['"v=DKIM1; k=rsa; p=abc"']
+
+
+def test_record_line_when_txt_long_value_chunks_at_255_octets() -> None:
+    line = record_line(_txt_record("x" * 600))
+    chunks = _txt_chunk_values(line)
+    assert [len(chunk.encode("utf-8")) for chunk in chunks] == [255, 255, 90]
+    assert "".join(chunks) == "x" * 600
+
+
+def test_record_line_when_txt_escapes_quotes_and_backslashes() -> None:
+    line = record_line(_txt_record('a"b\\c'))
+    assert _txt_raw_chunks(line) == ['"a\\"b\\\\c"']
+    assert "".join(_txt_chunk_values(line)) == 'a"b\\c'
+
+
+def test_record_line_when_txt_multibyte_value_splits_at_char_boundaries() -> None:
+    line = record_line(_txt_record("é" * 200))
+    chunks = _txt_chunk_values(line)
+    for chunk in chunks:
+        assert len(chunk.encode("utf-8")) <= 255
+        assert set(chunk) == {"é"}
+    assert "".join(chunks) == "é" * 200
+
+
+def test_record_line_when_txt_escape_straddles_chunk_boundary() -> None:
+    line = record_line(_txt_record("x" * 254 + '"'))
+    raw_chunks = _txt_raw_chunks(line)
+    bodies = [raw[1:-1] for raw in raw_chunks]
+    assert [len(body.encode("utf-8")) for body in bodies] == [254, 2]
+    assert bodies[1] == '\\"'
+    for raw in raw_chunks:
+        assert not _ends_on_unpaired_backslash(raw)
+    assert "".join(_txt_chunk_values(line)) == "x" * 254 + '"'
+
+
+def test_record_line_when_txt_complete_escape_pair_flushes_normally() -> None:
+    line = record_line(_txt_record("x" * 253 + "\\" + "y"))
+    raw_chunks = _txt_raw_chunks(line)
+    bodies = [raw[1:-1] for raw in raw_chunks]
+    assert [len(body.encode("utf-8")) for body in bodies] == [255, 1]
+    assert bodies[0].endswith("\\\\")
+    assert bodies[1] == "y"
+    for raw in raw_chunks:
+        assert not _ends_on_unpaired_backslash(raw)
+    assert "".join(_txt_chunk_values(line)) == "x" * 253 + "\\" + "y"
+
+
 def test_render_zone_text_when_soa_present() -> None:
     zone = _zone(
         records=[

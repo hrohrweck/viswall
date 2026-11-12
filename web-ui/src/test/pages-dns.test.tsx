@@ -269,4 +269,79 @@ describe('DNS Management page', () => {
       screen.getByText(/select an instance from the top bar/i),
     ).toBeInTheDocument()
   })
+
+  /* ── 9. Create Record modal posts a DKIM TXT payload for the zone ───── */
+  it('Create Record modal submits a DKIM name and TXT payload', async () => {
+    const user = userEvent.setup()
+    let capturedRecord: Record<string, unknown> | null = null
+    server.use(
+      http.post('*/dns/zones/:zoneId/records', async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>
+        capturedRecord = body
+        return HttpResponse.json(
+          {
+            id: 999,
+            zone_id: 1,
+            name: body.name,
+            record_type: body.record_type,
+            content: body.content,
+            ttl: body.ttl,
+            priority: 0,
+            weight: 0,
+            port: 0,
+            flags: '',
+            tag: null,
+            comment: null,
+            is_system: false,
+            created_by: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { status: 201 },
+        )
+      }),
+    )
+
+    renderDNS()
+    await screen.findByText('bind-primary')
+
+    // Select the server, then the fixture zone example.test.
+    await user.click(screen.getByText('bind-primary'))
+    await screen.findByText('example.test')
+    await user.click(screen.getByText('example.test'))
+    await waitFor(() => {
+      expect(screen.getByText('192.168.1.10')).toBeInTheDocument()
+    })
+
+    // Open the Create Record modal via the Records card's Add action.
+    const recordsHeader = screen.getByRole('heading', { name: 'Records' }).closest('div') as HTMLElement
+    await user.click(within(recordsHeader).getByRole('button', { name: 'Add' }))
+    const dialog = await screen.findByRole('dialog')
+
+    // Fill the form: DKIM name, TXT type, DKIM key content. TTL keeps its 3600 default.
+    const nameInput = within(dialog).getByRole('textbox', { name: 'Name' })
+    await user.clear(nameInput)
+    await user.type(nameInput, 'mail._domainkey')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Type' }), 'TXT')
+    const contentInput = within(dialog).getByRole('textbox', { name: 'Content' })
+    await user.clear(contentInput)
+    await user.type(contentInput, 'v=DKIM1; k=rsa; p=MIIBOgIBAAJBAK8h7Q')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Create Record' }))
+
+    // The POST body is the deliverable proof: DKIM name accepted end-to-end.
+    await waitFor(() => {
+      expect(capturedRecord).toEqual({
+        name: 'mail._domainkey',
+        record_type: 'TXT',
+        content: 'v=DKIM1; k=rsa; p=MIIBOgIBAAJBAK8h7Q',
+        ttl: 3600,
+      })
+    })
+
+    // Success path: the modal closed again.
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+  })
 })

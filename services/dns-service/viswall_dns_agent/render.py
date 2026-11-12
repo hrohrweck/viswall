@@ -16,6 +16,44 @@ RNDC_KEY_INCLUDE = 'include "/etc/bind/rndc.key";'
 RNDC_KEY_NAME = "rndc-key"
 
 
+def _txt_rdata(content: str) -> str:
+    """Render TXT rdata as one or more quoted character-strings.
+
+    Escapes backslashes and quotes, then splits the escaped string into
+    chunks of at most 255 UTF-8 octets at character boundaries. Escape
+    pairs are atomic: at flush time a chunk trailing in an odd run of
+    backslashes ends on an unpaired opener whose partner is the character
+    that did not fit, so that backslash moves to the next chunk; an even
+    run means the closing backslash of a complete pair and flushes
+    normally. BIND concatenates the strings back into the original value.
+    """
+    escaped = content.replace("\\", "\\\\").replace('"', '\\"')
+    chunks: list[str] = []
+    buf: list[str] = []
+    size = 0
+    for char in escaped:
+        char_octets = len(char.encode("utf-8"))
+        if size + char_octets > 255:
+            trailing = 0
+            while buf[-1 - trailing] == "\\":
+                trailing += 1
+                if trailing == len(buf):
+                    break
+            if trailing % 2 == 1:
+                opener = buf.pop()
+                chunks.append("".join(buf))
+                buf = [opener]
+                size = 1
+            else:
+                chunks.append("".join(buf))
+                buf = []
+                size = 0
+        buf.append(char)
+        size += char_octets
+    chunks.append("".join(buf))
+    return " ".join(f'"{chunk}"' for chunk in chunks)
+
+
 def record_line(record: DNSRecordPayload) -> str:
     """Render one resource-record line; MX and SRV carry priority fields."""
     base = f"{record.name} {record.ttl} IN {record.record_type}"
@@ -24,6 +62,8 @@ def record_line(record: DNSRecordPayload) -> str:
         return f"{base} {record.priority} {record.content}"
     if rtype == "SRV":
         return f"{base} {record.priority} {record.weight} {record.port} {record.content}"
+    if rtype == "TXT":
+        return f"{base} {_txt_rdata(record.content)}"
     return f"{base} {record.content}"
 
 
