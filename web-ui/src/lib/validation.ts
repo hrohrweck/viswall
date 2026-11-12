@@ -103,6 +103,24 @@ export const domainName = z
     'Enter a valid domain name (e.g. example.internal)',
   )
 
+/** DNS record owner name — '@' (zone apex) or dot-separated labels (letters, digits,
+ *  hyphen, underscore; no leading/trailing hyphen per label), optional trailing dot
+ *  for absolute names. Accepts DKIM/DMARC/SRV style names (mail._domainkey, _dmarc, _sip._tcp). */
+const DNS_LABEL_REGEX = /^[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?$/
+
+const isDnsRecordName = (value: string): boolean => {
+  if (value === '@') return true
+  const stripped = value.endsWith('.') ? value.slice(0, -1) : value
+  if (stripped.length === 0 || value.length > 254) return false
+  return stripped.split('.').every((label) => DNS_LABEL_REGEX.test(label))
+}
+
+/** DNS record owner name — '@' (zone apex) or dot-separated labels (letters, digits, hyphen,
+ *  underscore; no leading/trailing hyphen per label), optional trailing dot for absolute names. */
+export const dnsRecordName = z
+  .string()
+  .refine(isDnsRecordName, 'Enter a valid record name (e.g. www, mail._domainkey, or @)')
+
 /** Email address. */
 export const email = z.string().email('Enter a valid email address')
 

@@ -451,6 +451,7 @@ export function DNSServers() {
         <DNSRecordForm
           recordTypeOptions={recordTypeOptions}
           loading={createRecordMutation.isPending}
+          zoneName={selectedZone?.name}
           onSubmit={async (payload) => {
             await createRecordMutation.mutateAsync(payload)
             toast.success('Record created')

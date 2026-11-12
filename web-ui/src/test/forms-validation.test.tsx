@@ -7,9 +7,11 @@ import { UserCreateForm } from '../components/forms/UserCreateForm'
 import { RoutingRuleForm } from '../components/forms/RoutingRuleForm'
 import { DHCPServerForm } from '../components/forms/DHCPServerForm'
 import { DHCPReservationForm } from '../components/forms/DHCPReservationForm'
+import { DNSRecordForm } from '../components/forms/DNSRecordForm'
 import { DNSZoneForm } from '../components/forms/DNSZoneForm'
 import { MailboxForm } from '../components/forms/MailboxForm'
-import { AuthBackend, DHCPSubnetType, DNSZoneType, UserRole } from '../types'
+import { dnsRecordName } from '../lib/validation'
+import { AuthBackend, DHCPSubnetType, DNSRecordType, DNSZoneType, UserRole } from '../types'
 
 // Radix Switch (RoutingRuleForm) touches ResizeObserver via its internal size hooks.
 beforeAll(() => {
@@ -226,5 +228,122 @@ describe('Forms — react-hook-form + zod validation', () => {
       hostname: 'edge-berlin-02',
       capabilities: [],
     })
+  })
+})
+
+describe('dnsRecordName primitive', () => {
+  const accepts = ['@', 'www', 'mail._domainkey', '_dmarc', '_sip._tcp', 'sub.domain', 'a-b.c-d', 'x_._y', 'mail._domainkey.example.com.', 'www.']
+  const rejects = ['', 'a..b', '.lead', '-ab', 'ab-', 'ab c', 'a'.repeat(64), 'a'.repeat(250) + '.com', 'a.'.repeat(127) + 'a', 'under score']
+
+  it('accepts apex, relative, underscore, SRV, and absolute trailing-dot names', () => {
+    for (const value of accepts) expect(dnsRecordName.safeParse(value).success).toBe(true)
+  })
+
+  it('rejects empty labels, dots, hyphen edges, spaces, over-long labels and names', () => {
+    for (const value of rejects) expect(dnsRecordName.safeParse(value).success).toBe(false)
+  })
+
+  it('reports the DNS-specific message', () => {
+    expect(dnsRecordName.safeParse('a..b').error?.issues[0]?.message).toBe('Enter a valid record name (e.g. www, mail._domainkey, or @)')
+  })
+})
+
+describe('DNSRecordForm — record name validation', () => {
+  const DKIM_CONTENT = 'v=DKIM1; k=rsa; p=abc'
+  const ZONE = 'example.test'
+  const guardMessage = `Enter the record relative to the zone (e.g. mail._domainkey), use @ for the zone apex, or add a trailing dot for the absolute name — remove ".${ZONE}"`
+
+  function renderRecordForm(spy: (payload: unknown) => Promise<void>, zoneName?: string) {
+    render(
+      <DNSRecordForm
+        recordTypeOptions={[DNSRecordType.A, DNSRecordType.TXT]}
+        loading={false}
+        onSubmit={spy}
+        zoneName={zoneName}
+      />,
+    )
+  }
+
+  async function fillNameAndContent(user: ReturnType<typeof userEvent.setup>, name: string, content: string) {
+    const nameInput = screen.getByRole('textbox', { name: 'Name' })
+    await user.clear(nameInput)
+    await user.type(nameInput, name)
+    const contentInput = screen.getByRole('textbox', { name: 'Content' })
+    await user.clear(contentInput)
+    await user.type(contentInput, content)
+    await user.click(screen.getByRole('button', { name: 'Create Record' }))
+  }
+
+  it('submits a DKIM name (mail._domainkey) without a zone', async () => {
+    const user = userEvent.setup()
+    const spy = vi.fn().mockResolvedValue(undefined)
+    renderRecordForm(spy)
+
+    await fillNameAndContent(user, 'mail._domainkey', DKIM_CONTENT)
+
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1))
+    expect(spy.mock.calls[0][0]).toStrictEqual({
+      name: 'mail._domainkey',
+      record_type: DNSRecordType.A,
+      content: DKIM_CONTENT,
+      ttl: 3600,
+    })
+  })
+
+  it('still submits a DKIM name with a zone selected', async () => {
+    const user = userEvent.setup()
+    const spy = vi.fn().mockResolvedValue(undefined)
+    renderRecordForm(spy, ZONE)
+
+    await fillNameAndContent(user, 'mail._domainkey', DKIM_CONTENT)
+
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1))
+    expect(spy.mock.calls[0][0]).toMatchObject({ name: 'mail._domainkey' })
+  })
+
+  it('blocks the full FQDN entered relative-style with the targeted guard message', async () => {
+    const user = userEvent.setup()
+    const spy = vi.fn().mockResolvedValue(undefined)
+    renderRecordForm(spy, ZONE)
+
+    await fillNameAndContent(user, 'mail._domainkey.example.test', DKIM_CONTENT)
+
+    expect(await screen.findByText(guardMessage)).toBeInTheDocument()
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('blocks the bare zone name with the same guard message', async () => {
+    const user = userEvent.setup()
+    const spy = vi.fn().mockResolvedValue(undefined)
+    renderRecordForm(spy, ZONE)
+
+    await fillNameAndContent(user, ZONE, DKIM_CONTENT)
+
+    expect(await screen.findByText(guardMessage)).toBeInTheDocument()
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('accepts the absolute trailing-dot form even with a zone selected', async () => {
+    const user = userEvent.setup()
+    const spy = vi.fn().mockResolvedValue(undefined)
+    renderRecordForm(spy, ZONE)
+
+    await fillNameAndContent(user, 'mail._domainkey.example.test.', DKIM_CONTENT)
+
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1))
+    expect(spy.mock.calls[0][0]).toMatchObject({ name: 'mail._domainkey.example.test.' })
+  })
+
+  it('rejects a hyphen-leading name with the primitive message', async () => {
+    const user = userEvent.setup()
+    const spy = vi.fn().mockResolvedValue(undefined)
+    renderRecordForm(spy)
+
+    await fillNameAndContent(user, '-bad', '192.168.1.10')
+
+    expect(
+      await screen.findByText('Enter a valid record name (e.g. www, mail._domainkey, or @)'),
+    ).toBeInTheDocument()
+    expect(spy).not.toHaveBeenCalled()
   })
 })

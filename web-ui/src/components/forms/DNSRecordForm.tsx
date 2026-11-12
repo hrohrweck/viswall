@@ -1,8 +1,9 @@
+import { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Field, Input, Select, Button } from '../ui'
-import { hostname, intString } from '../../lib/validation'
+import { dnsRecordName, intString } from '../../lib/validation'
 import { DNSRecordType } from '../../types'
 import type { DNSRecordCreate } from '../../types'
 
@@ -10,18 +11,34 @@ interface DNSRecordFormProps {
   recordTypeOptions: DNSRecordType[]
   loading: boolean
   onSubmit: (payload: DNSRecordCreate) => Promise<void>
+  /** Zone the record is created in — enables the full-FQDN-relative guard. */
+  zoneName?: string
 }
 
-const schema = z.object({
-  name: z.union([z.literal('@'), hostname]),
-  record_type: z.nativeEnum(DNSRecordType),
-  content: z.string().trim().min(1, 'Content is required'),
-  ttl: intString('TTL must be a whole number'),
-})
+const makeSchema = (zoneName?: string) =>
+  z
+    .object({
+      name: dnsRecordName,
+      record_type: z.nativeEnum(DNSRecordType),
+      content: z.string().trim().min(1, 'Content is required'),
+      ttl: intString('TTL must be a whole number'),
+    })
+    .superRefine((values, ctx) => {
+      if (!zoneName || values.name === '@' || values.name.endsWith('.')) return
+      const zone = zoneName.toLowerCase()
+      if (values.name.toLowerCase() === zone || values.name.toLowerCase().endsWith('.' + zone)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['name'],
+          message: `Enter the record relative to the zone (e.g. mail._domainkey), use @ for the zone apex, or add a trailing dot for the absolute name — remove ".${zoneName}"`,
+        })
+      }
+    })
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<ReturnType<typeof makeSchema>>
 
-export function DNSRecordForm({ recordTypeOptions, loading, onSubmit }: DNSRecordFormProps) {
+export function DNSRecordForm({ recordTypeOptions, loading, onSubmit, zoneName }: DNSRecordFormProps) {
+  const schema = useMemo(() => makeSchema(zoneName), [zoneName])
   const {
     register,
     handleSubmit,
