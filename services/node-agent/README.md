@@ -3,7 +3,8 @@
 Runs on the appliance host in a container that **shares the host network
 namespace** and holds `NET_ADMIN`, so it can discover and reconfigure the
 host's real interfaces. Used by the viswall console for host interface
-management (Metrics are collected separately by the api-gateway).
+management and by the api-gateway metrics collector, which pulls
+per-interface traffic counters from this agent every cycle.
 
 ## Endpoints
 
@@ -11,6 +12,7 @@ management (Metrics are collected separately by the api-gateway).
 | ------ | ------------------- | ----------------- | ---------------------------------------------- |
 | GET    | `/health`           | none              | liveness probe                                 |
 | GET    | `/interfaces`       | `X-Instance-Key`  | live interface + default-route state           |
+| GET    | `/stats`            | `X-Instance-Key`  | cumulative per-interface rx/tx byte counters   |
 | POST   | `/interfaces/apply` | `X-Instance-Key`  | apply desired interface config (live + netplan) |
 
 ## Apply semantics
