@@ -3,11 +3,15 @@
 Runs periodically to collect system metrics from registered instances
 and store them as MetricSnapshot rows in the database.
 
-System and network metrics are read from the local host via psutil. The
-api-gateway shares the host kernel, so CPU and memory reflect the whole
-appliance; with the host /proc bind-mounted read-only at /host/proc
-(see docker-compose.yml) the appliance's real network interfaces are
-reported instead of the container's virtual eth0.
+System metrics are read from the local host via psutil — the api-gateway
+shares the host kernel, so CPU and memory reflect the whole appliance.
+Interface byte counters are per-instance: when Instance.config
+["agent_endpoints"]["node"] is set they come from that instance's
+node-agent (GET /stats, X-Instance-Key auth) and an agent miss stores
+NULL rather than gateway-local data (series purity); otherwise the
+gateway-local host read is used — with the host /proc bind-mounted
+read-only at /host/proc (see docker-compose.yml) the appliance's real
+network interfaces are reported instead of the container's virtual eth0.
 
 Mail metrics come from the instance's mail agent (/stats endpoint), which
 reports cumulative counters derived from the Exim mainlog. Per-interval
@@ -103,6 +107,56 @@ def _interface_stats() -> list:
         return []
 
 
+def _node_stats_endpoint(instance: Instance) -> str | None:
+    """Node-agent base URL from Instance.config, or None when unset.
+
+    Deliberately not get_instance_endpoint(): that helper silently falls
+    back to instance.api_endpoint when the service key is missing, which
+    points at the gateway API — not the node-agent — so a /stats fetch
+    there would hit the wrong service.
+    """
+    endpoints = (instance.config or {}).get("agent_endpoints") or {}
+    node = endpoints.get("node")
+    return node.rstrip("/") if node else None
+
+
+async def _interface_stats_for_instance(instance: Instance) -> list | None:
+    """Per-instance interface byte counters for the snapshot row.
+
+    With Instance.config["agent_endpoints"]["node"] configured, counters
+    come from that instance's node-agent (GET /stats, X-Instance-Key auth):
+    each instance's series reports its own host interfaces. On agent miss
+    the snapshot field is None rather than gateway-local data, so an
+    instance's series never mixes in the gateway's own interfaces (series
+    purity). Without the node endpoint the legacy gateway-local host read
+    is used.
+    """
+    endpoint = _node_stats_endpoint(instance)
+    if endpoint is None:
+        return _interface_stats()
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                f"{endpoint}/stats",
+                headers={"X-Instance-Key": instance.api_key or ""},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return [
+                {
+                    "name": i["name"],
+                    "rx_bytes": i["rx_bytes"],
+                    "tx_bytes": i["tx_bytes"],
+                }
+                for i in data["interfaces"]
+                if _is_reported_interface(i["name"])
+            ]
+    except Exception as e:
+        logger.warning("node /stats fetch failed for instance %s: %s", instance.id, e)
+        return None
+
+
 def _system_stats() -> dict:
     """CPU, memory and disk usage of the appliance (host) as seen via /proc."""
     mem = psutil.virtual_memory()
@@ -165,14 +219,18 @@ async def _mail_stats(db: AsyncSession, instance: Instance) -> dict | None:
 async def collect_instance_metrics(db: AsyncSession, instance: Instance) -> dict:
     """Collect metrics for a single instance.
 
-    Returns the metric fields for one MetricSnapshot row. Mail fields are
-    included when the instance's mail agent reports cumulative counters:
-    inbound/outbound/spam/virus are per-interval deltas against the previous
-    cumulative (persisted in Redis); without a previous observation only the
-    queue size is stored and the delta fields stay NULL.
+    Returns the metric fields for one MetricSnapshot row. interface_stats
+    comes from the instance's node-agent /stats when
+    Instance.config["agent_endpoints"]["node"] is configured (NULL on agent
+    miss — series purity), from the gateway-local host read otherwise. Mail
+    fields are included when the instance's mail agent reports cumulative
+    counters: inbound/outbound/spam/virus are per-interval deltas against
+    the previous cumulative (persisted in Redis); without a previous
+    observation only the queue size is stored and the delta fields stay
+    NULL.
     """
     metrics = _system_stats()
-    metrics["interface_stats"] = _interface_stats()
+    metrics["interface_stats"] = await _interface_stats_for_instance(instance)
     mail_raw = await _mail_stats(db, instance)
     mail_fields = {}
     if mail_raw:

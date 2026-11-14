@@ -381,6 +381,139 @@ async def test_mail_stats_returns_none_when_agent_log_unreadable(
         assert await _mail_stats(db, inactive_instance) is None
 
 
+@pytest_asyncio.fixture
+async def node_instance():
+    """Instance WITH a node agent configured (config.agent_endpoints.node)."""
+    async with TestSessionLocal() as session:
+        instance = Instance(
+            name="collector-node-agent",
+            hostname="nodeagent.example.local",
+            api_endpoint="https://nodeagent.example.local/api/v1",
+            api_key=TEST_INSTANCE_KEY,
+            status="inactive",
+            config={"agent_endpoints": {"node": "http://127.0.0.1:8085"}},
+        )
+        session.add(instance)
+        await session.commit()
+        await session.refresh(instance)
+        yield instance
+
+
+class _FakeNodeStatsClient:
+    """Captures each node /stats request so URL and auth header are
+    assertable without a real network call."""
+
+    def __init__(self, payload):
+        self._payload = payload
+        self.requests = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+    async def get(self, url, headers=None):
+        self.requests.append({"url": url, "headers": headers or {}})
+        return _FakeStatsResponse(self._payload)
+
+
+async def test_node_stats_configured_stores_per_instance_counters(
+    monkeypatch, node_instance
+):
+    """agent_endpoints.node configured → interface counters come from that
+    instance's node-agent /stats (X-Instance-Key auth), with loopback and
+    container interfaces filtered out, and land in the stored snapshot."""
+    import httpx
+    import metrics_collector
+
+    fake_client = _FakeNodeStatsClient(
+        {
+            "interfaces": [
+                {"name": "lo", "rx_bytes": 11, "tx_bytes": 22},
+                {"name": "veth0", "rx_bytes": 33, "tx_bytes": 44},
+                {"name": "enp0s31f6", "rx_bytes": 123, "tx_bytes": 456},
+            ]
+        }
+    )
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: fake_client)
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+
+    async with TestSessionLocal() as db:
+        inserted = await metrics_collector.run_metrics_collection_cycle(db)
+
+    assert inserted == 1
+    assert fake_client.requests == [
+        {
+            "url": "http://127.0.0.1:8085/stats",
+            "headers": {"X-Instance-Key": TEST_INSTANCE_KEY},
+        }
+    ]
+    async with TestSessionLocal() as db:
+        result = await db.execute(
+            select(MetricSnapshot).where(
+                MetricSnapshot.instance_id == node_instance.id
+            )
+        )
+        snapshot = result.scalars().one()
+    assert snapshot.interface_stats == [
+        {"name": "enp0s31f6", "rx_bytes": 123, "tx_bytes": 456}
+    ]
+
+
+async def test_node_stats_agent_unreachable_stores_null_and_keeps_system_mail(
+    monkeypatch, node_instance, caplog
+):
+    """Node agent down → interface_stats stays None (never gateway-local
+    data, so the instance's series stays pure), system fields are unaffected
+    and the miss is logged as a warning."""
+    import logging
+
+    import httpx
+    import metrics_collector
+
+    class _UnreachableClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def get(self, url, headers=None):
+            raise httpx.ConnectError("connection refused")
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: _UnreachableClient())
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+
+    with caplog.at_level(logging.WARNING, logger="metrics_collector"):
+        async with TestSessionLocal() as db:
+            result = await metrics_collector.collect_instance_metrics(db, node_instance)
+
+    assert result["interface_stats"] is None
+    assert result["cpu_percent"] is not None
+    assert result["memory_used_bytes"] <= result["memory_total_bytes"]
+    # Mail fields follow the existing unavailable-agent semantics: absent
+    # rather than invented.
+    assert "mail_queue_size" not in result
+    assert "node /stats fetch failed" in caplog.text
+
+
+async def test_node_stats_unconfigured_falls_back_to_gateway_local(
+    monkeypatch, inactive_instance
+):
+    """No agent_endpoints.node → the legacy gateway-local interface read
+    stays the source (the fixture instance has no config at all)."""
+    import metrics_collector
+
+    sentinel = [{"name": "gwlocal0", "rx_bytes": 7, "tx_bytes": 9}]
+    monkeypatch.setattr(metrics_collector, "_interface_stats", lambda: sentinel)
+
+    async with TestSessionLocal() as db:
+        result = await metrics_collector.collect_instance_metrics(db, inactive_instance)
+
+    assert result["interface_stats"] is sentinel
+
+
 async def test_mail_cumulative_round_trips_through_redis(monkeypatch):
     """The cumulative counters JSON round-trip through the Redis state key."""
     import metrics_collector
