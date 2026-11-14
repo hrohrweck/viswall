@@ -117,7 +117,7 @@ python -m alembic downgrade -1
 
 A background task (`metrics_collector.py`) runs on startup and periodically inserts `MetricSnapshot` rows for all instances (they stay "inactive" until an agent heartbeat arrives).
 
-System and network metrics are **real host telemetry** read via psutil; with the host `/proc` bind-mounted read-only at `/host/proc` (see docker-compose.yml) the appliance's real interfaces are reported (loopback and container bridges filtered).
+System metrics (CPU, memory, disk) are **real host telemetry** read via psutil, with the host `/proc` bind-mounted read-only at `/host/proc` (see docker-compose.yml). Network interface counters are collected per instance: whenever `Instance.config["agent_endpoints"]["node"]` is configured, the collector fetches that instance's node-agent `GET /stats` (`X-Instance-Key` protected) each cycle for its per-interface rx/tx counters; an unreachable agent stores NULL `interface_stats` for that interval (series purity, like the mail fields), while instances without a configured node endpoint keep the gateway-local `/host/proc` fallback (loopback and container bridges filtered).
 
 Mail metrics come from each instance's mail agent: the agent tails the Exim mainlog into cumulative counters (received, delivered, rejected_spam, rejected_virus — rotation-safe via an inode+offset state file at `/var/lib/viswall/mail-stats.json`, exposed on the agent's `GET /stats`), and the gateway collector fetches them each interval, computes per-interval deltas against the previous cumulative persisted in Redis (`viswall:metrics:mail_cum:<instance_id>`), and stores them in the `metric_snapshots` mail_* columns. The spam/virus series are wired end-to-end but read 0 with the stock exim config (its ACL only warns on spam) until a spam-deny ACL exists.
 
@@ -137,6 +137,7 @@ export METRICS_RETENTION_DAYS=30        # prune snapshots older than N days; 0 d
 `services/node-agent/` runs on the appliance host (`network_mode: host`, `pid: host`, `privileged: true` for CAP_SYS_ADMIN) and serves:
 
 - `GET /interfaces` — live host interface + default-route state (iproute2 JSON)
+- `GET /stats`: per-interface cumulative rx/tx byte counters from the host netns, `X-Instance-Key` protected; feeds the gateway metrics collector
 - `POST /interfaces/apply` — planned, idempotent netlink changes; refuses touching the default-route interface unless `force: true`; persists desired state to `/etc/netplan/60-viswall.yaml`
 
 The gateway dispatches via `Instance.config["agent_endpoints"]["node"]` (service key `node`). Configure the agent with `NODE_INSTANCE_ID` / `NODE_API_KEY` in `.env`; reveal the instance API key on the Instance detail page (admin only). Without `pid: host`, CAP_SYS_ADMIN and matching credentials the API returns 503 and try-mode breaks (PR #79). The console UI lives at `/interfaces` (Sidebar → Network → Interfaces); desired state is stored in `network_interfaces` and applied only on explicit "Apply to Host".
