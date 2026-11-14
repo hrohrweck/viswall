@@ -35,6 +35,20 @@ class LiveInterface(BaseModel):
     has_default_route: bool = False
 
 
+class InterfaceCounters(BaseModel):
+    """Cumulative byte counters for one host interface (/proc/net/dev)."""
+
+    name: str
+    rx_bytes: int
+    tx_bytes: int
+
+
+class StatsResponse(BaseModel):
+    """Response of GET /stats: every host interface, unfiltered."""
+
+    interfaces: list[InterfaceCounters]
+
+
 class RouteConfig(BaseModel):
     """One extra static route: {to, via, on_link}.
 

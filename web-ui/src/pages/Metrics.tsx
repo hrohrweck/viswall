@@ -81,6 +81,12 @@ const CARD_COLORS: Record<string, { bg: string; icon: string }> = {
   green: { bg: 'bg-success-subtle', icon: 'text-success' },
 }
 
+const WINDOW_LABELS: Record<'1h' | '24h' | '7d', string> = {
+  '1h': 'Last 1 hour',
+  '24h': 'Last 24 hours',
+  '7d': 'Last 7 days',
+}
+
 /* ------------------------------------------------------------------ */
 /*  Network interface histograms                                       */
 /* ------------------------------------------------------------------ */
@@ -229,6 +235,23 @@ export function Metrics() {
     [ascending, withDays],
   )
 
+  // Snapshot mail columns are per-interval deltas, so the sum over the
+  // ascending rows is the exact total for the selected window — the same
+  // rows the Mail Activity chart plots. Missing deltas count as 0.
+  const mailWindowTotals = useMemo(
+    () =>
+      ascending.reduce(
+        (acc, s) => ({
+          received: acc.received + (s.mail_inbound_count ?? 0),
+          delivered: acc.delivered + (s.mail_outbound_count ?? 0),
+          spam: acc.spam + (s.mail_spam_count ?? 0),
+          virus: acc.virus + (s.mail_virus_count ?? 0),
+        }),
+        { received: 0, delivered: 0, spam: 0, virus: 0 },
+      ),
+    [ascending],
+  )
+
   const interfaceSeries = useMemo(
     () => buildInterfaceSeries(ascending, latest),
     [ascending, latest],
@@ -257,6 +280,9 @@ export function Metrics() {
   // Only deployed functions get metric sections on a host — mail
   // telemetry does not exist for hosts without mail domains.
   const mailDeployed = (counts?.mail_domain_count ?? 0) > 0
+
+  const mailTotalsPending =
+    !historical || historical.length === 0 || historicalLoading || historicalError
 
   const statCards = [
     {
@@ -294,32 +320,32 @@ export function Metrics() {
             detail: 'Messages',
           },
           {
-            label: 'Received (total)',
-            value: counts?.mail?.total_received?.toString() ?? '-',
+            label: 'Received',
+            value: mailTotalsPending ? '-' : String(mailWindowTotals.received),
             icon: Inbox,
             color: 'blue',
-            detail: 'Cumulative',
+            detail: WINDOW_LABELS[timeRange],
           },
           {
-            label: 'Delivered (total)',
-            value: counts?.mail?.total_delivered?.toString() ?? '-',
+            label: 'Delivered',
+            value: mailTotalsPending ? '-' : String(mailWindowTotals.delivered),
             icon: MailCheck,
             color: 'green',
-            detail: 'Cumulative',
+            detail: WINDOW_LABELS[timeRange],
           },
           {
-            label: 'Spam (total)',
-            value: counts?.mail?.total_spam?.toString() ?? '-',
+            label: 'Spam',
+            value: mailTotalsPending ? '-' : String(mailWindowTotals.spam),
             icon: ShieldAlert,
             color: 'orange',
-            detail: 'Cumulative',
+            detail: WINDOW_LABELS[timeRange],
           },
           {
-            label: 'Virus (total)',
-            value: counts?.mail?.total_virus?.toString() ?? '-',
+            label: 'Virus',
+            value: mailTotalsPending ? '-' : String(mailWindowTotals.virus),
             icon: Bug,
             color: 'purple',
-            detail: 'Cumulative',
+            detail: WINDOW_LABELS[timeRange],
           },
         ]
       : []),

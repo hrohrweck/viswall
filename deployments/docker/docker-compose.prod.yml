@@ -22,3 +22,5 @@ services:
     image: ghcr.io/hrohrweck/viswall/firewall-service:${VISWALL_TAG:-main}
   vpn-service:
     image: ghcr.io/hrohrweck/viswall/vpn-service:${VISWALL_TAG:-main}
+  node-agent:
+    image: ghcr.io/hrohrweck/viswall/node-agent:${VISWALL_TAG:-main}

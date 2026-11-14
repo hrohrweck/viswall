@@ -23,7 +23,8 @@ from viswall_node_agent.netcfg import (
     apply_interfaces,
     discover,
 )
-from viswall_node_agent.payloads import ApplyRequest, ApplyResult
+from viswall_node_agent.payloads import ApplyRequest, ApplyResult, StatsResponse
+from viswall_node_agent.stats import read_interface_counters
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,14 @@ async def list_interfaces(_: None = Depends(require_instance_key)) -> Dict[str, 
         "default_route_interface": default_iface,
         "default_gateway": default_gw,
     }
+
+
+@app.get("/stats", response_model=StatsResponse)
+async def stats(_: None = Depends(require_instance_key)) -> StatsResponse:
+    try:
+        return StatsResponse(interfaces=read_interface_counters())
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/interfaces/apply", response_model=ApplyResult)
