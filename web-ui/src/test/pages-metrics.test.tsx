@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { http, HttpResponse } from 'msw'
 import { server } from './msw/node'
-import { dashboardData, metricsHistory } from './msw/fixtures'
+import { dashboardData, latestMetric, metricsHistory } from './msw/fixtures'
 import { useInstanceStore } from '../stores/instance'
 import { Metrics } from '../pages/Metrics'
 import { chartTheme } from '../lib/chartColors'
@@ -193,52 +193,130 @@ describe('Metrics', () => {
     expect(screen.getByText('System Resources')).toBeInTheDocument()
   })
 
-  it('shows - placeholders for cumulative mail totals when the dashboard omits them', async () => {
-    // Default dashboard fixture carries no mail totals — the cards still
-    // render (stable grid) with '-' values.
-    const Wrapper = createWrapper()
-    render(<Metrics />, { wrapper: Wrapper })
+  it('renders windowed mail totals summed over the historical snapshots', async () => {
+    // POST /metrics/query returns raw per-interval snapshots (newest-first).
+    // Build a base without mail deltas so rows start NULL; the middle row
+    // keeps them absent, so the cards must show the sum over the window:
+    // 10+0+5 etc.
+    const base = { ...latestMetric }
+    delete base.mail_inbound_count
+    delete base.mail_outbound_count
+    delete base.mail_spam_count
+    delete base.mail_virus_count
 
-    for (const label of [
-      'Received (total)',
-      'Delivered (total)',
-      'Spam (total)',
-      'Virus (total)',
-    ]) {
-      const card = await screen.findByText(label)
-      expect(card.nextElementSibling?.textContent).toBe('-')
-    }
-  })
-
-  it('renders cumulative mail totals from the dashboard mail object', async () => {
     server.use(
-      http.get('/api/v1/metrics/dashboard/1', () =>
-        HttpResponse.json({
-          ...dashboardData,
-          mail: {
-            ...dashboardData.mail,
-            total_received: 1234,
-            total_delivered: 1100,
-            total_spam: 42,
-            total_virus: 3,
-            totals_available: true,
+      http.post('/api/v1/metrics/query', () =>
+        HttpResponse.json([
+          {
+            ...base,
+            id: 201,
+            timestamp: '2026-01-05T11:59:00',
+            mail_inbound_count: 10,
+            mail_outbound_count: 8,
+            mail_spam_count: 2,
+            mail_virus_count: 1,
           },
-        }),
+          { ...base, id: 202, timestamp: '2026-01-05T11:58:00' },
+          {
+            ...base,
+            id: 203,
+            timestamp: '2026-01-05T11:57:00',
+            mail_inbound_count: 5,
+            mail_outbound_count: 4,
+            mail_spam_count: 1,
+            mail_virus_count: 0,
+          },
+        ]),
       ),
     )
 
     const Wrapper = createWrapper()
     render(<Metrics />, { wrapper: Wrapper })
 
+    // Settle gate: the interface histograms section only renders once the
+    // historical query has resolved, so the card values below are final.
+    await screen.findAllByText(/No traffic recorded in this range yet/i)
+
     const totals: Record<string, string> = {
-      'Received (total)': '1234',
-      'Delivered (total)': '1100',
-      'Spam (total)': '42',
-      'Virus (total)': '3',
+      Received: '15',
+      Delivered: '12',
+      Spam: '3',
+      Virus: '1',
     }
     for (const [label, value] of Object.entries(totals)) {
-      const card = await screen.findByText(label)
+      const card = screen.getByText(label)
       expect(card.nextElementSibling?.textContent).toBe(value)
+      // Default range is 24h
+      expect(card.nextElementSibling?.nextElementSibling?.textContent).toBe(
+        'Last 24 hours',
+      )
+    }
+  })
+
+  it('switching the timeframe updates the window label and value source', async () => {
+    server.use(
+      http.post('/api/v1/metrics/query', () =>
+        HttpResponse.json([latestMetric]),
+      ),
+    )
+
+    const Wrapper = createWrapper()
+    render(<Metrics />, { wrapper: Wrapper })
+
+    const received = await screen.findByText('Received')
+    expect(received.nextElementSibling?.textContent).toBe('128')
+    expect(received.nextElementSibling?.nextElementSibling?.textContent).toBe(
+      'Last 24 hours',
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: '1h' }))
+
+    // The label flips immediately while the refetch runs; the value settles
+    // back to the (single-snapshot) sum once the new query resolves.
+    await waitFor(() => {
+      const received = screen.getByText('Received')
+      expect(received.nextElementSibling?.textContent).toBe('128')
+      expect(
+        received.nextElementSibling?.nextElementSibling?.textContent,
+      ).toBe('Last 1 hour')
+    })
+  })
+
+  it('shows - for windowed mail totals on query error while the rest of the page renders', async () => {
+    server.use(
+      http.post('/api/v1/metrics/query', () =>
+        HttpResponse.json({ detail: 'Internal error' }, { status: 500 }),
+      ),
+    )
+
+    const Wrapper = createWrapper()
+    render(<Metrics />, { wrapper: Wrapper })
+
+    // Charts show the QueryError state, the stat cards still render
+    await screen.findAllByText('Something went wrong')
+
+    for (const label of ['Received', 'Delivered', 'Spam', 'Virus']) {
+      const card = screen.getByText(label)
+      expect(card.nextElementSibling?.textContent).toBe('-')
+    }
+    expect(screen.getByText('Mail Queue')).toBeInTheDocument()
+    expect(screen.getByText('CPU Usage')).toBeInTheDocument()
+    expect(screen.getByText('System Resources')).toBeInTheDocument()
+  })
+
+  it('shows - for windowed mail totals when the query returns no rows', async () => {
+    server.use(
+      http.post('/api/v1/metrics/query', () => HttpResponse.json([])),
+    )
+
+    const Wrapper = createWrapper()
+    render(<Metrics />, { wrapper: Wrapper })
+
+    await screen.findAllByText('No metrics in range')
+
+    for (const label of ['Received', 'Delivered', 'Spam', 'Virus']) {
+      const card = screen.getByText(label)
+      expect(card.nextElementSibling?.textContent).toBe('-')
     }
   })
 })
