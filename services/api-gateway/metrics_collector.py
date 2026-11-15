@@ -11,7 +11,8 @@ node-agent (GET /stats, X-Instance-Key auth) and an agent miss stores
 NULL rather than gateway-local data (series purity); otherwise the
 gateway-local host read is used — with the host /proc bind-mounted
 read-only at /host/proc (see docker-compose.yml) the appliance's real
-network interfaces are reported instead of the container's virtual eth0.
+network interfaces are reported; without the mount nothing is reported
+(never the gateway container's own interfaces).
 
 Mail metrics come from the instance's mail agent (/stats endpoint), which
 reports cumulative counters derived from the Exim mainlog. Per-interval
@@ -86,21 +87,23 @@ def _parse_proc_net_dev(path: Path) -> list:
 
 
 def _interface_stats() -> list:
-    """Byte counters per interface, preferring the host network namespace.
+    """Byte counters per interface from the host network namespace.
 
-    Inside a container psutil only sees the container's virtual
-    interfaces, so the host /proc bind mount is read when present.
+    psutil inside a container only sees the gateway's own virtual
+    interfaces, so without the host /proc bind mount nothing is
+    reported — an empty sample, never container-scoped data.
     """
     try:
         proc_net_dev = HOST_PROC / "net" / "dev"
         if proc_net_dev.exists():
             stats = _parse_proc_net_dev(proc_net_dev)
         else:
-            counters = psutil.net_io_counters(pernic=True)
-            stats = [
-                {"name": name, "rx_bytes": nic.bytes_recv, "tx_bytes": nic.bytes_sent}
-                for name, nic in counters.items()
-            ]
+            logger.warning(
+                "host /proc bind mount unavailable at %s; skipping "
+                "container-scoped interface collection",
+                HOST_PROC,
+            )
+            stats = []
         return [s for s in stats if _is_reported_interface(s["name"])]
     except Exception as e:
         logger.warning("Failed to read interface stats: %s", e)

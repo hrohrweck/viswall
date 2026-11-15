@@ -1,6 +1,7 @@
 """Tests for the background metrics collector."""
 
 import json
+import logging
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -148,28 +149,24 @@ async def test_parse_proc_net_dev_keeps_raw_rows(tmp_path):
     ]
 
 
-async def test_interface_stats_exclude_loopback_and_virtual(monkeypatch):
+async def test_interface_stats_exclude_loopback_and_virtual(monkeypatch, tmp_path):
     """Loopback and container bridges are dashboard noise; VPN tunnels stay."""
     from metrics_collector import _interface_stats
 
-    class _Nic:
-        def __init__(self, rx, tx):
-            self.bytes_recv = rx
-            self.bytes_sent = tx
-
-    monkeypatch.setattr(
-        "metrics_collector.HOST_PROC", Path("/nonexistent-host-proc")
+    (tmp_path / "net").mkdir()
+    proc_net_dev = tmp_path / "net" / "dev"
+    proc_net_dev.write_text(
+        "Inter-|   Receive                                                "
+        "|  Transmit\n"
+        " face |bytes    packets errs drop fifo frame compressed "
+        "multicast|bytes    packets errs drop fifo colls carrier\n"
+        "    lo: 1 0 0 0 0 0 0 0 1 0 0 0 0 0\n"
+        "  eth0: 100 0 0 0 0 0 0 0 200 0 0 0 0 0\n"
+        "docker0: 5 0 0 0 0 0 0 0 5 0 0 0 0 0\n"
+        "br-f00d: 6 0 0 0 0 0 0 0 6 0 0 0 0 0\n"
+        "   wg0: 7 0 0 0 0 0 0 0 7 0 0 0 0 0\n"
     )
-    monkeypatch.setattr(
-        "psutil.net_io_counters",
-        lambda pernic=False: {
-            "lo": _Nic(1, 1),
-            "eth0": _Nic(100, 200),
-            "docker0": _Nic(5, 5),
-            "br-f00d": _Nic(6, 6),
-            "wg0": _Nic(7, 7),
-        },
-    )
+    monkeypatch.setattr("metrics_collector.HOST_PROC", tmp_path)
 
     names = [s["name"] for s in _interface_stats()]
 
@@ -178,6 +175,30 @@ async def test_interface_stats_exclude_loopback_and_virtual(monkeypatch):
     assert "br-f00d" not in names
     assert "eth0" in names
     assert "wg0" in names
+
+
+async def test_interface_stats_returns_empty_without_host_proc_mount(
+    monkeypatch, caplog
+):
+    """Without the host /proc bind mount psutil would report the gateway
+    container's own interfaces — it must never be consulted."""
+    from metrics_collector import _interface_stats
+
+    def _forbidden(*args, **kwargs):
+        raise AssertionError(
+            "psutil.net_io_counters must not be called without /host/proc"
+        )
+
+    monkeypatch.setattr(
+        "metrics_collector.HOST_PROC", Path("/nonexistent-host-proc-mount")
+    )
+    monkeypatch.setattr("psutil.net_io_counters", _forbidden)
+
+    with caplog.at_level(logging.WARNING):
+        stats = _interface_stats()
+
+    assert stats == []
+    assert "skipping container-scoped interface collection" in caplog.text
 
 
 def _cum(received, delivered, spam, virus, queue=3):
