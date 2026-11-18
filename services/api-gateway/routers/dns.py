@@ -893,6 +893,7 @@ async def bulk_update_records(
 
     zone.serial = _serial_from_now()
     await db.commit()
+    instance_id = await _zone_instance_id(db, zone_id)
     await log_audit(
         db=db,
         user_id=user_id,
@@ -900,10 +901,11 @@ async def bulk_update_records(
         resource_type="dns_record",
         resource_id=str(zone_id),
         new_value={"record_ids": sorted(data.record_ids), "count": len(records)},
+        instance_id=instance_id,
     )
     for record in records:
         await db.refresh(record)
-    _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
+    _schedule_apply(background_tasks, instance_id)
     return [DNSRecordResponse.model_validate(record) for record in records]
 
 
@@ -944,6 +946,7 @@ async def bulk_delete_records(
         await db.delete(record)
     zone.serial = _serial_from_now()
     await db.commit()
+    instance_id = await _zone_instance_id(db, zone_id)
     await log_audit(
         db=db,
         user_id=user_id,
@@ -952,8 +955,9 @@ async def bulk_delete_records(
         resource_id=str(zone_id),
         old_value={"record_ids": sorted(data.record_ids), "count": len(records)},
         new_value={"record_ids": sorted(data.record_ids), "count": len(records)},
+        instance_id=instance_id,
     )
-    _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
+    _schedule_apply(background_tasks, instance_id)
     return BulkRecordDeleteResponse(
         deleted_count=len(records),
         record_ids=sorted(data.record_ids),

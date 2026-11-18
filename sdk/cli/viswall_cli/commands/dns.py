@@ -204,7 +204,7 @@ def delete_record(
 def update_record(
     record_id: int = typer.Argument(..., help="Record ID"),
     name: Optional[str] = typer.Option(None, "--name", "-n"),
-    record_type: Optional[str] = typer.Option(None, "--type", "-t", help="A, AAAA, CNAME, MX, TXT, NS, PTR, SRV, SOA, CAA"),
+    record_type: Optional[str] = typer.Option(None, "--type", help="A, AAAA, CNAME, MX, TXT, NS, PTR, SRV, SOA, CAA"),
     content: Optional[str] = typer.Option(None, "--content", "-c"),
     ttl: Optional[int] = typer.Option(None, "--ttl"),
     url: Optional[str] = typer.Option(None, "--url", "-u"),
