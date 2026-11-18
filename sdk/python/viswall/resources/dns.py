@@ -88,6 +88,14 @@ class DNSResource:
         """Bulk import DNS records."""
         return self._client._request("POST", f"/dns/zones/{zone_id}/records/bulk", json=kwargs)
 
+    def bulk_update_records(self, zone_id: int, **kwargs: Any) -> List[Dict[str, Any]]:
+        """Bulk update DNS records."""
+        return self._client._request("PATCH", f"/dns/zones/{zone_id}/records/bulk", json=kwargs)
+
+    def bulk_delete_records(self, zone_id: int, **kwargs: Any) -> Dict[str, Any]:
+        """Bulk delete DNS records."""
+        return self._client._request("DELETE", f"/dns/zones/{zone_id}/records/bulk", json=kwargs)
+
     def create_ptr_record(self, zone_id: int, **kwargs: Any) -> Dict[str, Any]:
         """Create a PTR record in a reverse zone."""
         return self._client._request("POST", f"/dns/zones/{zone_id}/records/ptr", json=kwargs)

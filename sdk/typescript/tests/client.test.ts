@@ -233,6 +233,72 @@ describe('ViswallClient', () => {
     });
   });
 
+  describe('DNSResource bulk record operations', () => {
+    it('should bulk update records in a zone', async () => {
+      let requestUrl: URL | null = null;
+      let received: Record<string, unknown> = {};
+      server.use(
+        http.patch(
+          'https://viswall.example.com/api/v1/dns/zones/3/records/bulk',
+          async ({ request }) => {
+            requestUrl = new URL(request.url);
+            received = (await request.json()) as Record<string, unknown>;
+            return HttpResponse.json([{ id: 11, zone_id: 3, name: 'www' }]);
+          },
+        ),
+      );
+
+      const result = await client.dns.bulkUpdateRecords(3, {
+        record_ids: [11, 12],
+        changes: { ttl: 3600 },
+      });
+      expect(requestUrl!.pathname).toBe('/api/v1/dns/zones/3/records/bulk');
+      expect(received).toEqual({
+        record_ids: [11, 12],
+        changes: { ttl: 3600 },
+      });
+      expect(Array.isArray(result)).toBe(true);
+      expect(result[0]).toHaveProperty('id', 11);
+    });
+
+    it('should bulk delete records in a zone with a JSON body', async () => {
+      let requestUrl: URL | null = null;
+      let received: Record<string, unknown> = {};
+      server.use(
+        http.delete(
+          'https://viswall.example.com/api/v1/dns/zones/3/records/bulk',
+          async ({ request }) => {
+            requestUrl = new URL(request.url);
+            received = (await request.json()) as Record<string, unknown>;
+            return HttpResponse.json({ deleted_count: 2, record_ids: [11, 12] });
+          },
+        ),
+      );
+
+      const result = await client.dns.bulkDeleteRecords(3, [11, 12]);
+      expect(requestUrl!.pathname).toBe('/api/v1/dns/zones/3/records/bulk');
+      expect(received).toEqual({ record_ids: [11, 12] });
+      expect(result).toHaveProperty('deleted_count', 2);
+    });
+
+    it('should update a record with the given body', async () => {
+      let received: Record<string, unknown> = {};
+      server.use(
+        http.patch('https://viswall.example.com/api/v1/dns/records/11', async ({ request }) => {
+          received = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ id: 11, content: '10.0.0.5' });
+        }),
+      );
+
+      const result = await client.dns.updateRecord(11, {
+        content: '10.0.0.5',
+        ttl: 3600,
+      });
+      expect(received).toEqual({ content: '10.0.0.5', ttl: 3600 });
+      expect(result).toHaveProperty('content', '10.0.0.5');
+    });
+  });
+
   describe('Error Handling', () => {
     it('should throw AuthenticationError on 401', async () => {
       server.use(
