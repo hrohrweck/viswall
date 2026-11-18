@@ -5,14 +5,17 @@ import { z } from 'zod'
 import { Field, Input, Select, Button } from '../ui'
 import { dnsRecordName, intString } from '../../lib/validation'
 import { DNSRecordType } from '../../types'
-import type { DNSRecordCreate } from '../../types'
+import type { DNSRecord, DNSRecordCreate, DNSRecordUpdate } from '../../types'
 
 interface DNSRecordFormProps {
   recordTypeOptions: DNSRecordType[]
   loading: boolean
-  onSubmit: (payload: DNSRecordCreate) => Promise<void>
+  onSubmit: (payload: DNSRecordCreate | DNSRecordUpdate) => Promise<void>
   /** Zone the record is created in — enables the full-FQDN-relative guard. */
   zoneName?: string
+  /** Existing record — switches the form into edit mode. */
+  initial?: DNSRecord
+  onCancel?: () => void
 }
 
 const makeSchema = (zoneName?: string) =>
@@ -37,7 +40,7 @@ const makeSchema = (zoneName?: string) =>
 
 type FormValues = z.infer<ReturnType<typeof makeSchema>>
 
-export function DNSRecordForm({ recordTypeOptions, loading, onSubmit, zoneName }: DNSRecordFormProps) {
+export function DNSRecordForm({ recordTypeOptions, loading, onSubmit, zoneName, initial, onCancel }: DNSRecordFormProps) {
   const schema = useMemo(() => makeSchema(zoneName), [zoneName])
   const {
     register,
@@ -46,10 +49,10 @@ export function DNSRecordForm({ recordTypeOptions, loading, onSubmit, zoneName }
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: '@',
-      record_type: recordTypeOptions[0],
-      content: '192.168.1.10',
-      ttl: '3600',
+      name: initial?.name || '@',
+      record_type: initial?.record_type || recordTypeOptions[0],
+      content: initial?.content || '192.168.1.10',
+      ttl: initial ? String(initial.ttl) : '3600',
     },
   })
 
@@ -82,9 +85,14 @@ export function DNSRecordForm({ recordTypeOptions, loading, onSubmit, zoneName }
       <Field label="TTL" error={errors.ttl?.message}>
         <Input type="number" {...register('ttl')} />
       </Field>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        {onCancel && (
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
         <Button type="submit" disabled={loading}>
-          {loading ? 'Creating…' : 'Create Record'}
+          {loading ? (initial ? 'Saving…' : 'Creating…') : initial ? 'Save Changes' : 'Create Record'}
         </Button>
       </div>
     </form>

@@ -53,6 +53,7 @@ import type {
   DNSZoneCreate,
   DNSRecord,
   DNSRecordCreate,
+  DNSRecordUpdate,
   DHCPServer,
   DHCPServerCreate,
   DHCPSubnet,
@@ -1486,7 +1487,7 @@ export function useDNSRecords(zoneId: number) {
   })
 }
 
-export function useCreateDNSRecord(zoneId: number) {
+export function useCreateDNSRecord(zoneId: number, serverId?: number) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (payload: DNSRecordCreate) => {
@@ -1495,11 +1496,14 @@ export function useCreateDNSRecord(zoneId: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.dnsRecords(zoneId) })
+      if (serverId !== undefined) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.dnsZones(serverId) })
+      }
     },
   })
 }
 
-export function useDeleteDNSRecord(zoneId: number) {
+export function useDeleteDNSRecord(zoneId: number, serverId?: number) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (recordId: number) => {
@@ -1507,6 +1511,56 @@ export function useDeleteDNSRecord(zoneId: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.dnsRecords(zoneId) })
+      if (serverId !== undefined) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.dnsZones(serverId) })
+      }
+    },
+  })
+}
+
+export function useUpdateDNSRecord(zoneId: number, serverId?: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: DNSRecordUpdate & { id: number }) => {
+      const { data } = await api.patch(`/dns/records/${id}`, payload)
+      return data as DNSRecord
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsRecords(zoneId) })
+      if (serverId !== undefined) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.dnsZones(serverId) })
+      }
+    },
+  })
+}
+
+export function useBulkUpdateDNSRecords(zoneId: number, serverId?: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { record_ids: number[]; changes: DNSRecordUpdate }) => {
+      const { data } = await api.patch(`/dns/zones/${zoneId}/records/bulk`, payload)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsRecords(zoneId) })
+      if (serverId !== undefined) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.dnsZones(serverId) })
+      }
+    },
+  })
+}
+
+export function useBulkDeleteDNSRecords(zoneId: number, serverId?: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (recordIds: number[]) => {
+      await api.delete(`/dns/zones/${zoneId}/records/bulk`, { data: { record_ids: recordIds } })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dnsRecords(zoneId) })
+      if (serverId !== undefined) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.dnsZones(serverId) })
+      }
     },
   })
 }
