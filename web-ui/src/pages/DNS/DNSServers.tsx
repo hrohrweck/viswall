@@ -495,7 +495,7 @@ export function DNSServers() {
             </div>
 
             {filteredRecords.length > 0 ? (
-              <div className="max-h-[830px] overflow-y-auto">
+              <div className="max-h-[1160px] overflow-y-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs uppercase tracking-wide text-on-surface-muted border-b border-border">
