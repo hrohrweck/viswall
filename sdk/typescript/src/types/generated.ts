@@ -851,6 +851,10 @@ export interface paths {
   "/api/v1/dns/zones/{zone_id}/records/bulk": {
     /** Bulk Import Records */
     post: operations["bulk_import_records_api_v1_dns_zones__zone_id__records_bulk_post"];
+    /** Bulk Delete Records */
+    delete: operations["bulk_delete_records_api_v1_dns_zones__zone_id__records_bulk_delete"];
+    /** Bulk Update Records */
+    patch: operations["bulk_update_records_api_v1_dns_zones__zone_id__records_bulk_patch"];
   };
   "/api/v1/dns/zones/{zone_id}/records/ptr": {
     /** Create Ptr Record */
@@ -1323,10 +1327,28 @@ export interface components {
      * @enum {string}
      */
     AuthBackend: "local" | "ldap" | "ad";
+    /** BulkRecordDeleteRequest */
+    BulkRecordDeleteRequest: {
+      /** Record Ids */
+      record_ids: number[];
+    };
+    /** BulkRecordDeleteResponse */
+    BulkRecordDeleteResponse: {
+      /** Deleted Count */
+      deleted_count: number;
+      /** Record Ids */
+      record_ids: number[];
+    };
     /** BulkRecordImport */
     BulkRecordImport: {
       /** Records */
       records: components["schemas"]["DNSRecordCreate"][];
+    };
+    /** BulkRecordUpdateRequest */
+    BulkRecordUpdateRequest: {
+      /** Record Ids */
+      record_ids: number[];
+      changes: components["schemas"]["DNSRecordUpdate"];
     };
     /** ChatRequest */
     ChatRequest: {
@@ -8918,6 +8940,60 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["BulkRecordImport"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DNSRecordResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Bulk Delete Records */
+  bulk_delete_records_api_v1_dns_zones__zone_id__records_bulk_delete: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BulkRecordDeleteRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["BulkRecordDeleteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Bulk Update Records */
+  bulk_update_records_api_v1_dns_zones__zone_id__records_bulk_patch: {
+    parameters: {
+      path: {
+        zone_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BulkRecordUpdateRequest"];
       };
     };
     responses: {

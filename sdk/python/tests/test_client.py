@@ -444,6 +444,80 @@ class TestDHCPResource:
         client.close()
 
 
+class TestDNSResource:
+    """Test DNSResource."""
+
+    def test_bulk_update_records(self, httpx_mock):
+        """Test bulk update sends PATCH with record_ids and changes body."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/dns/zones/7/records/bulk",
+            method="PATCH",
+            json=[{"id": 1, "ttl": 300}, {"id": 2, "ttl": 300}],
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.dns.bulk_update_records(7, record_ids=[1, 2], changes={"ttl": 300})
+        assert len(result) == 2
+        assert result[0]["ttl"] == 300
+
+        request = httpx_mock.get_request()
+        assert request.method == "PATCH"
+        assert str(request.url) == "https://test.example.com/api/v1/dns/zones/7/records/bulk"
+        assert json.loads(request.content) == {"record_ids": [1, 2], "changes": {"ttl": 300}}
+        client.close()
+
+    def test_bulk_delete_records(self, httpx_mock):
+        """Test bulk delete sends DELETE with a JSON body."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/dns/zones/7/records/bulk",
+            method="DELETE",
+            json={"deleted_count": 2, "record_ids": [1, 2]},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.dns.bulk_delete_records(7, record_ids=[1, 2])
+        assert result["deleted_count"] == 2
+        assert result["record_ids"] == [1, 2]
+
+        request = httpx_mock.get_request()
+        assert request.method == "DELETE"
+        assert str(request.url) == "https://test.example.com/api/v1/dns/zones/7/records/bulk"
+        assert json.loads(request.content) == {"record_ids": [1, 2]}
+        client.close()
+
+    def test_update_record_body(self, httpx_mock):
+        """Test update_record sends PATCH with the kwargs as body."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/dns/records/3",
+            method="PATCH",
+            json={"id": 3, "ttl": 300},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        result = client.dns.update_record(3, ttl=300)
+        assert result["ttl"] == 300
+
+        request = httpx_mock.get_request()
+        assert request.method == "PATCH"
+        assert str(request.url) == "https://test.example.com/api/v1/dns/records/3"
+        assert json.loads(request.content) == {"ttl": 300}
+        client.close()
+
+    def test_bulk_update_records_404(self, httpx_mock):
+        """Test 404 from the bulk endpoint raises NotFoundError."""
+        httpx_mock.add_response(
+            url="https://test.example.com/api/v1/dns/zones/7/records/bulk",
+            method="PATCH",
+            status_code=404,
+            json={"detail": "Zone not found"},
+        )
+
+        client = ViswallClient(base_url="https://test.example.com", token="jwt")
+        with pytest.raises(NotFoundError):
+            client.dns.bulk_update_records(7, record_ids=[1, 2], changes={"ttl": 300})
+        client.close()
+
+
 class TestMailResourceMTAForward:
     """Test MailResource MTA forwarding on create_domain."""
 
@@ -549,10 +623,12 @@ class TestNetworkResource:
         )
         assert result["id"] == 1
         request = httpx_mock.get_requests()[-1]
-        assert request.read() == (
-            b'{"name":"ens18","config_type":"static",'
-            b'"ip_address":"10.0.0.5","netmask":"255.255.255.0"}'
-        )
+        assert json.loads(request.read()) == {
+            "name": "ens18",
+            "config_type": "static",
+            "ip_address": "10.0.0.5",
+            "netmask": "255.255.255.0",
+        }
         client.close()
 
     def test_live_interfaces(self, httpx_mock):
@@ -579,7 +655,7 @@ class TestNetworkResource:
         result = client.network.apply_interfaces(1)
         assert result["success"] is True
         request = httpx_mock.get_requests()[-1]
-        assert request.read() == b'{"force":false}'
+        assert json.loads(request.read()) == {"force": False}
         client.close()
 
     def test_apply_interfaces_force_true(self, httpx_mock):
@@ -592,7 +668,7 @@ class TestNetworkResource:
         client = ViswallClient(base_url="https://test.example.com", token="jwt")
         client.network.apply_interfaces(1, force=True)
         request = httpx_mock.get_requests()[-1]
-        assert request.read() == b'{"force":true}'
+        assert json.loads(request.read()) == {"force": True}
         client.close()
 
     def test_reveal_api_key(self, httpx_mock):

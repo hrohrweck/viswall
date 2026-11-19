@@ -1,6 +1,6 @@
 """DNS commands."""
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import typer
 
@@ -195,6 +195,85 @@ def delete_record(
     try:
         client.dns.delete_record(record_id)
         print_success(f"DNS record {record_id} deleted")
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
+@app.command("record-update")
+def update_record(
+    record_id: int = typer.Argument(..., help="Record ID"),
+    name: Optional[str] = typer.Option(None, "--name", "-n"),
+    record_type: Optional[str] = typer.Option(None, "--type", help="A, AAAA, CNAME, MX, TXT, NS, PTR, SRV, SOA, CAA"),
+    content: Optional[str] = typer.Option(None, "--content", "-c"),
+    ttl: Optional[int] = typer.Option(None, "--ttl"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+    format: str = typer.Option("json", "--format", "-f"),
+) -> None:
+    """Update a DNS record (only provided fields are changed)."""
+    fields: Dict[str, Any] = {}
+    if name is not None:
+        fields["name"] = name
+    if record_type is not None:
+        fields["record_type"] = record_type
+    if content is not None:
+        fields["content"] = content
+    if ttl is not None:
+        fields["ttl"] = ttl
+
+    client = get_client(url=url, token=token)
+    try:
+        record = client.dns.update_record(record_id, **fields)
+        print_result(record, format=format)
+        print_success(f"DNS record {record_id} updated")
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
+@app.command("record-bulk-update")
+def bulk_update_records(
+    zone_id: int = typer.Option(..., "--zone-id", "-z", help="Zone ID"),
+    ttl: int = typer.Option(..., "--ttl", help="New TTL for all listed records"),
+    record_ids: str = typer.Option(..., "--record-ids", help="Comma-separated record IDs, e.g. 1,2,3"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+    format: str = typer.Option("json", "--format", "-f"),
+) -> None:
+    """Bulk update DNS records in a zone."""
+    ids = [int(x) for x in record_ids.split(",") if x.strip()]
+
+    client = get_client(url=url, token=token)
+    try:
+        records = client.dns.bulk_update_records(zone_id, record_ids=ids, changes={"ttl": ttl})
+        print_result(records, format=format)
+        print_success(f"Updated {len(records)} DNS record(s) in zone {zone_id}")
+    except ViswallAPIError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+
+
+@app.command("record-bulk-delete")
+def bulk_delete_records(
+    zone_id: int = typer.Option(..., "--zone-id", "-z", help="Zone ID"),
+    record_ids: str = typer.Option(..., "--record-ids", help="Comma-separated record IDs, e.g. 1,2,3"),
+    yes: bool = typer.Option(False, "--yes", "-y"),
+    url: Optional[str] = typer.Option(None, "--url", "-u"),
+    token: Optional[str] = typer.Option(None, "--token", "-t"),
+) -> None:
+    """Bulk delete DNS records in a zone."""
+    ids = [int(x) for x in record_ids.split(",") if x.strip()]
+
+    if not yes:
+        confirm = typer.confirm(f"Delete {len(ids)} DNS record(s) in zone {zone_id}?")
+        if not confirm:
+            raise typer.Abort()
+
+    client = get_client(url=url, token=token)
+    try:
+        result = client.dns.bulk_delete_records(zone_id, record_ids=ids)
+        print_success(f"Deleted {result['deleted_count']} DNS record(s) from zone {zone_id}")
     except ViswallAPIError as e:
         print_error(str(e))
         raise typer.Exit(1)

@@ -627,7 +627,7 @@ class TestInterfacesCommands:
         result = runner.invoke(app, ["interfaces", "apply", "1", "--yes"])
         assert result.exit_code == 0
         request = httpx_mock.get_requests()[-1]
-        assert b'"force":false' in request.read()
+        assert json.loads(request.read()) == {"force": False}
 
     def test_apply_interfaces_force_flag(self, httpx_mock, monkeypatch):
         monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
@@ -643,7 +643,7 @@ class TestInterfacesCommands:
         result = runner.invoke(app, ["interfaces", "apply", "1", "--yes", "--force"])
         assert result.exit_code == 0
         request = httpx_mock.get_requests()[-1]
-        assert b'"force":true' in request.read()
+        assert json.loads(request.read()) == {"force": True}
 
 
 class TestVPNSiteToSite:
@@ -926,3 +926,128 @@ class TestMailDns:
         result = runner.invoke(app, ["mail", "dns-check", "--domain-id", "1"])
         assert result.exit_code == 1
         assert "DNS check unavailable" in result.output
+
+
+class TestDnsRecordCommands:
+    def test_record_update_with_options(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/dns/records/5",
+            method="PATCH",
+            json={"id": 5, "name": "www", "record_type": "A", "content": "203.0.113.1", "ttl": 600},
+        )
+
+        result = runner.invoke(app, ["dns", "record-update", "5", "--name", "www", "--ttl", "600"])
+        assert result.exit_code == 0
+        assert "DNS record 5 updated" in result.output
+        sent = json.loads(httpx_mock.get_requests()[0].content)
+        assert sent == {"name": "www", "ttl": 600}
+
+    def test_record_update_no_options_sends_empty_body(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/dns/records/5",
+            method="PATCH",
+            json={"id": 5, "name": "www", "record_type": "A", "content": "203.0.113.1", "ttl": 3600},
+        )
+
+        result = runner.invoke(app, ["dns", "record-update", "5"])
+        assert result.exit_code == 0
+        sent = json.loads(httpx_mock.get_requests()[0].content)
+        assert sent == {}
+
+    def test_record_update_api_error(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/dns/records/5",
+            method="PATCH",
+            status_code=404,
+            json={"detail": "Record not found"},
+        )
+
+        result = runner.invoke(app, ["dns", "record-update", "5", "--ttl", "600"])
+        assert result.exit_code == 1
+        assert "Record not found" in result.output
+
+    def test_record_bulk_update(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/dns/zones/2/records/bulk",
+            method="PATCH",
+            json=[
+                {"id": 1, "ttl": 900, "name": "a.example.com", "record_type": "A", "content": "203.0.113.1"},
+                {"id": 3, "ttl": 900, "name": "b.example.com", "record_type": "A", "content": "203.0.113.2"},
+            ],
+        )
+
+        result = runner.invoke(
+            app,
+            ["dns", "record-bulk-update", "--zone-id", "2", "--ttl", "900", "--record-ids", "1, 2,3"],
+        )
+        assert result.exit_code == 0
+        assert "Updated 2 DNS record(s) in zone 2" in result.output
+        sent = json.loads(httpx_mock.get_requests()[0].content)
+        assert sent == {"record_ids": [1, 2, 3], "changes": {"ttl": 900}}
+
+    def test_record_bulk_update_api_error(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/dns/zones/2/records/bulk",
+            method="PATCH",
+            status_code=400,
+            json={"detail": "Some records not in zone"},
+        )
+
+        result = runner.invoke(
+            app,
+            ["dns", "record-bulk-update", "--zone-id", "2", "--ttl", "900", "--record-ids", "1,2"],
+        )
+        assert result.exit_code == 1
+        assert "Some records not in zone" in result.output
+
+    def test_record_bulk_delete(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/dns/zones/2/records/bulk",
+            method="DELETE",
+            json={"deleted_count": 3},
+        )
+
+        result = runner.invoke(
+            app,
+            ["dns", "record-bulk-delete", "--zone-id", "2", "--record-ids", "7,8,9", "--yes"],
+        )
+        assert result.exit_code == 0
+        assert "Deleted 3 DNS record(s) from zone 2" in result.output
+        sent = json.loads(httpx_mock.get_requests()[0].content)
+        assert sent == {"record_ids": [7, 8, 9]}
+
+    def test_record_bulk_delete_api_error(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("VISWALL_URL", "https://viswall.example.com")
+        monkeypatch.setenv("VISWALL_TOKEN", "token")
+
+        httpx_mock.add_response(
+            url="https://viswall.example.com/api/v1/dns/zones/2/records/bulk",
+            method="DELETE",
+            status_code=400,
+            json={"detail": "invalid ids"},
+        )
+
+        result = runner.invoke(
+            app,
+            ["dns", "record-bulk-delete", "--zone-id", "2", "--record-ids", "7,8", "--yes"],
+        )
+        assert result.exit_code == 1
+        assert "invalid ids" in result.output

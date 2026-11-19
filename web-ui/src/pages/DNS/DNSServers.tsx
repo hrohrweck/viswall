@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Info,
   Plus,
@@ -7,10 +7,14 @@ import {
   Square,
   RotateCw,
   Search,
+  Pencil,
 } from 'lucide-react'
 
 import { useInstanceStore } from '../../stores/instance'
+import { useAuthStore } from '../../stores/auth'
 import {
+  useBulkDeleteDNSRecords,
+  useBulkUpdateDNSRecords,
   useCreateDNSRecord,
   useCreateDNSServer,
   useCreateDNSZone,
@@ -21,17 +25,21 @@ import {
   useDNSServerAction,
   useDNSServers,
   useDNSZones,
+  useUpdateDNSRecord,
 } from '../../hooks/useApi'
 import {
   Badge,
   Button,
   Card,
+  Checkbox,
   ConfirmDialog,
+  Field,
   IconButton,
   Input,
   Modal,
   PageHeader,
   QueryError,
+  Select,
   Skeleton,
   SkeletonText,
   StatusBadge,
@@ -42,6 +50,7 @@ import { DNSZoneForm } from '../../components/forms/DNSZoneForm'
 import { DNSRecordForm } from '../../components/forms/DNSRecordForm'
 import type {
   DNSRecord,
+  DNSRecordCreate,
   DNSZone,
   DNSServer,
 } from '../../types'
@@ -49,6 +58,8 @@ import { DNSRecordType, DNSZoneType } from '../../types'
 
 export function DNSServers() {
   const { selectedInstanceId } = useInstanceStore()
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin'
 
   const [selectedServer, setSelectedServer] = useState<DNSServer | null>(null)
   const [selectedZone, setSelectedZone] = useState<DNSZone | null>(null)
@@ -69,6 +80,14 @@ export function DNSServers() {
   } | null>(null)
 
   const [zoneSearch, setZoneSearch] = useState('')
+  const [recordSearch, setRecordSearch] = useState('')
+  const [recordTypeFilter, setRecordTypeFilter] = useState<string>('')
+
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [editTarget, setEditTarget] = useState<DNSRecord | null>(null)
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkTtl, setBulkTtl] = useState('3600')
 
   const {
     data: servers,
@@ -91,11 +110,15 @@ export function DNSServers() {
 
   const createServerMutation = useCreateDNSServer(selectedInstanceId || 0)
   const createZoneMutation = useCreateDNSZone(selectedServer?.id || 0)
-  const createRecordMutation = useCreateDNSRecord(selectedZone?.id || 0)
+  const createRecordMutation = useCreateDNSRecord(selectedZone?.id || 0, selectedServer?.id)
 
   const deleteServerMutation = useDeleteDNSServer(selectedInstanceId || 0)
   const deleteZoneMutation = useDeleteDNSZone(selectedServer?.id || 0)
-  const deleteRecordMutation = useDeleteDNSRecord(selectedZone?.id || 0)
+  const deleteRecordMutation = useDeleteDNSRecord(selectedZone?.id || 0, selectedServer?.id)
+
+  const updateRecordMutation = useUpdateDNSRecord(selectedZone?.id || 0, selectedServer?.id)
+  const bulkUpdateMutation = useBulkUpdateDNSRecords(selectedZone?.id || 0, selectedServer?.id)
+  const bulkDeleteMutation = useBulkDeleteDNSRecords(selectedZone?.id || 0, selectedServer?.id)
 
   const actionMutation = useDNSServerAction(selectedInstanceId || 0)
 
@@ -123,6 +146,54 @@ export function DNSServers() {
     const q = zoneSearch.toLowerCase()
     return zones.filter((z) => z.name.toLowerCase().includes(q))
   }, [zones, zoneSearch])
+
+  const filteredRecords = useMemo(() => {
+    if (!records) return []
+    const q = recordSearch.trim().toLowerCase()
+    return records.filter((record) => {
+      if (recordTypeFilter && record.record_type !== recordTypeFilter) return false
+      if (!q) return true
+      return (
+        record.name.toLowerCase().includes(q) ||
+        record.content.toLowerCase().includes(q)
+      )
+    })
+  }, [records, recordSearch, recordTypeFilter])
+
+  /* ── Selection state (admin-only bulk layer) ─────────────────────── */
+
+  // Switching zone (or server) also resets the filters, for a clean slate.
+  useEffect(() => {
+    setSelectedIds(new Set())
+    setRecordSearch('')
+    setRecordTypeFilter('')
+    setBulkTtl('3600')
+  }, [selectedZone?.id])
+
+  const selectableIds = useMemo(
+    () => filteredRecords.filter((record) => !record.is_system).map((record) => record.id),
+    [filteredRecords],
+  )
+  const allSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id))
+
+  const toggleRow = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    setSelectedIds((prev) => {
+      if (selectableIds.length > 0 && selectableIds.every((id) => prev.has(id))) {
+        return new Set()
+      }
+      return new Set(selectableIds)
+    })
+  }
 
   /* ── No instance selected ── */
   if (!selectedInstanceId) {
@@ -152,9 +223,9 @@ export function DNSServers() {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* ── Servers pane ─────────────────────────────────────────────── */}
-        <Card title="Servers" padding="p-0">
+        <Card title="Servers" padding="p-0" className="lg:col-span-2">
           {serversLoading ? (
             <div className="p-5 space-y-3">
               {Array.from({ length: 3 }, (_, i) => (
@@ -166,7 +237,7 @@ export function DNSServers() {
               <QueryError onRetry={refetchServers} />
             </div>
           ) : servers && servers.length > 0 ? (
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-border max-h-[360px] overflow-y-auto">
               {servers.map((server) => (
                 <div
                   key={server.id}
@@ -247,6 +318,7 @@ export function DNSServers() {
         <Card
           title="Zones"
           padding="p-0"
+          className="lg:col-span-3"
           actions={
             <Button
               size="sm"
@@ -282,7 +354,7 @@ export function DNSServers() {
               <QueryError onRetry={refetchZones} />
             </div>
           ) : filteredZones.length > 0 ? (
-            <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
+            <div className="divide-y divide-border max-h-[360px] overflow-y-auto">
               {filteredZones.map((zone) => (
                 <div
                   key={zone.id}
@@ -335,12 +407,14 @@ export function DNSServers() {
             </div>
           )}
         </Card>
+      </div>
 
-        {/* ── Records pane ────────────────────────────────────────────── */}
-        <Card
-          title="Records"
-          padding="p-0"
-          actions={
+      {/* ── Zone Entries — full-width, below the selection cards ──────── */}
+      <Card
+        title={`Zone Entries${selectedZone ? ` — ${selectedZone.name}` : ''}`}
+        padding="p-0"
+        actions={
+          isAdmin ? (
             <Button
               size="sm"
               variant="secondary"
@@ -349,65 +423,172 @@ export function DNSServers() {
             >
               Add
             </Button>
-          }
-        >
-          {recordsLoading ? (
-            <div className="p-5 space-y-3">
-              {Array.from({ length: 4 }, (_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : recordsError ? (
-            <div className="p-5">
-              <QueryError onRetry={refetchRecords} />
-            </div>
-          ) : records && records.length > 0 ? (
-            <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
-              {records.map((record) => (
-                <div
-                  key={record.id}
-                  className="px-5 py-3 flex items-center justify-between gap-3"
+          ) : null
+        }
+      >
+        {!selectedZone ? (
+          <div className="p-5 text-sm text-on-surface-muted">
+            Select a zone to view its entries.
+          </div>
+        ) : recordsLoading ? (
+          <div className="p-5 space-y-3">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : recordsError ? (
+          <div className="p-5">
+            <QueryError onRetry={refetchRecords} />
+          </div>
+        ) : (
+          <>
+            {/* Toolbar — text + type filters, plus the bulk selection bar */}
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
+              <Input
+                value={recordSearch}
+                onChange={(event) => setRecordSearch(event.target.value)}
+                placeholder="Filter entries…"
+                className="flex-1"
+              />
+              <div className="w-40 shrink-0">
+                <Select
+                  value={recordTypeFilter}
+                  onChange={(event) => setRecordTypeFilter(event.target.value)}
+                  aria-label="Filter by record type"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-medium text-on-surface truncate">
-                        {record.name}
-                      </span>
-                      <Badge variant="info">{record.record_type}</Badge>
-                    </div>
-                    <div className="text-xs text-on-surface-muted mt-1 flex items-center gap-3">
-                      <span className="font-mono">TTL {record.ttl}</span>
-                      <span className="font-mono truncate">
-                        {record.content}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!record.is_system ? (
-                      <IconButton
-                        icon={Trash2}
-                        size="sm"
-                        variant="ghost"
-                        className="text-danger hover:text-danger"
-                        label="Delete record"
-                        onClick={() => setDeleteRecordTarget(record)}
-                      />
-                    ) : (
-                      <Badge variant="info">system</Badge>
-                    )}
-                  </div>
+                  <option value="">All types</option>
+                  {recordTypeOptions.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              {isAdmin && selectedIds.size > 0 && (
+                <div className="ml-auto flex items-center gap-2 shrink-0">
+                  <span className="text-sm text-on-surface-muted whitespace-nowrap">
+                    {selectedIds.size} selected
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setBulkEditOpen(true)}
+                  >
+                    Edit Selected
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setBulkDeleteOpen(true)}
+                  >
+                    Delete Selected
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    Clear
+                  </Button>
                 </div>
-              ))}
+              )}
             </div>
-          ) : (
-            <div className="p-5 text-sm text-on-surface-muted">
-              {selectedZone
-                ? 'No records in this zone.'
-                : 'Select a zone to view records.'}
-            </div>
-          )}
-        </Card>
-      </div>
+
+            {filteredRecords.length > 0 ? (
+              <div className="max-h-[1160px] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs uppercase tracking-wide text-on-surface-muted border-b border-border">
+                      {isAdmin ? (
+                        <th className="w-10 px-2">
+                          <Checkbox
+                            aria-label="Select all records"
+                            checked={allSelected}
+                            onChange={toggleAll}
+                          />
+                        </th>
+                      ) : (
+                        <th className="w-10" />
+                      )}
+                      <th className="px-4 py-2.5 text-left font-medium">Name</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Type</th>
+                      <th className="px-4 py-2.5 text-left font-medium">TTL</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Content</th>
+                      <th className="px-4 py-2.5 text-right w-24 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredRecords.map((record) => (
+                      <tr
+                        key={record.id}
+                        className={`hover:bg-surface-elevated transition-colors ${
+                          selectedIds.has(record.id) ? 'bg-primary/5' : ''
+                        }`}
+                      >
+                        {isAdmin && !record.is_system ? (
+                          <td className="w-10 px-2">
+                            <Checkbox
+                              aria-label={`Select ${record.name} ${record.record_type}`}
+                              checked={selectedIds.has(record.id)}
+                              onChange={() => toggleRow(record.id)}
+                            />
+                          </td>
+                        ) : (
+                          <td className="w-10" />
+                        )}
+                        <td className="px-4 py-3 font-mono font-medium text-on-surface">
+                          {record.name}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="info" className="uppercase">
+                            {record.record_type}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-on-surface-muted">
+                          {record.ttl}
+                        </td>
+                        <td
+                          className="px-4 py-3 font-mono text-on-surface-muted max-w-[24rem] truncate"
+                          title={record.content}
+                        >
+                          {record.content}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {record.is_system ? (
+                            <Badge variant="neutral">system</Badge>
+                          ) : isAdmin ? (
+                            <div className="inline-flex items-center gap-1">
+                              <IconButton
+                                icon={Pencil}
+                                size="sm"
+                                variant="ghost"
+                                label="Edit record"
+                                onClick={() => setEditTarget(record)}
+                              />
+                              <IconButton
+                                icon={Trash2}
+                                size="sm"
+                                variant="ghost"
+                                className="text-danger hover:text-danger"
+                                label="Delete record"
+                                onClick={() => setDeleteRecordTarget(record)}
+                              />
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-5 text-sm text-on-surface-muted">
+                No records in this zone.
+              </div>
+            )}
+          </>
+        )}
+      </Card>
 
       {/* ── Create Server modal ──────────────────────────────────────── */}
       <Modal
@@ -453,12 +634,100 @@ export function DNSServers() {
           loading={createRecordMutation.isPending}
           zoneName={selectedZone?.name}
           onSubmit={async (payload) => {
-            await createRecordMutation.mutateAsync(payload)
+            await createRecordMutation.mutateAsync(payload as DNSRecordCreate)
             toast.success('Record created')
             setCreateRecordOpen(false)
           }}
         />
       </Modal>
+
+      {/* ── Edit Record modal ────────────────────────────────────────── */}
+      <Modal
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        title="Edit Record"
+      >
+        <DNSRecordForm
+          initial={editTarget ?? undefined}
+          loading={updateRecordMutation.isPending}
+          onCancel={() => setEditTarget(null)}
+          recordTypeOptions={recordTypeOptions}
+          zoneName={selectedZone?.name}
+          onSubmit={async (payload) => {
+            if (!editTarget) return
+            await updateRecordMutation.mutateAsync({ id: editTarget.id, ...payload })
+            toast.success('Record updated')
+            setEditTarget(null)
+          }}
+        />
+      </Modal>
+
+      {/* ── Bulk Edit modal (TTL only) ───────────────────────────────── */}
+      <Modal
+        open={bulkEditOpen}
+        onClose={() => setBulkEditOpen(false)}
+        title={`Bulk Edit — ${selectedIds.size} records`}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <Field label="TTL" required>
+            <Input
+              type="number"
+              value={bulkTtl}
+              onChange={(event) => setBulkTtl(event.target.value)}
+            />
+          </Field>
+          <p className="text-sm text-on-surface-muted">
+            Applied to all {selectedIds.size} selected records. Names, types and
+            values stay untouched.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => setBulkEditOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              loading={bulkUpdateMutation.isPending}
+              onClick={() => {
+                const ids = [...selectedIds]
+                void bulkUpdateMutation
+                  .mutateAsync({ record_ids: ids, changes: { ttl: Number(bulkTtl) } })
+                  .then(() => {
+                    toast.success(`Updated ${ids.length} records`)
+                    setSelectedIds(new Set())
+                    setBulkEditOpen(false)
+                  })
+              }}
+            >
+              Apply to {selectedIds.size} records
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Bulk Delete ConfirmDialog ────────────────────────────────── */}
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        variant="danger"
+        title={`Delete ${selectedIds.size} Records`}
+        message={`Delete ${selectedIds.size} selected records from ${selectedZone?.name}?`}
+        impact="This immediately removes the records and pushes the new zone configuration to the DNS agent."
+        confirmLabel={`Delete ${selectedIds.size} Records`}
+        loading={bulkDeleteMutation.isPending}
+        onConfirm={() => {
+          const ids = [...selectedIds]
+          void bulkDeleteMutation
+            .mutateAsync(ids)
+            .then(() => {
+              toast.success(`Deleted ${ids.length} records`)
+              setSelectedIds(new Set())
+              setBulkDeleteOpen(false)
+            })
+        }}
+      />
 
       {/* ── Server action ConfirmDialog (Start/Stop/Reload) ───────────── */}
       <ConfirmDialog

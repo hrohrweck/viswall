@@ -19,7 +19,10 @@ from utils.dns_dispatch import (
     reload_dns_agent,
 )
 from shared.schemas import (
+    BulkRecordDeleteRequest,
+    BulkRecordDeleteResponse,
     BulkRecordImport,
+    BulkRecordUpdateRequest,
     CreatePTRRequest,
     CreateReverseZoneRequest,
     DNSRecordCreate,
@@ -524,7 +527,7 @@ async def update_zone(
         action="update",
         resource_type="dns_zone",
         resource_id=zone.id,
-        instance_id=None,
+        instance_id=instance_id,
     )
     await db.refresh(zone)
     return DNSZoneResponse.model_validate(zone)
@@ -551,7 +554,7 @@ async def delete_zone(
         action="delete",
         resource_type="dns_zone",
         resource_id=zone_id,
-        instance_id=None,
+        instance_id=instance_id,
     )
 
 
@@ -779,6 +782,20 @@ async def create_record(
     zone.serial = _serial_from_now()
     await db.commit()
     await db.refresh(record)
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="create",
+        resource_type="dns_record",
+        resource_id=str(record.id),
+        new_value={
+            "name": record.name,
+            "record_type": record.record_type,
+            "content": record.content,
+            "ttl": record.ttl,
+        },
+        instance_id=await _record_instance_id(db, record),
+    )
     _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
     return DNSRecordResponse.model_validate(record)
 
@@ -819,8 +836,132 @@ async def bulk_import_records(
     await db.commit()
     for record in records:
         await db.refresh(record)
-    _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
+    instance_id = await _zone_instance_id(db, zone_id)
+    _schedule_apply(background_tasks, instance_id)
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="create",
+        resource_type="dns_record",
+        resource_id=str(zone_id),
+        new_value={"count": len(records)},
+        instance_id=instance_id,
+    )
     return [DNSRecordResponse.model_validate(record) for record in records]
+
+
+@router.patch("/zones/{zone_id}/records/bulk", response_model=List[DNSRecordResponse])
+async def bulk_update_records(
+    zone_id: int,
+    data: BulkRecordUpdateRequest,
+    background_tasks: BackgroundTasks,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    zone_result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = zone_result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+
+    result = await db.execute(
+        select(DNSRecord)
+        .where(DNSRecord.id.in_(data.record_ids), DNSRecord.zone_id == zone_id)
+        .order_by(DNSRecord.id)
+    )
+    records = result.scalars().all()
+    found_ids = {record.id for record in records}
+    for record_id in data.record_ids:
+        if record_id not in found_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Record {record_id} not found in zone",
+            )
+    for record in records:
+        if record.is_system:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="System DNS records cannot be modified",
+            )
+
+    changes = data.changes.model_dump(exclude_unset=True)
+    for record in records:
+        for field, value in changes.items():
+            if field == "record_type" and value is not None:
+                setattr(record, field, value.value)
+            else:
+                setattr(record, field, value)
+
+    zone.serial = _serial_from_now()
+    await db.commit()
+    instance_id = await _zone_instance_id(db, zone_id)
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="update",
+        resource_type="dns_record",
+        resource_id=str(zone_id),
+        new_value={"record_ids": sorted(data.record_ids), "count": len(records)},
+        instance_id=instance_id,
+    )
+    for record in records:
+        await db.refresh(record)
+    _schedule_apply(background_tasks, instance_id)
+    return [DNSRecordResponse.model_validate(record) for record in records]
+
+
+@router.delete("/zones/{zone_id}/records/bulk", response_model=BulkRecordDeleteResponse)
+async def bulk_delete_records(
+    zone_id: int,
+    data: BulkRecordDeleteRequest,
+    background_tasks: BackgroundTasks,
+    user_id: int = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    zone_result = await db.execute(select(DNSZone).where(DNSZone.id == zone_id))
+    zone = zone_result.scalar_one_or_none()
+    if not zone:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNS zone not found")
+
+    result = await db.execute(
+        select(DNSRecord)
+        .where(DNSRecord.id.in_(data.record_ids), DNSRecord.zone_id == zone_id)
+        .order_by(DNSRecord.id)
+    )
+    records = result.scalars().all()
+    found_ids = {record.id for record in records}
+    for record_id in data.record_ids:
+        if record_id not in found_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Record {record_id} not found in zone",
+            )
+    for record in records:
+        if record.is_system:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="System DNS records cannot be deleted",
+            )
+
+    for record in records:
+        await db.delete(record)
+    zone.serial = _serial_from_now()
+    await db.commit()
+    instance_id = await _zone_instance_id(db, zone_id)
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="delete",
+        resource_type="dns_record",
+        resource_id=str(zone_id),
+        old_value={"record_ids": sorted(data.record_ids), "count": len(records)},
+        new_value={"record_ids": sorted(data.record_ids), "count": len(records)},
+        instance_id=instance_id,
+    )
+    _schedule_apply(background_tasks, instance_id)
+    return BulkRecordDeleteResponse(
+        deleted_count=len(records),
+        record_ids=sorted(data.record_ids),
+    )
 
 
 @router.post("/zones/{zone_id}/records/ptr", response_model=DNSRecordResponse)
@@ -862,6 +1003,20 @@ async def create_ptr_record(
     zone.serial = _serial_from_now()
     await db.commit()
     await db.refresh(record)
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="create",
+        resource_type="dns_record",
+        resource_id=str(record.id),
+        new_value={
+            "name": record.name,
+            "record_type": record.record_type,
+            "content": record.content,
+            "ttl": record.ttl,
+        },
+        instance_id=await _record_instance_id(db, record),
+    )
     _schedule_apply(background_tasks, await _zone_instance_id(db, zone_id))
     return DNSRecordResponse.model_validate(record)
 
@@ -884,6 +1039,12 @@ async def update_record(
             detail="System DNS records cannot be modified",
         )
 
+    old_value = {
+        "name": record.name,
+        "record_type": record.record_type,
+        "content": record.content,
+        "ttl": record.ttl,
+    }
     for field, value in data.model_dump(exclude_unset=True).items():
         if field == "record_type" and value is not None:
             setattr(record, field, value.value)
@@ -896,6 +1057,21 @@ async def update_record(
         zone.serial = _serial_from_now()
     await db.commit()
     await db.refresh(record)
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="update",
+        resource_type="dns_record",
+        resource_id=str(record.id),
+        old_value=old_value,
+        new_value={
+            "name": record.name,
+            "record_type": record.record_type,
+            "content": record.content,
+            "ttl": record.ttl,
+        },
+        instance_id=await _record_instance_id(db, record),
+    )
     _schedule_apply(background_tasks, await _record_instance_id(db, record))
     return DNSRecordResponse.model_validate(record)
 
@@ -920,11 +1096,26 @@ async def delete_record(
     zone_result = await db.execute(select(DNSZone).where(DNSZone.id == record.zone_id))
     zone = zone_result.scalar_one_or_none()
     instance_id = await _record_instance_id(db, record)
+    old_value = {
+        "name": record.name,
+        "record_type": record.record_type,
+        "content": record.content,
+        "ttl": record.ttl,
+    }
     await db.delete(record)
     if zone:
         zone.serial = _serial_from_now()
     await db.commit()
     _schedule_apply(background_tasks, instance_id)
+    await log_audit(
+        db=db,
+        user_id=user_id,
+        action="delete",
+        resource_type="dns_record",
+        resource_id=str(record.id),
+        old_value=old_value,
+        instance_id=instance_id,
+    )
 
 
 @router.get("/zones/{zone_id}/slaves", response_model=List[DNSZoneSlaveResponse])

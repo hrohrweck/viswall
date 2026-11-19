@@ -979,6 +979,13 @@ export interface DNSRecordCreate {
   comment?: string;
 }
 
+export interface DNSRecordUpdate {
+  name?: string;
+  record_type?: DNSRecordType;
+  content?: string;
+  ttl?: number;
+}
+
 export interface DHCPServer {
   id: number;
   instance_id: number;

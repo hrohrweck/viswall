@@ -2052,6 +2052,20 @@ class BulkRecordImport(BaseModel):
     records: List[DNSRecordCreate] = Field(..., max_length=500)
 
 
+class BulkRecordUpdateRequest(BaseModel):
+    record_ids: List[int] = Field(..., min_length=1, max_length=500)
+    changes: DNSRecordUpdate
+
+
+class BulkRecordDeleteRequest(BaseModel):
+    record_ids: List[int] = Field(..., min_length=1, max_length=500)
+
+
+class BulkRecordDeleteResponse(BaseModel):
+    deleted_count: int
+    record_ids: List[int]
+
+
 class TSIGAlgorithm(str, Enum):
     HMAC_SHA256 = "hmac-sha256"
     HMAC_SHA512 = "hmac-sha512"

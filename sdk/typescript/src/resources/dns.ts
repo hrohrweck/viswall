@@ -103,6 +103,21 @@ export class DNSResource {
     return this.client.request('POST', `/dns/zones/${zoneId}/records/bulk`, { data });
   }
 
+  async bulkUpdateRecords(
+    zoneId: number,
+    payload: Record<string, unknown>,
+  ): Promise<unknown[]> {
+    return this.client.request('PATCH', `/dns/zones/${zoneId}/records/bulk`, {
+      data: payload,
+    });
+  }
+
+  async bulkDeleteRecords(zoneId: number, recordIds: number[]): Promise<Record<string, unknown>> {
+    return this.client.request('DELETE', `/dns/zones/${zoneId}/records/bulk`, {
+      data: { record_ids: recordIds },
+    });
+  }
+
   async createPtrRecord(
     zoneId: number,
     data: Record<string, unknown>,
