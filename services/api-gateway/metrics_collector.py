@@ -21,6 +21,15 @@ they survive gunicorn worker handoffs and gateway restarts. The first
 observation stores only a baseline (queue size); if the mail agent is
 unreachable the mail fields stay NULL and system metrics are unaffected.
 
+VPN lifetime traffic is accumulated the same way: each cycle fetches the
+instance's vpn agent (GET {agent_endpoints.vpn}/stats, X-Instance-Key
+auth) for the tunnel's cumulative transfer counters, computes deltas
+against the previous cumulative persisted in Redis
+(viswall:metrics:vpn_cum:<instance_id>), and adds them to
+bytes_received/bytes_sent of the applied WireGuard server row (the row
+/vpn/apply pushes; its status is reconciled from the agent's "up" flag).
+Instances without a vpn endpoint are skipped without any HTTP call.
+
 Each cycle also prunes snapshots older than METRICS_RETENTION_DAYS so
 the table does not grow unbounded (0 disables pruning).
 
@@ -46,6 +55,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from metrics_retention import prune_expired_snapshots
 from shared.models import Instance, MetricSnapshot
+from utils.firewall_dispatch import select_applied_vpn_server
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +131,17 @@ def _node_stats_endpoint(instance: Instance) -> str | None:
     endpoints = (instance.config or {}).get("agent_endpoints") or {}
     node = endpoints.get("node")
     return node.rstrip("/") if node else None
+
+
+def _vpn_stats_endpoint(instance: Instance) -> str | None:
+    """VPN-agent base URL from Instance.config, or None when unset.
+
+    Same reasoning as _node_stats_endpoint: the api_endpoint fallback of
+    get_instance_endpoint() points at the gateway, not the vpn agent.
+    """
+    endpoints = (instance.config or {}).get("agent_endpoints") or {}
+    vpn = endpoints.get("vpn")
+    return vpn.rstrip("/") if vpn else None
 
 
 async def _interface_stats_for_instance(instance: Instance) -> list | None:
@@ -219,7 +240,42 @@ async def _mail_stats(db: AsyncSession, instance: Instance) -> dict | None:
         return None
 
 
-async def collect_instance_metrics(db: AsyncSession, instance: Instance) -> dict:
+async def _vpn_stats(instance: Instance) -> dict | None:
+    """Fetch the vpn agent's cumulative tunnel counters.
+
+    GET {agent_endpoints.vpn}/stats (X-Instance-Key auth) → the agent
+    contract {"up", "interface", "transfer_rx", "transfer_tx", ...}, or
+    None when the endpoint is unset or the fetch fails.
+    """
+    endpoint = _vpn_stats_endpoint(instance)
+    if endpoint is None:
+        return None
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                f"{endpoint}/stats",
+                headers={"X-Instance-Key": instance.api_key or ""},
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as e:
+        logger.warning("vpn /stats fetch failed for instance %s: %s", instance.id, e)
+        return None
+
+
+class _Metrics(dict):
+    """MetricSnapshot fields plus the vpn_mutated commit flag.
+
+    A dict (not a tuple) so callers that index the returned mapping —
+    MetricSnapshot(**metrics) and existing tests alike — keep working;
+    the flag rides along as an attribute, never as a phantom column key.
+    """
+
+    vpn_mutated: bool = False
+
+
+async def collect_instance_metrics(db: AsyncSession, instance: Instance) -> "_Metrics":
     """Collect metrics for a single instance.
 
     Returns the metric fields for one MetricSnapshot row. interface_stats
@@ -230,9 +286,12 @@ async def collect_instance_metrics(db: AsyncSession, instance: Instance) -> dict
     counters: inbound/outbound/spam/virus are per-interval deltas against
     the previous cumulative (persisted in Redis); without a previous
     observation only the queue size is stored and the delta fields stay
-    NULL.
+    NULL. Finally lifetime VPN traffic is accumulated into the applied
+    VPN server row (see _apply_vpn_traffic); a VPN failure never costs
+    this instance its snapshot, and the outcome is reported back as
+    .vpn_mutated so the cycle can widen its commit gate.
     """
-    metrics = _system_stats()
+    metrics = _Metrics(_system_stats())
     metrics["interface_stats"] = await _interface_stats_for_instance(instance)
     mail_raw = await _mail_stats(db, instance)
     mail_fields = {}
@@ -251,6 +310,14 @@ async def collect_instance_metrics(db: AsyncSession, instance: Instance) -> dict
             mail_fields = {"mail_queue_size": mail_raw.get("queue_length")}
         await _store_mail_cum(instance.id, mail_raw)
     metrics.update(mail_fields)
+
+    # Guarded separately: a VPN failure must never cost this instance its snapshot.
+    try:
+        metrics.vpn_mutated = await _apply_vpn_traffic(db, instance)
+    except Exception as e:
+        logger.warning(
+            "VPN traffic accumulation failed for instance %s: %s", instance.id, e
+        )
     return metrics
 
 
@@ -281,12 +348,78 @@ async def _store_mail_cum(instance_id: int, cum: dict) -> None:
         pass  # next cycle re-stores; worst case deltas stay NULL one interval
 
 
+async def _vpn_prev_from_redis(instance_id: int) -> dict | None:
+    """Last cumulative VPN transfer counters, or None. Redis failure → None
+    (baseline mode: zero deltas for one interval, like the mail counters)."""
+    try:
+        from redis.asyncio import Redis
+        redis = Redis.from_url(REDIS_URL, decode_responses=True)
+        try:
+            raw = await redis.get(f"viswall:metrics:vpn_cum:{instance_id}")
+            return json.loads(raw) if raw else None
+        finally:
+            await redis.aclose()
+    except Exception:
+        return None
+
+
+async def _store_vpn_cum(instance_id: int, cum: dict) -> None:
+    try:
+        from redis.asyncio import Redis
+        redis = Redis.from_url(REDIS_URL, decode_responses=True)
+        try:
+            await redis.set(f"viswall:metrics:vpn_cum:{instance_id}", json.dumps(cum))
+        finally:
+            await redis.aclose()
+    except Exception:
+        pass  # next cycle re-stores; worst case deltas reset one interval
+
+
+async def _apply_vpn_traffic(db: AsyncSession, instance: Instance) -> bool:
+    """Accumulate lifetime VPN traffic into the applied VPN server row.
+
+    Deltas of the agent's cumulative transfer counters are computed against
+    the previous cumulative persisted in Redis (mail-counter pattern; the
+    first observation stores only the baseline, so zero deltas are applied
+    — never a full counter reading). Returns True when a row was mutated:
+    the Redis baseline is stored BEFORE the cycle commits, so a cycle that
+    mutated a row but inserted no snapshot must still commit, or the
+    baseline advances while the mutation is discarded — permanent
+    lifetime-total loss.
+    """
+    endpoint = _vpn_stats_endpoint(instance)
+    if endpoint is None:
+        return False
+    stats = await _vpn_stats(instance)
+    if stats is None:
+        return False
+    prev = await _vpn_prev_from_redis(instance.id)
+    if prev:
+        delta_rx = max(0, stats["transfer_rx"] - prev["transfer_rx"])
+        delta_tx = max(0, stats["transfer_tx"] - prev["transfer_tx"])
+    else:
+        delta_rx = 0
+        delta_tx = 0
+    await _store_vpn_cum(
+        instance.id,
+        {"transfer_rx": stats["transfer_rx"], "transfer_tx": stats["transfer_tx"]},
+    )
+    row = await select_applied_vpn_server(db, instance.id, wireguard_only=True)
+    if row is None:
+        return False
+    row.bytes_received += delta_rx
+    row.bytes_sent += delta_tx
+    row.status = "running" if stats["up"] else "stopped"
+    return True
+
+
 async def run_metrics_collection_cycle(db: AsyncSession) -> int:
     """Run one collection cycle. Returns number of snapshots inserted."""
     result = await db.execute(select(Instance))
     instances = result.scalars().all()
 
     inserted = 0
+    vpn_mutated = False
     for instance in instances:
         try:
             metrics_data = await collect_instance_metrics(db, instance)
@@ -298,12 +431,18 @@ async def run_metrics_collection_cycle(db: AsyncSession) -> int:
             )
             db.add(snapshot)
             inserted += 1
+            vpn_mutated = vpn_mutated or getattr(
+                metrics_data, "vpn_mutated", False
+            )
         except Exception as e:
             logger.warning(
                 "Failed to collect metrics for instance %s: %s", instance.id, e
             )
 
-    if inserted > 0:
+    # vpn_mutated widens the gate: the Redis baseline was already stored
+    # inside collect_instance_metrics, so skipping the commit here would
+    # advance the baseline while discarding the row mutation.
+    if inserted > 0 or vpn_mutated:
         await db.commit()
         logger.info("Inserted %d metric snapshots", inserted)
 

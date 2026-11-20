@@ -347,13 +347,15 @@ async def build_instance_firewall_payload(
     )
 
 
-async def build_instance_vpn_payload(
-    db: AsyncSession, instance_id: int
-) -> Dict[str, Any]:
-    """Build the /vpn/apply payload from the instance's site-to-site tunnel.
+async def select_applied_vpn_server(
+    db: AsyncSession, instance_id: int, wireguard_only: bool = False
+) -> VPNServer | None:
+    """First enabled client/site-to-site VPNServer row, ordered by id.
 
-    Returns ``{}`` when no enabled VPNServer has ``tunnel_type``
-    ``client``/``site-to-site`` (todo 23 column; rows without it are skipped).
+    Rows without a recognized ``tunnel_type`` are skipped (the column
+    postdates older rows). With ``wireguard_only=True`` non-WireGuard rows
+    are skipped as well — /vpn/apply 400s those today, so both selector
+    variants pick the same row in any config that applies successfully.
     """
     servers = (
         await db.execute(
@@ -368,21 +370,37 @@ async def build_instance_vpn_payload(
     for server in servers:
         if getattr(server, "tunnel_type", None) not in ("client", "site-to-site"):
             continue
-        return _drop_none(
-            {
-                "protocol": server.protocol,
-                "name": server.name,
-                "address": getattr(server, "local_address", None),
-                "private_key": getattr(server, "private_key", None),
-                "endpoint": getattr(server, "endpoint", None),
-                "peer_public_key": getattr(server, "peer_public_key", None),
-                "allowed_ips": getattr(server, "allowed_ips", None),
-                "persistent_keepalive": getattr(
-                    server, "persistent_keepalive", None
-                ),
-            }
-        )
-    return {}
+        if wireguard_only and server.protocol != "wireguard":
+            continue
+        return server
+    return None
+
+
+async def build_instance_vpn_payload(
+    db: AsyncSession, instance_id: int
+) -> Dict[str, Any]:
+    """Build the /vpn/apply payload from the instance's site-to-site tunnel.
+
+    Returns ``{}`` when no enabled VPNServer has ``tunnel_type``
+    ``client``/``site-to-site`` (todo 23 column; rows without it are skipped).
+    """
+    server = await select_applied_vpn_server(db, instance_id)
+    if server is None:
+        return {}
+    return _drop_none(
+        {
+            "protocol": server.protocol,
+            "name": server.name,
+            "address": getattr(server, "local_address", None),
+            "private_key": getattr(server, "private_key", None),
+            "endpoint": getattr(server, "endpoint", None),
+            "peer_public_key": getattr(server, "peer_public_key", None),
+            "allowed_ips": getattr(server, "allowed_ips", None),
+            "persistent_keepalive": getattr(
+                server, "persistent_keepalive", None
+            ),
+        }
+    )
 
 
 async def apply_firewall_config(

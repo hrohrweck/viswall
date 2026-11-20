@@ -17,6 +17,7 @@ from main import app
 from shared.database import get_db
 from shared.models import Base, Instance, MetricSnapshot, User
 from shared.security import get_password_hash
+from shared.models import VPNServer
 
 
 pytestmark = pytest.mark.asyncio
@@ -722,3 +723,415 @@ async def test_dashboard_mail_totals_none_on_malformed_redis_value(
     assert mail["total_spam"] is None
     assert mail["total_virus"] is None
     assert mail["totals_available"] is False
+
+
+@pytest_asyncio.fixture
+async def vpn_instance():
+    """Instance with a VPN agent endpoint configured (agent_endpoints.vpn).
+
+    The trailing slash pins the rstrip in the endpoint helper."""
+    async with TestSessionLocal() as session:
+        instance = Instance(
+            name="collector-vpn-agent",
+            hostname="vpnagent.example.local",
+            api_endpoint="https://vpnagent.example.local/api/v1",
+            api_key=TEST_INSTANCE_KEY,
+            status="inactive",
+            config={"agent_endpoints": {"vpn": "http://127.0.0.1:8086/"}},
+        )
+        session.add(instance)
+        await session.commit()
+        await session.refresh(instance)
+        yield instance
+
+
+def _vpn_agent_payload(rx: int, tx: int, up: bool = True) -> dict:
+    return {
+        "up": up,
+        "interface": "client",
+        "transfer_rx": rx,
+        "transfer_tx": tx,
+        "latest_handshake_sec": 30,
+        "peer_public_key": "pubkey-placeholder",
+        "endpoint": "base0.example:51820",
+    }
+
+
+async def _seed_vpn_row(instance_id: int, **fields) -> VPNServer:
+    defaults = {
+        "name": "tunnel",
+        "protocol": "wireguard",
+        "tunnel_type": "site-to-site",
+        "enabled": True,
+        "bytes_received": 0,
+        "bytes_sent": 0,
+        "status": "stopped",
+    }
+    defaults.update(fields)
+    async with TestSessionLocal() as session:
+        row = VPNServer(instance_id=instance_id, **defaults)
+        session.add(row)
+        await session.commit()
+        await session.refresh(row)
+        return row
+
+
+async def _get_vpn_row(row_id: int) -> VPNServer:
+    async with TestSessionLocal() as session:
+        return await session.get(VPNServer, row_id)
+
+
+def _vpn_redis_fakes(monkeypatch, prev):
+    """In-memory prev/store stand-ins (mail delta-test pattern); returns
+    the list of stored baselines."""
+    import metrics_collector
+
+    stored = []
+
+    async def fake_prev(instance_id):
+        return prev
+
+    async def fake_store(instance_id, cum):
+        stored.append((instance_id, cum))
+
+    monkeypatch.setattr(metrics_collector, "_vpn_prev_from_redis", fake_prev)
+    monkeypatch.setattr(metrics_collector, "_store_vpn_cum", fake_store)
+    return stored
+
+
+async def test_vpn_traffic_first_observation_stores_baseline_row_bytes_untouched(
+    monkeypatch, vpn_instance
+):
+    """No prior cumulative → baseline stored in Redis, zero deltas applied;
+    the row's lifetime bytes stay untouched (status is still reconciled)."""
+    import httpx
+    import metrics_collector
+
+    stored = _vpn_redis_fakes(monkeypatch, prev=None)
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+    row = await _seed_vpn_row(vpn_instance.id)
+    fake_client = _FakeNodeStatsClient(_vpn_agent_payload(1000, 500, up=True))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: fake_client)
+
+    async with TestSessionLocal() as db:
+        inserted = await metrics_collector.run_metrics_collection_cycle(db)
+
+    assert inserted == 1
+    assert stored == [
+        (vpn_instance.id, {"transfer_rx": 1000, "transfer_tx": 500})
+    ]
+    row = await _get_vpn_row(row.id)
+    assert row.bytes_received == 0
+    assert row.bytes_sent == 0
+    assert row.status == "running"
+
+
+async def test_vpn_traffic_second_observation_accumulates_exact_deltas(
+    monkeypatch, vpn_instance
+):
+    """Deltas = current cumulative − previous baseline, added onto whatever
+    lifetime totals the row already carries."""
+    import httpx
+    import metrics_collector
+
+    _vpn_redis_fakes(
+        monkeypatch, prev={"transfer_rx": 1000, "transfer_tx": 500}
+    )
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+    row = await _seed_vpn_row(vpn_instance.id, bytes_received=700, bytes_sent=300)
+    fake_client = _FakeNodeStatsClient(_vpn_agent_payload(3500, 1500, up=True))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: fake_client)
+
+    async with TestSessionLocal() as db:
+        await metrics_collector.run_metrics_collection_cycle(db)
+
+    row = await _get_vpn_row(row.id)
+    assert row.bytes_received == 700 + 2500
+    assert row.bytes_sent == 300 + 1000
+    assert row.status == "running"
+
+
+async def test_vpn_traffic_counter_reset_clamps_deltas_to_zero_and_status_stopped(
+    monkeypatch, vpn_instance
+):
+    """Agent cumulative reset (current < previous) → deltas clamp to 0 and
+    the reset value becomes the new baseline; up=false reconciles the row
+    status to stopped."""
+    import httpx
+    import metrics_collector
+
+    stored = _vpn_redis_fakes(
+        monkeypatch, prev={"transfer_rx": 5000, "transfer_tx": 2000}
+    )
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+    row = await _seed_vpn_row(
+        vpn_instance.id, bytes_received=100, bytes_sent=50, status="running"
+    )
+    fake_client = _FakeNodeStatsClient(_vpn_agent_payload(2000, 900, up=False))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: fake_client)
+
+    async with TestSessionLocal() as db:
+        await metrics_collector.run_metrics_collection_cycle(db)
+
+    row = await _get_vpn_row(row.id)
+    assert row.bytes_received == 100
+    assert row.bytes_sent == 50
+    assert row.status == "stopped"
+    assert stored == [
+        (vpn_instance.id, {"transfer_rx": 2000, "transfer_tx": 900})
+    ]
+
+
+async def test_vpn_stats_agent_unreachable_row_untouched_snapshot_kept(
+    monkeypatch, vpn_instance, caplog
+):
+    """VPN agent down (ConnectError) → no VPN write at all, but the
+    instance's system/mail snapshot is still inserted."""
+    import logging
+
+    import httpx
+    import metrics_collector
+
+    class _UnreachableClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def get(self, url, headers=None):
+            raise httpx.ConnectError("connection refused")
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: _UnreachableClient())
+    monkeypatch.setattr(
+        metrics_collector, "_mail_stats", AsyncMock(return_value=_cum(100, 200, 5, 1))
+    )
+    monkeypatch.setattr(
+        metrics_collector, "_mail_prev_from_redis", AsyncMock(return_value=None)
+    )
+    monkeypatch.setattr(metrics_collector, "_store_mail_cum", AsyncMock())
+    row = await _seed_vpn_row(vpn_instance.id, status="error")
+
+    with caplog.at_level(logging.WARNING, logger="metrics_collector"):
+        async with TestSessionLocal() as db:
+            inserted = await metrics_collector.run_metrics_collection_cycle(db)
+
+    assert inserted == 1
+    row = await _get_vpn_row(row.id)
+    assert row.bytes_received == 0
+    assert row.bytes_sent == 0
+    assert row.status == "error"
+    async with TestSessionLocal() as db:
+        snapshot = (
+            await db.execute(
+                select(MetricSnapshot).where(
+                    MetricSnapshot.instance_id == vpn_instance.id
+                )
+            )
+        ).scalars().one()
+    assert snapshot.cpu_percent is not None
+    assert snapshot.mail_queue_size == 3
+    assert "vpn /stats fetch failed" in caplog.text
+
+
+async def test_vpn_stats_no_endpoint_makes_no_http_call(
+    monkeypatch, inactive_instance
+):
+    """agent_endpoints.vpn unset → no HTTP call at all. The fixture has a
+    non-null api_endpoint and no vpn key: an implementation wrongly using
+    get_instance_endpoint() would fall back to it and GET the gateway's
+    own /stats — the zero-call assert pins that trap."""
+    import httpx
+    import metrics_collector
+
+    fake_client = _FakeNodeStatsClient(_vpn_agent_payload(1, 1))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: fake_client)
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+    row = await _seed_vpn_row(inactive_instance.id)
+
+    async with TestSessionLocal() as db:
+        inserted = await metrics_collector.run_metrics_collection_cycle(db)
+
+    assert inserted == 1
+    assert fake_client.requests == []
+    row = await _get_vpn_row(row.id)
+    assert row.bytes_received == 0
+    assert row.bytes_sent == 0
+    assert row.status == "stopped"
+
+
+async def test_vpn_stats_request_uses_stats_path_and_instance_key(
+    monkeypatch, vpn_instance
+):
+    """The agent call is GET {vpn endpoint}/stats with X-Instance-Key auth."""
+    import httpx
+    import metrics_collector
+
+    _vpn_redis_fakes(monkeypatch, prev=None)
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+    fake_client = _FakeNodeStatsClient(_vpn_agent_payload(10, 5))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: fake_client)
+
+    async with TestSessionLocal() as db:
+        await metrics_collector.run_metrics_collection_cycle(db)
+
+    assert fake_client.requests == [
+        {
+            "url": "http://127.0.0.1:8086/stats",
+            "headers": {"X-Instance-Key": TEST_INSTANCE_KEY},
+        }
+    ]
+
+
+async def test_vpn_traffic_selects_first_enabled_wireguard_tunnel(
+    monkeypatch, vpn_instance
+):
+    """Bytes land on the first enabled WG client/site-to-site row; an
+    earlier enabled non-WireGuard row, a later WG row and a disabled WG
+    row are all left alone."""
+    import httpx
+    import metrics_collector
+
+    _vpn_redis_fakes(
+        monkeypatch, prev={"transfer_rx": 1000, "transfer_tx": 500}
+    )
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+    non_wg = await _seed_vpn_row(
+        vpn_instance.id,
+        name="ipsec-tunnel",
+        protocol="ipsec",
+        bytes_received=9999,
+        bytes_sent=9999,
+    )
+    target = await _seed_vpn_row(
+        vpn_instance.id, name="wg-client", tunnel_type="client"
+    )
+    later = await _seed_vpn_row(
+        vpn_instance.id, name="wg-later", bytes_received=5, bytes_sent=5
+    )
+    disabled = await _seed_vpn_row(
+        vpn_instance.id, name="wg-disabled", tunnel_type="client", enabled=False
+    )
+    fake_client = _FakeNodeStatsClient(_vpn_agent_payload(2000, 700, up=True))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: fake_client)
+
+    async with TestSessionLocal() as db:
+        await metrics_collector.run_metrics_collection_cycle(db)
+
+    assert (await _get_vpn_row(target.id)).bytes_received == 1000
+    assert (await _get_vpn_row(target.id)).bytes_sent == 200
+    for untouched in (non_wg, later, disabled):
+        fresh = await _get_vpn_row(untouched.id)
+        assert fresh.bytes_received == untouched.bytes_received
+        assert fresh.bytes_sent == untouched.bytes_sent
+        assert fresh.status == "stopped"
+
+
+async def test_vpn_traffic_no_qualifying_row_stores_baseline_without_write(
+    monkeypatch, vpn_instance
+):
+    """Only a non-WireGuard tunnel configured → no row write, but the Redis
+    baseline is still stored so the series resumes cleanly once a WG row
+    is added."""
+    import httpx
+    import metrics_collector
+
+    stored = _vpn_redis_fakes(monkeypatch, prev=None)
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+    row = await _seed_vpn_row(
+        vpn_instance.id, protocol="openvpn", tunnel_type="client", status="error"
+    )
+    fake_client = _FakeNodeStatsClient(_vpn_agent_payload(42, 17, up=True))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: fake_client)
+
+    async with TestSessionLocal() as db:
+        inserted = await metrics_collector.run_metrics_collection_cycle(db)
+
+    assert inserted == 1
+    assert stored == [
+        (vpn_instance.id, {"transfer_rx": 42, "transfer_tx": 17})
+    ]
+    row = await _get_vpn_row(row.id)
+    assert row.bytes_received == 0
+    assert row.bytes_sent == 0
+    assert row.status == "error"
+
+
+async def test_vpn_traffic_failure_does_not_skip_instance_snapshot(
+    monkeypatch, vpn_instance, caplog
+):
+    """_apply_vpn_traffic raising must not cost the instance its snapshot:
+    the inner guard catches it and the cycle still inserts and commits."""
+    import logging
+
+    import metrics_collector
+
+    row = await _seed_vpn_row(vpn_instance.id)
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+    monkeypatch.setattr(
+        metrics_collector,
+        "_apply_vpn_traffic",
+        AsyncMock(side_effect=RuntimeError("vpn collector bug")),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="metrics_collector"):
+        async with TestSessionLocal() as db:
+            inserted = await metrics_collector.run_metrics_collection_cycle(db)
+
+    assert inserted == 1
+    assert "VPN traffic accumulation failed" in caplog.text
+    # The cycle-level handler did not fire — the dedicated guard caught it.
+    assert "Failed to collect metrics" not in caplog.text
+    async with TestSessionLocal() as db:
+        snapshots = (
+            await db.execute(
+                select(MetricSnapshot).where(
+                    MetricSnapshot.instance_id == vpn_instance.id
+                )
+            )
+        ).scalars().all()
+    assert len(snapshots) == 1
+    assert snapshots[0].cpu_percent is not None
+    row = await _get_vpn_row(row.id)
+    assert row.bytes_received == 0
+    assert row.bytes_sent == 0
+
+
+async def test_vpn_traffic_redis_failure_baseline_mode_zero_deltas(
+    monkeypatch, vpn_instance
+):
+    """Redis get/set raising → baseline mode: deltas 0 so the row's bytes
+    are unchanged (no garbage from a failed read), status reconciliation
+    is Redis-independent, the snapshot is unaffected, nothing raises."""
+
+    def _boom(*args, **kwargs):
+        raise ConnectionError("redis down")
+
+    import httpx
+    import metrics_collector
+
+    monkeypatch.setattr("redis.asyncio.Redis.from_url", _boom)
+    monkeypatch.setattr(metrics_collector, "_mail_stats", AsyncMock(return_value=None))
+    row = await _seed_vpn_row(
+        vpn_instance.id, bytes_received=500, bytes_sent=300, status="stopped"
+    )
+    fake_client = _FakeNodeStatsClient(_vpn_agent_payload(9000, 8000, up=True))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: fake_client)
+
+    async with TestSessionLocal() as db:
+        inserted = await metrics_collector.run_metrics_collection_cycle(db)
+
+    assert inserted == 1
+    row = await _get_vpn_row(row.id)
+    assert row.bytes_received == 500
+    assert row.bytes_sent == 300
+    assert row.status == "running"
+    async with TestSessionLocal() as db:
+        snapshot = (
+            await db.execute(
+                select(MetricSnapshot).where(
+                    MetricSnapshot.instance_id == vpn_instance.id
+                )
+            )
+        ).scalars().one()
+    assert snapshot.cpu_percent is not None
