@@ -121,6 +121,8 @@ System metrics (CPU, memory, disk) are **real host telemetry** read via psutil, 
 
 Mail metrics come from each instance's mail agent: the agent tails the Exim mainlog into cumulative counters (received, delivered, rejected_spam, rejected_virus — rotation-safe via an inode+offset state file at `/var/lib/viswall/mail-stats.json`, exposed on the agent's `GET /stats`), and the gateway collector fetches them each interval, computes per-interval deltas against the previous cumulative persisted in Redis (`viswall:metrics:mail_cum:<instance_id>`), and stores them in the `metric_snapshots` mail_* columns. The spam/virus series are wired end-to-end but read 0 with the stock exim config (its ACL only warns on spam) until a spam-deny ACL exists.
 
+VPN traffic comes from each instance's vpn agent: its `GET /stats` (`X-Instance-Key` protected) reports byte-exact cumulative WireGuard transfer counters (`wg show dump`), and the gateway collector fetches them each cycle, computes per-interval deltas against the previous cumulative persisted in Redis (`viswall:metrics:vpn_cum:<instance_id>`), and accumulates them into the `bytes_received`/`bytes_sent` of the applied VPNServer row (the first enabled WireGuard client/site-to-site row — the same row `/vpn/apply` pushes), whose status is reconciled from the agent's up flag. The collection is WireGuard-only — other protocols and per-client counters have no data source and stay 0 — and an unreachable or absent agent leaves the VPN rows untouched for that interval (mail/node/system collection unaffected).
+
 ```bash
 # Configurable via environment variables
 export METRICS_COLLECTOR_ENABLED=true   # default: true
