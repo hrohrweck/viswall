@@ -372,8 +372,8 @@ class VPNServer(Base):
     # Status
     status = Column(String(20), default="stopped")  # running, stopped, error
     connected_clients = Column(Integer, default=0)
-    bytes_received = Column(Integer, default=0)
-    bytes_sent = Column(Integer, default=0)
+    bytes_received = Column(BigInteger, default=0)
+    bytes_sent = Column(BigInteger, default=0)
 
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -419,8 +419,8 @@ class VPNClient(Base):
     last_connected = Column(DateTime)
     last_ip = Column(String(45))
     connection_count = Column(Integer, default=0)
-    bytes_received = Column(Integer, default=0)
-    bytes_sent = Column(Integer, default=0)
+    bytes_received = Column(BigInteger, default=0)
+    bytes_sent = Column(BigInteger, default=0)
 
     # QR code / config file for mobile clients
     config_qr = Column(Text)
@@ -450,8 +450,8 @@ class VPNConnection(Base):
     duration_seconds = Column(Integer)
 
     # Data transfer
-    bytes_received = Column(Integer, default=0)
-    bytes_sent = Column(Integer, default=0)
+    bytes_received = Column(BigInteger, default=0)
+    bytes_sent = Column(BigInteger, default=0)
 
     # Status
     status = Column(String(20), default="active")  # active, disconnected, error
