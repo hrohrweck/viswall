@@ -38,6 +38,7 @@ AUTH_PROTECTED = [
     ("POST", "/vpn/start", {"protocol": "wireguard"}),
     ("POST", "/vpn/stop", {"protocol": "wireguard"}),
     ("GET", "/vpn/status", None),
+    ("GET", "/stats", None),
     ("POST", "/vpn/generate-keys", None),
 ]
 
@@ -303,6 +304,50 @@ def test_status_when_interface_down(
     )
     assert response.status_code == 200
     assert response.json()["up"] is False
+
+
+# -- /stats -----------------------------------------------------------------------
+
+WG_DUMP_UP = (
+    "(hidden)\tserverpub\t51820\toff\n"
+    "peerpub\t(none)\t46.4.63.216:51820\t10.80.0.0/16"
+    "\t1763500000\t16331613143\t3166699"
+)
+
+
+def test_stats_when_key_correct(
+    client: TestClient, instance_key: str, fake_ip_wg, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_ip_wg(ip_stdout=IP_UP, wg_stdout=WG_DUMP_UP)
+    monkeypatch.setattr("viswall_vpn_agent.wg_client.time.time", lambda: 1763500075.0)
+    response = client.get("/stats", headers={"X-Instance-Key": instance_key})
+    assert response.status_code == 200
+    assert response.json() == {
+        "up": True,
+        "interface": "client",
+        "transfer_rx": 16331613143,
+        "transfer_tx": 3166699,
+        "latest_handshake_sec": 75,
+        "peer_public_key": "peerpub",
+        "endpoint": "46.4.63.216:51820",
+    }
+
+
+def test_stats_when_interface_down(
+    client: TestClient, instance_key: str, fake_ip_wg
+) -> None:
+    fake_ip_wg(ip_returncode=1)
+    response = client.get("/stats", headers={"X-Instance-Key": instance_key})
+    assert response.status_code == 200
+    assert response.json() == {
+        "up": False,
+        "interface": "client",
+        "transfer_rx": 0,
+        "transfer_tx": 0,
+        "latest_handshake_sec": None,
+        "peer_public_key": None,
+        "endpoint": None,
+    }
 
 
 # -- /vpn/generate-keys -----------------------------------------------------------
