@@ -369,7 +369,7 @@ export function VPNServerDetail() {
                 <Activity className="w-5 h-5 text-success" />
               </div>
               <div>
-                <p className="text-sm text-on-surface-muted">Traffic today</p>
+                <p className="text-sm text-on-surface-muted">Total traffic</p>
                 <p className="font-mono text-2xl font-semibold text-on-surface">
                   ↑{formatBytes(server.bytes_sent)} ↓{formatBytes(server.bytes_received)}
                 </p>

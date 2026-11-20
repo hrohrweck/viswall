@@ -42,6 +42,7 @@ from shared.models import (
     User,
 )
 from shared.security import get_password_hash
+from shared.models import VPNServer
 from utils.agent_client import AgentClientError, AgentConnectionError
 
 pytestmark = pytest.mark.asyncio
@@ -875,3 +876,114 @@ class TestNatRuleSchemaInjectionGuard:
         )
         assert rule.to_destination == "172.20.0.10:25"
         assert rule.to_source == "[2001:db8::1]:51820"
+
+
+async def _seed_vpn_server(instance_id: int, **fields) -> VPNServer:
+    defaults = {
+        "name": "tunnel",
+        "protocol": "wireguard",
+        "tunnel_type": "site-to-site",
+        "enabled": True,
+    }
+    defaults.update(fields)
+    async with TestSessionLocal() as session:
+        row = VPNServer(instance_id=instance_id, **defaults)
+        session.add(row)
+        await session.commit()
+        await session.refresh(row)
+        return row
+
+
+class TestSelectAppliedVpnServer:
+    async def test_vpn_selector_returns_first_enabled_tunnel_row(self, instance):
+        first = await _seed_vpn_server(instance.id, tunnel_type="client")
+        await _seed_vpn_server(instance.id, tunnel_type="site-to-site")
+        await _seed_vpn_server(instance.id, tunnel_type="server")
+
+        async with TestSessionLocal() as session:
+            selected = await dispatch_mod.select_applied_vpn_server(
+                session, instance.id
+            )
+
+        assert selected is not None
+        assert selected.id == first.id
+
+    async def test_vpn_selector_wireguard_only_skips_non_wg_rows(self, instance):
+        non_wg = await _seed_vpn_server(
+            instance.id, protocol="ipsec", tunnel_type="client"
+        )
+        wg = await _seed_vpn_server(instance.id, tunnel_type="site-to-site")
+
+        async with TestSessionLocal() as session:
+            selected = await dispatch_mod.select_applied_vpn_server(
+                session, instance.id, wireguard_only=True
+            )
+        assert selected is not None
+        assert selected.id == wg.id
+
+        # Without the flag both rows qualify and the earlier one wins.
+        async with TestSessionLocal() as session:
+            plain = await dispatch_mod.select_applied_vpn_server(
+                session, instance.id
+            )
+        assert plain.id == non_wg.id
+
+    async def test_vpn_selector_wireguard_only_returns_none_when_none_qualify(
+        self, instance
+    ):
+        await _seed_vpn_server(instance.id, protocol="openvpn", tunnel_type="client")
+
+        async with TestSessionLocal() as session:
+            assert (
+                await dispatch_mod.select_applied_vpn_server(
+                    session, instance.id, wireguard_only=True
+                )
+                is None
+            )
+
+    async def test_vpn_selector_skips_disabled_rows(self, instance):
+        await _seed_vpn_server(instance.id, tunnel_type="client", enabled=False)
+        enabled = await _seed_vpn_server(instance.id, tunnel_type="site-to-site")
+
+        async with TestSessionLocal() as session:
+            selected = await dispatch_mod.select_applied_vpn_server(
+                session, instance.id
+            )
+
+        assert selected is not None
+        assert selected.id == enabled.id
+
+
+class TestBuildInstanceVpnPayloadAfterSelectorRefactor:
+    async def test_vpn_payload_built_from_selected_row(self, instance):
+        """Refactor proof: the payload builder still emits the same body
+        from the first enabled client/site-to-site row (by id) — the row
+        select_applied_vpn_server returns."""
+        await _seed_vpn_server(
+            instance.id,
+            name="site-to-site-base0",
+            tunnel_type="site-to-site",
+            local_address="10.80.210.2/24",
+            endpoint="base0.example.com:51820",
+            peer_public_key="pubkey-placeholder",
+            allowed_ips="10.80.0.0/16",
+            persistent_keepalive=25,
+        )
+        # The builder's selector is protocol-agnostic: this later non-WG
+        # row only loses on ordering, exactly as before the refactor.
+        await _seed_vpn_server(instance.id, protocol="ipsec", tunnel_type="client")
+
+        async with TestSessionLocal() as session:
+            payload = await dispatch_mod.build_instance_vpn_payload(
+                session, instance.id
+            )
+
+        assert payload == {
+            "protocol": "wireguard",
+            "name": "site-to-site-base0",
+            "address": "10.80.210.2/24",
+            "endpoint": "base0.example.com:51820",
+            "peer_public_key": "pubkey-placeholder",
+            "allowed_ips": "10.80.0.0/16",
+            "persistent_keepalive": 25,
+        }

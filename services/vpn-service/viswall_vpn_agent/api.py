@@ -250,6 +250,26 @@ if FASTAPI_AVAILABLE:
             "allowed_ips": status.allowed_ips,
         }
 
+    @app.get("/stats")
+    async def vpn_stats():
+        """Byte-exact WireGuard counters via ``wg show dump`` (todo 16+).
+
+        Unlike ``/vpn/status`` (human-format sizes quantized to binary size
+        units), ``transfer_rx``/``transfer_tx`` are raw byte integers summed
+        over all peers. Same tolerance contract: a down/absent tunnel is
+        ``up: false`` with zero counters, never an error.
+        """
+        stats = await asyncio.to_thread(manager.stats)
+        return {
+            "up": stats.up,
+            "interface": stats.interface,
+            "transfer_rx": stats.transfer_rx,
+            "transfer_tx": stats.transfer_tx,
+            "latest_handshake_sec": stats.latest_handshake_sec,
+            "peer_public_key": stats.peer_public_key,
+            "endpoint": stats.endpoint,
+        }
+
     def _generate_keys() -> tuple[str, str]:
         """``wg genkey`` + ``wg pubkey`` (read-only, never touches netlink).
 

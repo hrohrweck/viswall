@@ -34,6 +34,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -291,6 +292,73 @@ def _parse_wg_show(output: str) -> tuple[int | None, int | None, int | None, str
     return handshake, rx, tx, endpoint, allowed_ips
 
 
+@dataclass(frozen=True, slots=True)
+class WgDumpStats:
+    """Byte-exact tunnel counters from ``wg show <iface> dump``.
+
+    Unlike the human-format :class:`WgStatus` parser (whose transfer sizes
+    are quantized to binary size units), the dump format carries raw byte
+    integers per peer row, so ``transfer_rx``/``transfer_tx`` here are exact.
+
+    ``up=True`` from :func:`_parse_wg_dump` means "a dump was parsed" — the
+    manager owns the real up-detection and reports ``up=False`` when the
+    interface is absent or ``wg`` fails.
+    """
+
+    up: bool = False
+    interface: str = "client"
+    transfer_rx: int = 0
+    transfer_tx: int = 0
+    latest_handshake_sec: int | None = None
+    peer_public_key: str | None = None
+    endpoint: str | None = None
+
+
+def _parse_wg_dump(raw: str, now: float) -> WgDumpStats:
+    """Parse ``wg show <iface> dump`` stdout into exact byte counters.
+
+    Row 1 is the interface (private-key, public-key, listen-port, fwmark)
+    and is skipped; every following row is one peer, TAB-separated:
+    ``[0]`` public key, ``[1]`` preshared key, ``[2]`` endpoint,
+    ``[3]`` allowed-ips, ``[4]`` latest-handshake epoch (``0`` = never),
+    ``[5]`` rx bytes, ``[6]`` tx bytes. Bytes are integers only — no float
+    parsing anywhere. ``transfer_rx``/``transfer_tx`` are summed over ALL
+    peer rows; identity fields come from the peer with the LARGEST nonzero
+    handshake epoch (``None`` when every epoch is ``0``). Rows with fewer
+    than 7 columns or non-integer numeric columns are skipped, never
+    raised; a dump with no peer rows parses to zeros + ``None`` fields.
+    """
+    transfer_rx = 0
+    transfer_tx = 0
+    max_epoch = 0
+    peer_public_key: str | None = None
+    endpoint: str | None = None
+    for line in raw.splitlines()[1:]:
+        columns = line.split("\t")
+        if len(columns) < 7:
+            continue
+        try:
+            epoch = int(columns[4])
+            rx = int(columns[5])
+            tx = int(columns[6])
+        except ValueError:
+            continue
+        transfer_rx += rx
+        transfer_tx += tx
+        if epoch > max_epoch:
+            max_epoch = epoch
+            peer_public_key = columns[0]
+            endpoint = columns[2]
+    return WgDumpStats(
+        up=True,
+        transfer_rx=transfer_rx,
+        transfer_tx=transfer_tx,
+        latest_handshake_sec=int(now - max_epoch) if max_epoch > 0 else None,
+        peer_public_key=peer_public_key,
+        endpoint=endpoint,
+    )
+
+
 class WgClientManager:
     """Renders/writes the client config and steers the wg-quick unit."""
 
@@ -435,4 +503,44 @@ class WgClientManager:
             transfer_rx=rx,
             transfer_tx=tx,
             allowed_ips=allowed_ips,
+        )
+
+    def stats(self) -> WgDumpStats:
+        """Byte-exact transfer counters from ``wg show <iface> dump``.
+
+        Up-detection mirrors :meth:`status` (``ip -j addr show``): an absent
+        interface — or one that vanishes between the ``ip`` and ``wg`` calls
+        (``wg`` exits nonzero / prints nothing) — is reported as
+        ``up=False`` with zeroed counters and ``None`` fields, never an
+        error.
+        """
+        ip_result = subprocess.run(
+            ["ip", "-j", "addr", "show", self.interface],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        if ip_result.returncode != 0 or not ip_result.stdout.strip():
+            return WgDumpStats(up=False, interface=self.interface)
+
+        wg_result = subprocess.run(
+            ["wg", "show", self.interface, "dump"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        if wg_result.returncode != 0 or not wg_result.stdout.strip():
+            return WgDumpStats(up=False, interface=self.interface)
+
+        parsed = _parse_wg_dump(wg_result.stdout, time.time())
+        return WgDumpStats(
+            up=True,
+            interface=self.interface,
+            transfer_rx=parsed.transfer_rx,
+            transfer_tx=parsed.transfer_tx,
+            latest_handshake_sec=parsed.latest_handshake_sec,
+            peer_public_key=parsed.peer_public_key,
+            endpoint=parsed.endpoint,
         )

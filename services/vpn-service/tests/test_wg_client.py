@@ -16,9 +16,11 @@ from viswall_vpn_agent.wg_client import (
     WgClientConfig,
     WgClientManager,
     WgConfigValidationError,
+    WgDumpStats,
     WgUnitError,
     _parse_handshake_sec,
     _parse_size,
+    _parse_wg_dump,
     _parse_wg_show,
     render_config,
 )
@@ -398,6 +400,170 @@ def test_status_when_wg_fails_still_reports_up_with_unknown_fields(
     assert status.address == "10.80.0.2/32"
     assert status.latest_handshake_sec is None
     assert status.endpoint is None
+
+
+# -- dump parser fixtures (byte-exact ``wg show <iface> dump``) -----------------
+
+#: Interface row: private-key, public-key, listen-port, fwmark.
+WG_DUMP_IFACE_ROW = "(hidden)\tserverpub\t51820\toff"
+
+#: One handshaked peer at epoch 1763500000; rx/tx are the same byte counts
+#: the human-format fixture only reaches via ``15.21 GiB``/``3.02 MiB``.
+WG_DUMP_ONE_PEER = (
+    WG_DUMP_IFACE_ROW
+    + "\n"
+    + "peerpub\t(none)\t46.4.63.216:51820\t10.80.0.0/16"
+    + "\t1763500000\t16331613143\t3166699"
+)
+
+#: Older-handshake peer first, newer-handshake peer second: totals must be
+#: summed over BOTH rows while identity fields come from the newer one.
+WG_DUMP_TWO_PEERS = (
+    WG_DUMP_IFACE_ROW
+    + "\n"
+    + "oldpeer\t(none)\t198.51.100.7:51820\t10.80.0.0/16\t1763490000\t1000000\t2000"
+    + "\n"
+    + "newpeer\t(none)\t46.4.63.216:51820\t10.80.1.0/24\t1763500000\t16331613143\t3166699"
+)
+
+#: Handshake epoch 0 = never handshaked.
+WG_DUMP_NEVER_HANDSHAKED = (
+    WG_DUMP_IFACE_ROW
+    + "\n"
+    + "peerpub\t(none)\t46.4.63.216:51820\t10.80.0.0/16\t0\t0\t0"
+)
+
+WG_DUMP_INTERFACE_ONLY = WG_DUMP_IFACE_ROW
+
+#: ``now`` fixed 75 s after the newer peer's handshake epoch.
+_DUMP_NOW = 1763500075.0
+
+
+def test_parse_wg_dump_when_single_peer_bytes_are_exact() -> None:
+    """Exact integer bytes — the whole point vs. the quantized status parser."""
+    stats = _parse_wg_dump(WG_DUMP_ONE_PEER, _DUMP_NOW)
+    assert stats.transfer_rx == 16331613143
+    assert stats.transfer_tx == 3166699
+    assert stats.latest_handshake_sec == 75
+    assert stats.peer_public_key == "peerpub"
+    assert stats.endpoint == "46.4.63.216:51820"
+    assert stats.up is True
+    assert stats.interface == "client"
+
+
+def test_parse_wg_dump_when_peer_never_handshaked() -> None:
+    stats = _parse_wg_dump(WG_DUMP_NEVER_HANDSHAKED, _DUMP_NOW)
+    assert (stats.transfer_rx, stats.transfer_tx) == (0, 0)
+    assert stats.latest_handshake_sec is None
+    assert stats.peer_public_key is None
+    assert stats.endpoint is None
+
+
+def test_parse_wg_dump_when_two_peers_summed_and_newest_wins() -> None:
+    stats = _parse_wg_dump(WG_DUMP_TWO_PEERS, _DUMP_NOW)
+    assert stats.transfer_rx == 1000000 + 16331613143
+    assert stats.transfer_tx == 2000 + 3166699
+    assert stats.latest_handshake_sec == 75
+    assert stats.peer_public_key == "newpeer"
+    assert stats.endpoint == "46.4.63.216:51820"
+
+
+def test_parse_wg_dump_when_interface_row_only() -> None:
+    stats = _parse_wg_dump(WG_DUMP_INTERFACE_ONLY, _DUMP_NOW)
+    assert stats == WgDumpStats(up=True)
+
+
+# -- dump parser malformed-input probes -----------------------------------------
+
+
+def test_parse_wg_dump_when_empty_string() -> None:
+    stats = _parse_wg_dump("", _DUMP_NOW)
+    assert stats == WgDumpStats(up=True)
+
+
+def test_parse_wg_dump_when_garbage_line_without_tabs_skipped() -> None:
+    raw = WG_DUMP_IFACE_ROW + "\nthis line has no tabs at all"
+    stats = _parse_wg_dump(raw, _DUMP_NOW)
+    assert stats == WgDumpStats(up=True)
+
+
+def test_parse_wg_dump_when_peer_row_missing_columns_skipped() -> None:
+    """A 6-column peer row (rx present, tx missing) is malformed: skipped."""
+    raw = (
+        WG_DUMP_IFACE_ROW
+        + "\n"
+        + "peerpub\t(none)\t46.4.63.216:51820\t10.80.0.0/16\t1763500000\t16331613143"
+    )
+    stats = _parse_wg_dump(raw, _DUMP_NOW)
+    assert stats == WgDumpStats(up=True)
+
+
+def test_parse_wg_dump_when_non_integer_columns_skipped() -> None:
+    raw = (
+        WG_DUMP_IFACE_ROW
+        + "\n"
+        + "peerpub\t(none)\tendpoint\tauthorized\tnever\tnot-bytes\talso-not"
+    )
+    stats = _parse_wg_dump(raw, _DUMP_NOW)
+    assert stats == WgDumpStats(up=True)
+
+
+def test_parse_wg_dump_when_trailing_newlines_and_crlf_tolerated() -> None:
+    raw = (
+        WG_DUMP_IFACE_ROW
+        + "\r\n"
+        + "peerpub\t(none)\t46.4.63.216:51820\t10.80.0.0/16"
+        + "\t1763500000\t16331613143\t3166699"
+        + "\r\n\n   \n"
+    )
+    stats = _parse_wg_dump(raw, _DUMP_NOW)
+    assert stats.transfer_rx == 16331613143
+    assert stats.transfer_tx == 3166699
+    assert stats.latest_handshake_sec == 75
+
+
+# -- manager.stats() (up-detection mirrors status()) ----------------------------
+
+
+def test_stats_when_interface_up(manager: WgClientManager, fake_ip_wg, monkeypatch) -> None:
+    fake_ip_wg(ip_stdout=IP_UP, wg_stdout=WG_DUMP_ONE_PEER)
+    monkeypatch.setattr("viswall_vpn_agent.wg_client.time.time", lambda: _DUMP_NOW)
+    stats = manager.stats()
+    assert stats == WgDumpStats(
+        up=True,
+        interface="client",
+        transfer_rx=16331613143,
+        transfer_tx=3166699,
+        latest_handshake_sec=75,
+        peer_public_key="peerpub",
+        endpoint="46.4.63.216:51820",
+    )
+
+
+def test_stats_when_interface_down_zeroed_without_wg_call(
+    manager: WgClientManager, fake_ip_wg
+) -> None:
+    fake = fake_ip_wg(ip_returncode=1)
+    stats = manager.stats()
+    assert stats == WgDumpStats(up=False, interface="client")
+    assert fake.wg_calls == 0
+
+
+def test_stats_when_wg_fails_between_calls_reports_down_zeroed(
+    manager: WgClientManager, fake_ip_wg
+) -> None:
+    """Interface vanished between ``ip`` and ``wg``: down, zeros, no raise."""
+    fake_ip_wg(ip_stdout=IP_UP, wg_returncode=1)
+    stats = manager.stats()
+    assert stats == WgDumpStats(up=False, interface="client")
+
+
+def test_stats_when_dump_stdout_empty_reports_down(
+    manager: WgClientManager, fake_ip_wg
+) -> None:
+    fake_ip_wg(ip_stdout=IP_UP, wg_stdout="")
+    stats = manager.stats()
+    assert stats == WgDumpStats(up=False, interface="client")
 
 
 # -- config-value validation (F2 BLOCKER #3) --------------------------------
